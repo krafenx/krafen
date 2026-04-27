@@ -40,9 +40,9 @@
 </head>
 <body class="p-6 md:p-12">
 
-    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         
-        <div class="glass col-span-12 md:col-span-8 p-8 flex flex-col justify-between min-h-[280px]">
+        <div class="glass col-span-12 md:col-span-8 p-6 flex flex-col justify-between">
             <div>
                 <div class="flex items-center gap-2 mb-6">
                     <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
@@ -58,7 +58,7 @@
             </div>
         </div>
 
-        <div class="glass col-span-12 md:col-span-4 p-8">
+        <div class="glass col-span-12 md:col-span-4 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Twitch</h2>
                 <span class="text-[10px] opacity-50">Stream status</span>
@@ -68,7 +68,7 @@
             </div>
         </div>
 
-        <div class="glass col-span-12 md:col-span-8 p-8 overflow-hidden">
+        <div class="glass col-span-12 md:col-span-8 p-6 overflow-hidden">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Now Playing</h2>
                 <span class="text-blue-500 text-[10px]">LAST.FM</span>
@@ -82,7 +82,7 @@
             </div>
         </div>
 
-        <div class="glass col-span-12 md:col-span-4 p-8">
+        <div class="glass col-span-12 md:col-span-4 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Telegram</h2>
                 <span class="text-[10px] opacity-50">Channel & chat</span>
@@ -92,7 +92,7 @@
             </div>
         </div>
 
-        <div id="social-youtube" class="glass col-span-12 md:col-span-4 p-8">
+        <div id="social-youtube" class="glass col-span-12 md:col-span-4 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">YouTube</h2>
                 <span class="text-[10px] opacity-50">Videos</span>
@@ -100,7 +100,7 @@
             <div id="social-youtube-content" class="text-sm"></div>
         </div>
 
-        <div id="social-instagram" class="glass col-span-12 md:col-span-4 p-8">
+        <div id="social-instagram" class="glass col-span-12 md:col-span-4 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Instagram</h2>
                 <span class="text-[10px] opacity-50">Photos</span>
@@ -108,7 +108,7 @@
             <div id="social-instagram-content" class="text-sm"></div>
         </div>
 
-        <div id="social-tiktok" class="glass col-span-12 md:col-span-4 p-8">
+        <div id="social-tiktok" class="glass col-span-12 md:col-span-4 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">TikTok</h2>
                 <span class="text-[10px] opacity-50">Short videos</span>
@@ -116,7 +116,7 @@
             <div id="social-tiktok-content" class="text-sm"></div>
         </div>
 
-        <div id="social-boosty" class="glass col-span-12 md:col-span-4 p-8">
+        <div id="social-boosty" class="glass col-span-12 md:col-span-4 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Boosty</h2>
                 <span class="text-[10px] opacity-50">Support</span>
@@ -124,7 +124,7 @@
             <div id="social-boosty-content" class="text-sm"></div>
         </div>
 
-        <div id="social-x" class="glass col-span-12 md:col-span-4 p-8">
+        <div id="social-x" class="glass col-span-12 md:col-span-4 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">X</h2>
                 <span class="text-[10px] opacity-50">News</span>
@@ -132,7 +132,7 @@
             <div id="social-x-content" class="text-sm"></div>
         </div>
 
-        <div id="social-discord" class="glass col-span-12 md:col-span-4 p-8">
+        <div id="social-discord" class="glass col-span-12 md:col-span-4 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Discord</h2>
                 <span class="text-[10px] opacity-50">Personal chat</span>
@@ -140,8 +140,8 @@
             <div id="social-discord-content" class="text-sm"></div>
         </div>
 
-        <div class="col-span-12 md:col-span-4 space-y-4">
-            <div id="social-steam" class="glass p-6 min-h-[220px]">
+        <div class="col-span-12 md:col-span-4 flex flex-col gap-6">
+            <div id="social-steam" class="glass p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Steam</h2>
                     <span class="text-[10px] opacity-50">Game profile</span>
@@ -149,9 +149,18 @@
                 <div id="social-steam-content" class="text-sm"></div>
             </div>
 
+            <div class="glass p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Discord</h2>
+                    <span class="text-[10px] opacity-50">Server stats</span>
+                </div>
+                <div id="discord-card" class="space-y-3 text-sm">
+                    <div class="h-24 bg-white/5 rounded-2xl shimmer"></div>
+                </div>
+            </div>
         </div>
 
-        <div class="glass col-span-12 md:col-span-8 p-8">
+        <div class="glass col-span-12 md:col-span-8 p-6">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-6">
                 <div>
                     <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">donations</h2>
@@ -162,25 +171,39 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <div class="rounded-[2rem] border border-white/10 bg-white/5 p-5">
                     <div class="text-[10px] uppercase tracking-[0.22em] opacity-50 mb-4">crypto</div>
-                    <div class="flex flex-wrap gap-2 mb-4">
-                        <div class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-[11px] text-gray-200 border border-white/10">
-                            TON <span class="font-semibold text-white">angelkrafen.ton</span>
-                            <button type="button" data-copy="angelkrafen.ton" class="text-[11px] text-blue-300 hover:text-blue-200" title="Copy TON address">📋</button>
+                    
+                    <div class="flex flex-col gap-2 mb-5">
+                        <div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 text-[11px] text-gray-200 border border-white/10 w-full overflow-hidden">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="flex-shrink-0 w-6 font-bold text-white/50">TON</span>
+                                <span class="font-semibold text-white truncate">angelkrafen.ton</span>
+                            </div>
+                            <button type="button" data-copy="angelkrafen.ton" class="flex-shrink-0 text-blue-300 hover:text-blue-200 px-1" title="Copy TON address">📋</button>
                         </div>
-                        <div class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-[11px] text-gray-200 border border-white/10">
-                            BTC <span class="font-semibold text-white">12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu</span>
-                            <button type="button" data-copy="12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu" class="text-[11px] text-blue-300 hover:text-blue-200" title="Copy BTC address">📋</button>
+                        <div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 text-[11px] text-gray-200 border border-white/10 w-full overflow-hidden">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="flex-shrink-0 w-6 font-bold text-white/50">BTC</span>
+                                <span class="font-semibold text-white truncate">12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu</span>
+                            </div>
+                            <button type="button" data-copy="12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu" class="flex-shrink-0 text-blue-300 hover:text-blue-200 px-1" title="Copy BTC address">📋</button>
                         </div>
-                        <div class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-[11px] text-gray-200 border border-white/10">
-                            ETH <span class="font-semibold text-white">0xc99b815e2b8988e4479298bbdc4235a685aa6445</span>
-                            <button type="button" data-copy="0xc99b815e2b8988e4479298bbdc4235a685aa6445" class="text-[11px] text-blue-300 hover:text-blue-200" title="Copy ETH address">📋</button>
+                        <div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 text-[11px] text-gray-200 border border-white/10 w-full overflow-hidden">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="flex-shrink-0 w-6 font-bold text-white/50">ETH</span>
+                                <span class="font-semibold text-white truncate">0xc99b815e2b8988e4479298bbdc4235a685aa6445</span>
+                            </div>
+                            <button type="button" data-copy="0xc99b815e2b8988e4479298bbdc4235a685aa6445" class="flex-shrink-0 text-blue-300 hover:text-blue-200 px-1" title="Copy ETH address">📋</button>
                         </div>
-                        <div class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-[11px] text-gray-200 border border-white/10">
-                            TRX <span class="font-semibold text-white">T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH</span>
-                            <button type="button" data-copy="T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH" class="text-[11px] text-blue-300 hover:text-blue-200" title="Copy TRX address">📋</button>
+                        <div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 text-[11px] text-gray-200 border border-white/10 w-full overflow-hidden">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="flex-shrink-0 w-6 font-bold text-white/50">TRX</span>
+                                <span class="font-semibold text-white truncate">T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH</span>
+                            </div>
+                            <button type="button" data-copy="T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH" class="flex-shrink-0 text-blue-300 hover:text-blue-200 px-1" title="Copy TRX address">📋</button>
                         </div>
                     </div>
-                    <a href="https://t.me/send?start=IV5PoNgziNQ3" class="inline-flex items-center justify-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-blue-300 hover:bg-blue-500/20">
+                    
+                    <a href="https://t.me/send?start=IV5PoNgziNQ3" class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-blue-300 hover:bg-blue-500/20">
                         <span>cryptobot open</span>
                         <span class="text-blue-300">↗</span>
                     </a>
@@ -188,20 +211,20 @@
 
                 <div class="rounded-[2rem] border border-white/10 bg-white/5 p-5">
                     <div class="text-[10px] uppercase tracking-[0.22em] opacity-50 mb-4">fiat</div>
-                    <div class="flex flex-wrap gap-2 mb-4">
-                        <a href="https://www.tinkoff.ru/rm/r_aHnZFJyKaS.NwlcddBPPE/s5SB540759" class="rounded-full bg-white/5 px-3 py-1 text-[11px] text-gray-200 border border-white/10 hover:border-blue-500/30 inline-flex items-center gap-2">
+                    <div class="flex flex-wrap gap-2 mb-5">
+                        <a href="https://www.tinkoff.ru/rm/r_aHnZFJyKaS.NwlcddBPPE/s5SB540759" class="rounded-full bg-white/5 px-3 py-1.5 text-[11px] text-gray-200 border border-white/10 hover:border-blue-500/30 inline-flex items-center gap-2">
                             <span>tinkoff open</span>
                             <span class="text-blue-300">↗</span>
                         </a>
-                        <a href="https://t.me/krafen" class="group relative rounded-full bg-white/5 px-3 py-1 text-[11px] text-gray-200 border border-white/10 hover:border-blue-500/30 inline-flex items-center gap-2">
+                        <a href="https://t.me/krafen" class="group relative rounded-full bg-white/5 px-3 py-1.5 text-[11px] text-gray-200 border border-white/10 hover:border-blue-500/30 inline-flex items-center gap-2">
                             <span>card2card dm me</span>
                             <span class="text-blue-300">↗</span>
-                            <span class="pointer-events-none absolute left-1/2 top-full mt-2 hidden -translate-x-1/2 rounded bg-slate-950/95 px-2 py-1 text-[9px] text-gray-200 opacity-0 transition-opacity duration-200 group-hover:block">reach me on telegram — i'll send details</span>
+                            <span class="pointer-events-none absolute left-1/2 top-full mt-2 hidden z-10 w-[180px] -translate-x-1/2 rounded bg-slate-950/95 px-3 py-2 text-center text-[9px] text-gray-200 opacity-0 transition-opacity duration-200 group-hover:block border border-white/10 shadow-xl">reach me on telegram — i'll send details</span>
                         </a>
-                        <a href="https://t.me/krafen" class="group relative rounded-full bg-white/5 px-3 py-1 text-[11px] text-gray-200 border border-white/10 hover:border-blue-500/30 inline-flex items-center gap-2">
+                        <a href="https://t.me/krafen" class="group relative rounded-full bg-white/5 px-3 py-1.5 text-[11px] text-gray-200 border border-white/10 hover:border-blue-500/30 inline-flex items-center gap-2">
                             <span>bank transfer dm me</span>
                             <span class="text-blue-300">↗</span>
-                            <span class="pointer-events-none absolute left-1/2 top-full mt-2 hidden -translate-x-1/2 rounded bg-slate-950/95 px-2 py-1 text-[9px] text-gray-200 opacity-0 transition-opacity duration-200 group-hover:block">reach me on telegram — i'll send details</span>
+                            <span class="pointer-events-none absolute left-1/2 top-full mt-2 hidden z-10 w-[180px] -translate-x-1/2 rounded bg-slate-950/95 px-3 py-2 text-center text-[9px] text-gray-200 opacity-0 transition-opacity duration-200 group-hover:block border border-white/10 shadow-xl">reach me on telegram — i'll send details</span>
                         </a>
                     </div>
                     <p class="text-[11px] leading-relaxed text-gray-400">when donating crypto please use stablecoins/native coin (e.g. tron for trx).</p>
@@ -209,24 +232,13 @@
             </div>
         </div>
 
-        <div class="glass col-span-12 md:col-span-4 p-8">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Discord</h2>
-                <span class="text-[10px] opacity-50">Server stats</span>
-            </div>
-            <div id="discord-card" class="space-y-3 text-sm">
-                <div class="h-24 bg-white/5 rounded-2xl shimmer"></div>
-            </div>
-        </div>
-
     </div>
 
     <script>
-        // --- КОНФИГУРАЦИЯ (Вставь свои данные здесь) ---
         const CONFIG = {
             github_user: 'krafenx',
             lastfm_user: 'krafen',
-            lastfm_key: '6474af65e5e721a2751d9d7f9274b594', // Получи тут: https://www.last.fm/api/account/create
+            lastfm_key: '6474af65e5e721a2751d9d7f9274b594',
             twitch_user: 'krafen',
             discord_invite_code: 'kGdxDzxtmK',
             telegram_channel: 'krafenx',
@@ -245,7 +257,6 @@
             ]
         };
 
-        // 1. Fetch LAST.FM
         async function fetchMusic() {
             try {
                 const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${CONFIG.lastfm_user}&api_key=${CONFIG.lastfm_key}&format=json&limit=1`;
@@ -266,7 +277,6 @@
             } catch (e) { console.error("Last.fm error", e); }
         }
 
-        // 2. Fetch GITHUB
         async function fetchGitHub() {
             try {
                 const response = await fetch(`https://api.github.com/users/${CONFIG.github_user}`);
@@ -339,7 +349,7 @@
                 <div class="p-4 rounded-2xl border border-white/5 bg-white/5">
                     <div class="text-sm font-semibold text-white">${CONFIG.twitch_user}</div>
                     <div class="text-[10px] opacity-50">Live stream</div>
-                    <a href="https://twitch.tv/${CONFIG.twitch_user}" target="_blank" rel="noopener noreferrer" class="mt-4 inline-block text-blue-300 text-[10px] uppercase tracking-[0.18em]">Open channel</a>
+                    <a href="https://twitch.tv/${CONFIG.twitch_user}" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex w-full items-center justify-center rounded-full bg-blue-500/10 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-blue-300 transition hover:bg-blue-500/20">Open channel</a>
                 </div>
             `;
         }
@@ -388,7 +398,6 @@
             });
         }
 
-        // Запуск
         async function fetchAll() {
             await Promise.all([
                 fetchMusic(),
@@ -404,7 +413,6 @@
         renderSocialLinks();
         initDonationCopy();
 
-        // Автообновление данных, чтобы не перезагружать страницу
         setInterval(fetchMusic, 100);
         setInterval(fetchGitHub, 10000);
         setInterval(fetchDiscord, 10000);
