@@ -29,10 +29,19 @@ function requireStorage(env) {
     }
 }
 
-function requireAdmin(request, env) {
+async function getSecret(env, name) {
+    const value = env[name];
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value.get === 'function') return await value.get();
+    return '';
+}
+
+async function requireAdmin(request, env) {
     const password = request.headers.get('X-Admin-Password') || '';
-    if (!env.ADMIN_PASSWORD) return json({ error: 'admin_password_missing' }, 500);
-    if (password !== env.ADMIN_PASSWORD) return json({ error: 'unauthorized' }, 401);
+    const adminPassword = await getSecret(env, 'ADMIN_PASSWORD');
+    if (!adminPassword) return json({ error: 'admin_password_missing' }, 500);
+    if (password !== adminPassword) return json({ error: 'unauthorized' }, 401);
     return null;
 }
 
@@ -61,10 +70,12 @@ function normalizeItem(item) {
 
 async function handleAdmin(request, env) {
     if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
-    if (!env.ADMIN_PASSWORD) return json({ error: 'admin_password_missing' }, 500);
 
     const body = await request.json().catch(() => ({}));
-    if (!body.password || body.password !== env.ADMIN_PASSWORD) {
+    const adminPassword = await getSecret(env, 'ADMIN_PASSWORD');
+    if (!adminPassword) return json({ error: 'admin_password_missing' }, 500);
+
+    if (!body.password || body.password !== adminPassword) {
         return json({ error: 'invalid_password' }, 401);
     }
 
@@ -83,7 +94,7 @@ async function handleWatchlist(request, env) {
     }
 
     if (request.method === 'PUT') {
-        const authError = requireAdmin(request, env);
+        const authError = await requireAdmin(request, env);
         if (authError) return authError;
 
         try {
@@ -102,10 +113,11 @@ async function handleWatchlist(request, env) {
 }
 
 async function searchOmdb(query, type, env) {
-    if (!env.OMDB_API_KEY) return json({ error: 'omdb_key_missing' }, 500);
+    const omdbApiKey = await getSecret(env, 'OMDB_API_KEY');
+    if (!omdbApiKey) return json({ error: 'omdb_key_missing' }, 500);
 
     const url = new URL(OMDB_BASE);
-    url.searchParams.set('apikey', env.OMDB_API_KEY);
+    url.searchParams.set('apikey', omdbApiKey);
     url.searchParams.set('s', query);
     url.searchParams.set('type', type);
 
