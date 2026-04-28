@@ -467,7 +467,7 @@
         <div class="flex gap-2 flex-wrap mb-6" id="stats-row"></div>
 
         <div id="setup-warn" class="warn-box hidden">
-            Cloudflare KV или переменные окружения пока не настроены. Смотри файл WATCHLIST_SETUP.md.
+            Cloudflare KV или переменные окружения пока не настроены.
         </div>
 
         <div class="glass p-4 mb-6">
@@ -522,7 +522,7 @@
             </div>
             <div class="modal-body">
                 <div class="info-box">
-                    Фильмы и сериалы ищутся через серверный OMDb-прокси, аниме через Shikimori. Ключи остаются на Cloudflare, не в HTML.
+                    Фильмы и сериалы ищутся через серверный OMDb-прокси, аниме через Shikimori.
                 </div>
                 <div class="flex gap-2 mb-4 flex-wrap">
                     <button class="filter-btn active" data-modal-type="movie">фильм</button>
@@ -546,10 +546,10 @@
             </div>
             <div class="modal-body">
                 <div class="info-box">
-                    Введи пароль из Cloudflare secret <b>ADMIN_PASSWORD</b>. Он нужен только для этой страницы.
+                    Введи <b>admin пароль</b>.
                 </div>
                 <input type="password" id="admin-password-input" class="kf-input mb-3" placeholder="admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitAdminLogin()">
-                <div id="admin-login-error" class="text-[10px] text-red-400 mb-3 hidden">пароль не подошёл или API недоступен</div>
+                <div id="admin-login-error" class="text-[10px] text-red-400 mb-3 hidden">Пароль не подошёл или API недоступен.</div>
                 <button id="login-btn" onclick="submitAdminLogin()" class="w-full rounded-full bg-blue-500/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-blue-300 border border-blue-500/30 hover:bg-blue-500/20 transition-all">
                     войти
                 </button>
