@@ -1,0 +1,6 @@
+functions/
+worker.js
+wrangler.jsonc
+WATCHLIST_SETUP.md
+.git/
+.github/
