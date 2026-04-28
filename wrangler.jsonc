@@ -15,5 +15,17 @@
       "binding": "WATCHLIST",
       "id": "207bb13567634f9f95412d1a6f0fc7d4"
     }
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "ADMIN_PASSWORD",
+      "store_id": "dbaa438c8dd84df6b699fe1de942e717",
+      "secret_name": "ADMIN_PASSWORD"
+    },
+    {
+      "binding": "OMDB_API_KEY",
+      "store_id": "dbaa438c8dd84df6b699fe1de942e717",
+      "secret_name": "OMDB_API_KEY"
+    }
   ]
 }
