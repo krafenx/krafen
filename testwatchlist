@@ -496,7 +496,7 @@
             // 1. Зарегистрируйся на https://jsonbin.io
             //    Создай бин (+ New Bin), содержимое = [] , сделай публичным (Private = OFF)
             //    Скопируй Bin ID из адресной строки
-            jsonbin_bin_id: 'YOUR_BIN_ID',
+            jsonbin_bin_id: '69f0765136566621a8fe678c',
 
             // 2. В личном кабинете JSONBin → API Keys → скопируй Master Key
             //    Он НЕ хранится в HTML — вводится только в форме входа каждую сессию
@@ -975,7 +975,7 @@
        Пример: https://jsonbin.io/b/686abc12e41b4d34e4181234  →  ID = 686abc12e41b4d34e4181234
     5. Иди в Account → API Keys → скопируй Master Key
        Формат: $2b$10$xxxxxxxxxx...
-    6. Вставь Bin ID в строку: jsonbin_bin_id: 'YOUR_BIN_ID'
+    6. Вставь Bin ID в строку: jsonbin_bin_id: '69f0765136566621a8fe678c'
 
     Master Key НЕ вставляй в код — вводи его в форме входа каждую сессию.
     Это безопасно: ключ хранится только в памяти вкладки (sessionStorage),
