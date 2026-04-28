@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "krafen",
+  "main": "worker.js",
+  "compatibility_date": "2026-04-28",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/*"
+    ]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "WATCHLIST",
+      "id": "PASTE_KRAFEN_WATCHLIST_NAMESPACE_ID_HERE"
+    }
+  ]
+}
