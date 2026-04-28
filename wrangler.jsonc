@@ -9,10 +9,5 @@
     "run_worker_first": [
       "/api/*"
     ]
-  },
-  "kv_namespaces": [
-    {
-      "binding": "WATCHLIST"
-    }
-  ]
+  }
 }
