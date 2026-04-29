@@ -684,7 +684,7 @@
         // POLLING
         // Music: every 30s (was 777ms = ~77 req/min, now ~2 req/min)
         // Other data: every 60s (was 10s, cuts requests 6x)
-        setInterval(fetchMusic,        30_000);
+        setInterval(fetchMusic,        5_000);
         setInterval(fetchGitHub,       60_000);
         setInterval(fetchDiscordServer, 60_000);
         setInterval(updateBirthdayWidget, 1_000);
