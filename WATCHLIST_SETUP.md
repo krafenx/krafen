@@ -72,7 +72,16 @@ Anime search uses Shikimori and does not need a key.
 ## How it works
 
 Visitors can open the page and read `/api/watchlist`.
-Only the admin password can write the saved list through `/api/watchlist`.
-The password is not stored in the HTML and is kept only in `sessionStorage` for the current browser session.
+Only an active admin session can write the saved list through `/api/watchlist`.
+The admin password is posted only to `/api/admin`; the backend returns a signed `HttpOnly`, `Secure`,
+`SameSite=Strict` cookie for the current browser session. Frontend JavaScript no longer stores or resends
+the raw password.
+
+The API also has basic KV-backed rate limits for admin login, search, and watchlist writes. If `WATCHLIST`
+is missing, rate limiting is skipped because there is no shared storage available.
+
+The current CSP still allows inline scripts/styles and Tailwind CDN because the site is a plain HTML project.
+For a stricter production CSP, install Node/npm locally, build Tailwind into a static CSS file, and then move the
+inline page scripts/styles into versioned local assets.
 
 OMDb is used because IMDb does not provide a simple public browser-friendly search API. If you later get access to an official IMDb provider, only `functions/api/search.js` needs to change.

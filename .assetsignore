@@ -1,0 +1,9 @@
+functions/**
+node_modules/**
+.git/**
+.github/**
+.wrangler/**
+*.md
+wrangler.jsonc
+package*.json
+*.log

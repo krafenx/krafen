@@ -459,7 +459,7 @@
 
         <div id="admin-bar">
             <span style="color:var(--accent-light);opacity:0.7;">admin mode</span>
-            <button onclick="adminLogout()" class="text-[9px] uppercase tracking-[0.15em] opacity-40 hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer font-['JetBrains_Mono'] text-white">
+            <button id="admin-logout-btn" class="text-[9px] uppercase tracking-[0.15em] opacity-40 hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer font-['JetBrains_Mono'] text-white">
                 выйти
             </button>
         </div>
@@ -509,7 +509,7 @@
         </div>
     </div>
 
-    <button id="lock-btn" title="admin" onclick="openAdminModal()">lock</button>
+    <button id="lock-btn" title="admin" aria-label="admin">lock</button>
 
     <div class="modal-overlay" id="modal-add">
         <div class="modal-box">
@@ -518,7 +518,7 @@
                     <div class="text-[10px] uppercase tracking-[0.22em] opacity-30 mb-1">add title</div>
                     <h2 class="text-xl font-bold tracking-tight">добавить в список</h2>
                 </div>
-                <button class="modal-close" onclick="closeModal('modal-add')">x</button>
+                <button class="modal-close" data-close-modal="modal-add">x</button>
             </div>
             <div class="modal-body">
                 <div class="info-box">
@@ -542,15 +542,15 @@
                     <div class="text-[10px] uppercase tracking-[0.22em] opacity-30 mb-1">admin panel</div>
                     <h2 class="text-xl font-bold tracking-tight">вход</h2>
                 </div>
-                <button class="modal-close" onclick="closeModal('modal-admin')">x</button>
+                <button class="modal-close" data-close-modal="modal-admin">x</button>
             </div>
             <div class="modal-body">
                 <div class="info-box">
                     Введи <b>admin пароль</b>.
                 </div>
-                <input type="password" id="admin-password-input" class="kf-input mb-3" placeholder="admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitAdminLogin()">
+                <input type="password" id="admin-password-input" class="kf-input mb-3" placeholder="admin password" autocomplete="current-password">
                 <div id="admin-login-error" class="text-[10px] text-red-400 mb-3 hidden">Пароль не подошёл или API недоступен.</div>
-                <button id="login-btn" onclick="submitAdminLogin()" class="w-full rounded-full bg-blue-500/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-blue-300 border border-blue-500/30 hover:bg-blue-500/20 transition-all">
+                <button id="login-btn" class="w-full rounded-full bg-blue-500/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-blue-300 border border-blue-500/30 hover:bg-blue-500/20 transition-all">
                     войти
                 </button>
             </div>
@@ -575,9 +575,23 @@
         let modalType = 'movie';
         let searchTimeout = null;
         let searchCache = [];
+        let adminSessionActive = false;
 
-        function getAdminPassword() { return sessionStorage.getItem('wl_admin_password') || ''; }
-        function isAdmin() { return !!getAdminPassword(); }
+        function isAdmin() { return adminSessionActive; }
+
+        async function checkAdminSession() {
+            try {
+                const res = await fetch(API.admin, {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                });
+                const data = await res.json().catch(() => ({}));
+                adminSessionActive = Boolean(res.ok && data.ok);
+            } catch {
+                adminSessionActive = false;
+            }
+            setAdminMode(adminSessionActive);
+        }
 
         async function fetchList() {
             try {
@@ -596,20 +610,25 @@
         }
 
         async function saveToCloud() {
-            const password = getAdminPassword();
-            if (!password) return;
+            if (!isAdmin()) return;
             setSaveIndicator('saving', 'сохранение...');
             try {
                 const res = await fetch(API.list, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Admin-Password': password,
                     },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ items: list }),
                 });
                 const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.error || 'save_failed');
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        adminSessionActive = false;
+                        setAdminMode(false);
+                    }
+                    throw new Error(data.error || 'save_failed');
+                }
                 setSaveIndicator('saved', 'сохранено');
                 setTimeout(() => setSaveIndicator('', ''), 1800);
             } catch {
@@ -647,10 +666,11 @@
                 const res = await fetch(API.admin, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ password }),
                 });
                 if (!res.ok) throw new Error('invalid_password');
-                sessionStorage.setItem('wl_admin_password', password);
+                adminSessionActive = true;
                 setAdminMode(true);
                 closeModal('modal-admin');
                 document.getElementById('admin-password-input').value = '';
@@ -663,8 +683,12 @@
             btn.disabled = false;
         }
 
-        function adminLogout() {
-            sessionStorage.removeItem('wl_admin_password');
+        async function adminLogout() {
+            await fetch(API.admin, {
+                method: 'DELETE',
+                credentials: 'same-origin',
+            }).catch(() => {});
+            adminSessionActive = false;
             setAdminMode(false);
             showToast('вышел из admin mode', 'rgba(255,255,255,0.55)');
         }
@@ -773,14 +797,14 @@
                 <div class="media-card">
                     <div class="poster-wrap">
                         ${item.poster
-                            ? `<img src="${escapeHTML(item.poster)}" alt="${title}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;no-poster&quot;>${typeL}</div>'">`
+                            ? `<img src="${escapeHTML(item.poster)}" alt="${title}" loading="lazy" data-fallback-class="no-poster" data-fallback-text="${typeL}">`
                             : `<div class="no-poster">${typeL}</div>`
                         }
                         <div class="card-overlay">
-                            <button class="ov-btn ov-watched" onclick="changeStatus('${id}','watched')">просмотрено</button>
-                            <button class="ov-btn ov-planned" onclick="changeStatus('${id}','planned')">планирую</button>
-                            <button class="ov-btn ov-dropped" onclick="changeStatus('${id}','dropped')">брошено</button>
-                            <button class="ov-btn ov-remove" onclick="removeItem('${id}')">удалить</button>
+                            <button class="ov-btn ov-watched" data-card-action="status" data-id="${id}" data-status="watched">просмотрено</button>
+                            <button class="ov-btn ov-planned" data-card-action="status" data-id="${id}" data-status="planned">планирую</button>
+                            <button class="ov-btn ov-dropped" data-card-action="status" data-id="${id}" data-status="dropped">брошено</button>
+                            <button class="ov-btn ov-remove" data-card-action="remove" data-id="${id}">удалить</button>
                         </div>
                     </div>
                     <div class="card-info">
@@ -877,7 +901,7 @@
                 <div class="search-result">
                     <div class="result-poster">
                         ${item.poster
-                            ? `<img src="${escapeHTML(item.poster)}" alt="${title}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;result-no-poster&quot;>-</div>'">`
+                            ? `<img src="${escapeHTML(item.poster)}" alt="${title}" loading="lazy" data-fallback-class="result-no-poster" data-fallback-text="-">`
                             : '<div class="result-no-poster">-</div>'
                         }
                     </div>
@@ -887,9 +911,9 @@
                         <div class="result-year">${escapeHTML(item.year || '-')}</div>
                     </div>
                     <div class="result-actions">
-                        <button class="add-btn add-watched" onclick="addFromCache(${idx},'watched')">смотрел</button>
-                        <button class="add-btn add-planned" onclick="addFromCache(${idx},'planned')">планирую</button>
-                        <button class="add-btn add-dropped" onclick="addFromCache(${idx},'dropped')">брошено</button>
+                        <button class="add-btn add-watched" data-search-index="${idx}" data-status="watched">смотрел</button>
+                        <button class="add-btn add-planned" data-search-index="${idx}" data-status="planned">планирую</button>
+                        <button class="add-btn add-dropped" data-search-index="${idx}" data-status="dropped">брошено</button>
                     </div>
                 </div>`;
         }
@@ -898,6 +922,47 @@
             const item = searchCache[idx];
             if (item) addItem(item, status);
         }
+
+        document.querySelectorAll('[data-close-modal]').forEach(btn => {
+            btn.addEventListener('click', () => closeModal(btn.dataset.closeModal));
+        });
+
+        document.getElementById('lock-btn').addEventListener('click', openAdminModal);
+        document.getElementById('admin-logout-btn').addEventListener('click', adminLogout);
+        document.getElementById('login-btn').addEventListener('click', submitAdminLogin);
+        document.getElementById('admin-password-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') submitAdminLogin();
+        });
+
+        document.getElementById('cards-grid').addEventListener('click', e => {
+            const btn = e.target.closest('[data-card-action]');
+            if (!btn) return;
+
+            if (btn.dataset.cardAction === 'remove') {
+                removeItem(btn.dataset.id);
+                return;
+            }
+
+            if (btn.dataset.cardAction === 'status') {
+                changeStatus(btn.dataset.id, btn.dataset.status);
+            }
+        });
+
+        document.getElementById('search-results').addEventListener('click', e => {
+            const btn = e.target.closest('[data-search-index]');
+            if (!btn) return;
+            addFromCache(Number(btn.dataset.searchIndex), btn.dataset.status);
+        });
+
+        document.addEventListener('error', e => {
+            const img = e.target;
+            if (!(img instanceof HTMLImageElement) || !img.dataset.fallbackClass) return;
+
+            const fallback = document.createElement('div');
+            fallback.className = img.dataset.fallbackClass;
+            fallback.textContent = img.dataset.fallbackText || '-';
+            img.replaceWith(fallback);
+        }, true);
 
         document.querySelectorAll('#type-filters .filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -928,7 +993,7 @@
             toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
         }
 
-        if (isAdmin()) setAdminMode(true);
+        checkAdminSession();
         fetchList();
     </script>
 </body>
