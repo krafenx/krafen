@@ -11,7 +11,6 @@ This page can run either as Cloudflare Pages Functions or as one Cloudflare Work
 - `functions/api/search.js` - search proxy for Shikimori and TMDB.
 - `functions/api/gamelist.js` - public game list read and admin-only save.
 - `functions/api/game-search.js` - server-side IGDB search proxy.
-- `functions/api/twitch.js` - server-side Twitch channel/stream status proxy for the home page.
 - `functions/api/admin.js` - checks the admin password.
 - `worker.js` - same backend, but for a single Cloudflare Worker with static assets.
 - `wrangler.jsonc` - Worker deploy config for the current Cloudflare Workers UI.
@@ -72,16 +71,13 @@ so Cloudflare can attach runtime bindings and secrets.
 6. Add `ADMIN_PASSWORD` with your private admin password.
 7. Add `TMDB_ACCESS_TOKEN` if you want movie and series search. `TMDB_API_KEY` is also supported as a fallback,
    but the TMDB read access token is preferred.
-8. Add `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` if you want the home page Twitch card and `/gamelist`
-   game search through IGDB.
+8. Add `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` if you want `/gamelist` game search through IGDB.
 8. Redeploy the Pages project.
 
 Anime search uses Shikimori and does not need a key.
 Movie and series search uses TMDB. Create a TMDB API key/read access token in your TMDB account settings, then add
 `TMDB_ACCESS_TOKEN` as a Cloudflare Pages secret/environment variable before redeploying the GitHub-connected Pages
 project.
-The home page Twitch card uses the official Twitch Helix API to show live/offline status, stream title, game, viewers,
-and profile data.
 Game search uses IGDB, which authenticates through a Twitch Developer application. Create a Twitch developer app,
 copy its client ID, generate a client secret, then add them as `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` in
 Cloudflare. The backend caches the temporary IGDB access token in the existing `WATCHLIST` KV namespace.
@@ -104,6 +100,4 @@ inline page scripts/styles into versioned local assets.
 TMDB is used for movies and series because it has a public API with localized titles and poster paths. The secret stays
 server-side in the Cloudflare Function/Worker; the browser only calls `/api/search`.
 IGDB is used for games. The browser only calls `/api/game-search`; Twitch credentials and IGDB access tokens stay
-server-side in Cloudflare.
-The browser only calls `/api/twitch` for Twitch status; the OAuth client secret and temporary app access token also stay
 server-side in Cloudflare.

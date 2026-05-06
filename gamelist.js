@@ -1,9 +1,6 @@
-const KV_KEY = 'items';
 const SESSION_COOKIE = 'kf_admin_session';
-const MAX_WATCHLIST_BODY = 100_000;
-const VALID_TYPES = new Set(['anime', 'movie', 'series']);
-const VALID_STATUSES = new Set(['watched', 'planned', 'dropped']);
-const ITEM_ID_PATTERN = /^[A-Za-z0-9:_-]{1,120}$/;
+const SESSION_TTL_SECONDS = 60 * 60 * 8;
+const MAX_LOGIN_BODY = 2_048;
 
 const SECURITY_HEADERS = {
     'X-Content-Type-Options': 'nosniff',
@@ -30,12 +27,6 @@ async function getSecret(env, name) {
     if (typeof value === 'string') return value;
     if (typeof value.get === 'function') return await value.get();
     return '';
-}
-
-function requireStorage(env) {
-    if (!env.WATCHLIST || typeof env.WATCHLIST.get !== 'function') {
-        throw new Error('watchlist_kv_missing');
-    }
 }
 
 function rejectLargeBody(request, maxBytes) {
@@ -86,6 +77,14 @@ function constantTimeEqual(a, b) {
     return diff === 0;
 }
 
+async function createSession(adminPassword) {
+    const payload = base64UrlEncode(JSON.stringify({
+        exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
+        nonce: crypto.randomUUID(),
+    }));
+    return `${payload}.${await hmac(adminPassword, payload)}`;
+}
+
 async function verifySession(request, env) {
     const token = parseCookies(request)[SESSION_COOKIE];
     const adminPassword = await getSecret(env, 'ADMIN_PASSWORD');
@@ -104,11 +103,12 @@ async function verifySession(request, env) {
     }
 }
 
-async function requireAdmin(request, env) {
-    if (!await verifySession(request, env)) {
-        return json({ error: 'unauthorized' }, 401);
-    }
-    return null;
+function sessionCookie(value) {
+    return `${SESSION_COOKIE}=${value}; Max-Age=${SESSION_TTL_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Strict`;
+}
+
+function clearSessionCookie() {
+    return `${SESSION_COOKIE}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict`;
 }
 
 async function rateLimit(request, env, name, limit, windowSeconds) {
@@ -129,74 +129,32 @@ async function rateLimit(request, env, name, limit, windowSeconds) {
     return null;
 }
 
-function cleanText(value, max = 180) {
-    return String(value || '').trim().slice(0, max);
+export async function onRequestGet({ request, env }) {
+    return json({ ok: await verifySession(request, env) });
 }
 
-function cleanUrl(value, max = 600) {
-    const url = cleanText(value, max);
-    if (!url) return null;
-
-    try {
-        return new URL(url).protocol === 'https:' ? url : null;
-    } catch {
-        return null;
-    }
-}
-
-function normalizeItem(item) {
-    const id = cleanText(item.id, 120);
-    const title = cleanText(item.title, 180);
-    const type = cleanText(item.type, 20);
-    const status = cleanText(item.status, 20);
-
-    if (!ITEM_ID_PATTERN.test(id) || !title || !VALID_TYPES.has(type) || !VALID_STATUSES.has(status)) {
-        return null;
-    }
-
-    return {
-        id,
-        title,
-        titleRu: cleanText(item.titleRu, 180) || null,
-        year: cleanText(item.year, 24) || '-',
-        type,
-        status,
-        poster: cleanUrl(item.poster),
-        addedAt: Number.isFinite(Number(item.addedAt)) ? Number(item.addedAt) : Date.now(),
-        updatedAt: Number.isFinite(Number(item.updatedAt)) ? Number(item.updatedAt) : Date.now(),
-    };
-}
-
-export async function onRequestGet({ env }) {
-    try {
-        requireStorage(env);
-        const items = await env.WATCHLIST.get(KV_KEY, { type: 'json' });
-        return json({ items: Array.isArray(items) ? items : [] });
-    } catch (error) {
-        return json({ error: error.message || 'storage_error', items: [] }, 500);
-    }
-}
-
-export async function onRequestPut({ request, env }) {
-    const tooLarge = rejectLargeBody(request, MAX_WATCHLIST_BODY);
+export async function onRequestPost({ request, env }) {
+    const tooLarge = rejectLargeBody(request, MAX_LOGIN_BODY);
     if (tooLarge) return tooLarge;
 
-    const limited = await rateLimit(request, env, 'watchlist-write', 30, 60);
+    const limited = await rateLimit(request, env, 'admin-login', 8, 300);
     if (limited) return limited;
 
-    const authError = await requireAdmin(request, env);
-    if (authError) return authError;
-
-    try {
-        requireStorage(env);
-        const body = await request.json().catch(() => ({}));
-        const rawItems = Array.isArray(body.items) ? body.items : [];
-        const items = rawItems.map(normalizeItem).filter(Boolean).slice(0, 500);
-        await env.WATCHLIST.put(KV_KEY, JSON.stringify(items));
-        return json({ ok: true, items });
-    } catch (error) {
-        return json({ error: error.message || 'save_failed' }, 500);
+    const adminPassword = await getSecret(env, 'ADMIN_PASSWORD');
+    if (!adminPassword) {
+        return json({ error: 'admin_password_missing' }, 500);
     }
+
+    const body = await request.json().catch(() => ({}));
+    if (!body.password || !constantTimeEqual(String(body.password), adminPassword)) {
+        return json({ error: 'invalid_password' }, 401);
+    }
+
+    return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie(await createSession(adminPassword)) });
+}
+
+export function onRequestDelete() {
+    return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookie() });
 }
 
 export function onRequestOptions() {
