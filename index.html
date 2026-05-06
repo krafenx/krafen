@@ -200,6 +200,12 @@
         .top-nav-link:last-child:hover {
             transform: translateX(2px);
         }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
         @media (min-width: 768px) {
             .top-nav {
                 width: calc(100vw - 6rem);
@@ -292,7 +298,7 @@
 
         <!-- Social cards: rendered by JS -->
         <div id="social-youtube" class="glass col-span-12 md:col-span-4 p-6"></div>
-        <div id="social-instagram" class="glass col-span-12 md:col-span-4 p-6"></div>
+        <div id="social-watchlist" class="glass col-span-12 md:col-span-4 p-6"></div>
         <div id="social-tiktok" class="glass col-span-12 md:col-span-4 p-6"></div>
         <div id="social-boosty" class="glass col-span-12 md:col-span-4 p-6"></div>
         <div id="social-x" class="glass col-span-12 md:col-span-4 p-6"></div>
@@ -412,7 +418,7 @@
             socials: [
                 { id: 'discord',   name: 'Discord',   href: 'https://discord.com/users/krafen',          label: 'Personal chat' },
                 { id: 'youtube',   name: 'YouTube',   href: 'https://youtube.com/@krafen.',              label: 'Videos' },
-                { id: 'instagram', name: 'Instagram*', href: 'https://instagram.com/krafenx',             label: 'Photos' },
+                { id: 'watchlist', name: 'Watchlist', href: 'https://krafen.ru/watchlist',             label: 'Content' },
                 { id: 'tiktok',    name: 'TikTok',    href: 'https://www.tiktok.com/@.krafen',           label: 'Short videos' },
                 { id: 'boosty',    name: 'Boosty',    href: 'https://boosty.to/krafen',                  label: 'Support' },
                 { id: 'x',         name: 'X',         href: 'https://x.com/krafen_',                     label: 'News' },
@@ -645,18 +651,84 @@
 
         // TWITCH
 
-        function renderTwitch() {
+        function twitchLiveDuration(startedAt) {
+            const started = new Date(startedAt).getTime();
+            if (!Number.isFinite(started)) return '';
+            const minutes = Math.max(0, Math.floor((Date.now() - started) / 60000));
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return hours ? `${hours}h ${mins}m` : `${mins}m`;
+        }
+
+        function twitchFallback(message = 'Open channel') {
+            setCard('twitch-card', '', socialCardHTML(
+                CONFIG.twitch_user,
+                'Live stream',
+                `https://twitch.tv/${CONFIG.twitch_user}`,
+                message
+            ));
+        }
+
+        async function fetchTwitch() {
             if (!CONFIG.twitch_user) {
                 setCard('twitch-card', '', statusBox('Twitch user not configured'));
                 return;
             }
 
-            setCard('twitch-card', '', socialCardHTML(
-                CONFIG.twitch_user,
-                'Live stream',
-                `https://twitch.tv/${CONFIG.twitch_user}`,
-                'Open channel'
-            ));
+            const card = document.getElementById('twitch-card');
+            if (!card) return;
+
+            try {
+                const res = await fetch(`/api/twitch?login=${encodeURIComponent(CONFIG.twitch_user)}`, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    if (data.error === 'twitch_key_missing') {
+                        twitchFallback('Setup API');
+                        return;
+                    }
+                    throw new Error(data.error || 'twitch_failed');
+                }
+
+                const avatar = data.profileImage
+                    ? `<img src="${escapeHTML(data.profileImage)}" class="w-12 h-12 rounded-2xl object-cover border border-white/10 flex-shrink-0" alt="${escapeHTML(data.displayName)}">`
+                    : '<div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex-shrink-0"></div>';
+                const status = data.live ? 'Live now' : 'Offline';
+                const statusColor = data.live ? '#22c55e' : 'rgba(255,255,255,0.35)';
+                const stream = data.stream || {};
+                const duration = data.live ? twitchLiveDuration(stream.startedAt) : '';
+                const title = data.live ? stream.title : (data.description || 'Channel is offline');
+                const meta = data.live
+                    ? `${Number(stream.viewerCount || 0).toLocaleString('en-US')} viewers${stream.gameName ? ` | ${stream.gameName}` : ''}${duration ? ` | ${duration}` : ''}`
+                    : `${Number(data.viewCount || 0).toLocaleString('en-US')} total views`;
+
+                card.innerHTML = `
+                    <div class="rounded-2xl border border-white/5 bg-white/5 p-4 h-full flex flex-col justify-between gap-4">
+                        <div class="flex items-start gap-3 min-w-0">
+                            ${avatar}
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="w-2 h-2 rounded-full" style="background:${statusColor}"></span>
+                                    <span class="text-[9px] uppercase tracking-[0.18em]" style="color:${statusColor}">${escapeHTML(status)}</span>
+                                </div>
+                                <div class="text-sm font-semibold text-white truncate">${escapeHTML(data.displayName || CONFIG.twitch_user)}</div>
+                                <div class="text-[10px] opacity-45 truncate">@${escapeHTML(data.login || CONFIG.twitch_user)}</div>
+                            </div>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[11px] leading-relaxed text-gray-300 line-clamp-2">${escapeHTML(title)}</div>
+                            <div class="text-[10px] opacity-45 mt-2">${escapeHTML(meta)}</div>
+                        </div>
+                        <a href="${escapeHTML(data.url || `https://twitch.tv/${CONFIG.twitch_user}`)}" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex w-full items-center justify-center rounded-full bg-blue-500/10 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-blue-300 transition hover:bg-blue-500/20">
+                            ${data.live ? 'Watch stream' : 'Open channel'}
+                        </a>
+                    </div>`;
+            } catch (e) {
+                console.warn('[krafen] Twitch error:', e);
+                twitchFallback('Open channel');
+            }
         }
 
         // TELEGRAM
@@ -703,7 +775,6 @@
         function init() {
             // Static renders (no fetch)
             renderSocialLinks();
-            renderTwitch();
             renderTelegram();
             initDonationCopy();
             updateBirthdayWidget();
@@ -713,6 +784,7 @@
                 fetchMusic(),
                 fetchGitHub(),
                 fetchDiscordServer(),
+                fetchTwitch(),
             ]);
         }
 
@@ -724,6 +796,7 @@
         setInterval(fetchMusic,        30_000);
         setInterval(fetchGitHub,       60_000);
         setInterval(fetchDiscordServer, 60_000);
+        setInterval(fetchTwitch,        60_000);
         setInterval(updateBirthdayWidget, 1_000);
     </script>
 </body>

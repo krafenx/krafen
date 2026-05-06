@@ -1,8 +1,6 @@
-const KV_KEY = 'games';
-const SESSION_COOKIE = 'kf_admin_session';
-const MAX_GAMELIST_BODY = 1_500_000;
-const VALID_STATUSES = new Set(['completed', 'playing', 'dropped', 'wishlist', 'paused']);
-const ITEM_ID_PATTERN = /^[A-Za-z0-9:_-]{1,120}$/;
+const SHIKIMORI_BASE = 'https://shikimori.one';
+const TMDB_BASE = 'https://api.themoviedb.org';
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
 
 const SECURITY_HEADERS = {
     'X-Content-Type-Options': 'nosniff',
@@ -46,82 +44,14 @@ function cleanUrl(value, max = 600) {
     }
 }
 
-function requireStorage(env) {
-    if (!env.WATCHLIST || typeof env.WATCHLIST.get !== 'function') {
-        throw new Error('watchlist_kv_missing');
-    }
+function yearFrom(value) {
+    const match = String(value || '').match(/\d{4}/);
+    return match ? match[0] : '-';
 }
 
-function rejectLargeBody(request, maxBytes) {
-    const length = Number(request.headers.get('Content-Length') || 0);
-    if (Number.isFinite(length) && length > maxBytes) {
-        return json({ error: 'payload_too_large' }, 413);
-    }
-    return null;
-}
-
-function parseCookies(request) {
-    return Object.fromEntries((request.headers.get('Cookie') || '')
-        .split(';')
-        .map(cookie => cookie.trim().split('='))
-        .filter(([name, value]) => name && value)
-        .map(([name, value]) => [name, value]));
-}
-
-function base64UrlEncode(value) {
-    const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
-    let binary = '';
-    bytes.forEach(byte => { binary += String.fromCharCode(byte); });
-    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
-}
-
-function base64UrlDecode(value) {
-    const padded = value.replaceAll('-', '+').replaceAll('_', '/') + '==='.slice((value.length + 3) % 4);
-    const binary = atob(padded);
-    return Uint8Array.from(binary, char => char.charCodeAt(0));
-}
-
-async function hmac(secret, value) {
-    const key = await crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(secret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign'],
-    );
-    const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value));
-    return base64UrlEncode(new Uint8Array(signature));
-}
-
-function constantTimeEqual(a, b) {
-    if (a.length !== b.length) return false;
-    let diff = 0;
-    for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    return diff === 0;
-}
-
-async function verifySession(request, env) {
-    const token = parseCookies(request)[SESSION_COOKIE];
-    const adminPassword = await getSecret(env, 'ADMIN_PASSWORD');
-    if (!token || !adminPassword) return false;
-
-    const [payload, signature] = token.split('.');
-    if (!payload || !signature) return false;
-    if (!constantTimeEqual(signature, await hmac(adminPassword, payload))) return false;
-
-    try {
-        const data = JSON.parse(new TextDecoder().decode(base64UrlDecode(payload)));
-        return Number(data.exp) > Math.floor(Date.now() / 1000);
-    } catch {
-        return false;
-    }
-}
-
-async function requireAdmin(request, env) {
-    if (!await verifySession(request, env)) {
-        return json({ error: 'unauthorized' }, 401);
-    }
-    return null;
+function tmdbPoster(value) {
+    const path = text(value, 120);
+    return path && path.startsWith('/') ? `${TMDB_IMAGE_BASE}${path}` : null;
 }
 
 async function rateLimit(request, env, name, limit, windowSeconds) {
@@ -142,68 +72,98 @@ async function rateLimit(request, env, name, limit, windowSeconds) {
     return null;
 }
 
-function cleanStringArray(value, maxItems, maxText) {
-    return Array.isArray(value)
-        ? value.map(item => text(item, maxText)).filter(Boolean).slice(0, maxItems)
-        : [];
-}
-
-function normalizeGame(item) {
-    const id = text(item.id, 120);
-    const title = text(item.title, 180);
-    const status = text(item.status, 20);
-    const rating = Math.max(0, Math.min(10, Number(item.rating) || 0));
-
-    if (!ITEM_ID_PATTERN.test(id) || !title || !VALID_STATUSES.has(status)) {
-        return null;
+async function searchTmdb(query, type, env) {
+    const tmdbAccessToken = await getSecret(env, 'TMDB_ACCESS_TOKEN');
+    const tmdbApiKey = await getSecret(env, 'TMDB_API_KEY');
+    if (!tmdbAccessToken && !tmdbApiKey) {
+        return json({ error: 'tmdb_key_missing' }, 500);
     }
 
-    return {
-        id,
-        igdbId: Number.isFinite(Number(item.igdbId)) ? Number(item.igdbId) : null,
-        title,
-        year: text(item.year, 24) || '-',
-        status,
-        rating: Math.round(rating * 10) / 10,
-        review: text(item.review, 5000),
-        cover: cleanUrl(item.cover),
-        genres: cleanStringArray(item.genres, 5, 32),
-        platforms: cleanStringArray(item.platforms, 8, 32),
-        category: Number.isFinite(Number(item.category)) ? Number(item.category) : 0,
-        addedAt: Number.isFinite(Number(item.addedAt)) ? Number(item.addedAt) : Date.now(),
-        updatedAt: Number.isFinite(Number(item.updatedAt)) ? Number(item.updatedAt) : Date.now(),
-    };
-}
-
-export async function onRequestGet({ env }) {
-    try {
-        requireStorage(env);
-        const items = await env.WATCHLIST.get(KV_KEY, { type: 'json' });
-        return json({ items: Array.isArray(items) ? items : [] });
-    } catch (error) {
-        return json({ error: error.message || 'storage_error', items: [] }, 500);
+    const isSeries = type === 'series';
+    const url = new URL(isSeries ? '/3/search/tv' : '/3/search/movie', TMDB_BASE);
+    url.searchParams.set('query', query);
+    url.searchParams.set('language', 'ru-RU');
+    url.searchParams.set('include_adult', 'false');
+    url.searchParams.set('page', '1');
+    if (!tmdbAccessToken) {
+        url.searchParams.set('api_key', tmdbApiKey);
     }
+
+    const headers = { 'Accept': 'application/json' };
+    if (tmdbAccessToken) {
+        headers.Authorization = `Bearer ${tmdbAccessToken.replace(/^Bearer\s+/i, '')}`;
+    }
+
+    const res = await fetch(url, { headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        return json({ error: 'tmdb_unavailable' }, 502);
+    }
+
+    const results = (Array.isArray(data.results) ? data.results : []).slice(0, 10).map(item => {
+        const localizedTitle = text(isSeries ? item.name : item.title);
+        const originalTitle = text(isSeries ? item.original_name : item.original_title) || localizedTitle;
+
+        return {
+            id: `tmdb_${isSeries ? 'tv' : 'movie'}_${text(item.id, 40)}`,
+            title: originalTitle,
+            titleRu: localizedTitle && localizedTitle !== originalTitle ? localizedTitle : null,
+            year: yearFrom(isSeries ? item.first_air_date : item.release_date),
+            type,
+            poster: cleanUrl(tmdbPoster(item.poster_path)),
+        };
+    }).filter(item => item.id && item.title);
+
+    return json({ results });
 }
 
-export async function onRequestPut({ request, env }) {
-    const tooLarge = rejectLargeBody(request, MAX_GAMELIST_BODY);
-    if (tooLarge) return tooLarge;
+async function searchShikimori(query) {
+    const url = new URL('/api/animes', SHIKIMORI_BASE);
+    url.searchParams.set('search', query);
+    url.searchParams.set('limit', '10');
+    url.searchParams.set('order', 'popularity');
 
-    const limited = await rateLimit(request, env, 'gamelist-write', 30, 60);
+    const res = await fetch(url, {
+        headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'krafen-watchlist/1.0',
+        },
+    });
+    const data = await res.json().catch(() => []);
+    if (!res.ok || !Array.isArray(data)) {
+        return json({ error: 'shikimori_unavailable' }, 502);
+    }
+
+    const results = data.map(item => ({
+        id: `sh_${item.id}`,
+        title: text(item.name),
+        titleRu: text(item.russian) || null,
+        year: yearFrom(item.aired_on),
+        type: 'anime',
+        poster: item.image?.original ? cleanUrl(`${SHIKIMORI_BASE}${item.image.original}`) : null,
+    })).filter(item => item.id && item.title);
+
+    return json({ results });
+}
+
+export async function onRequestGet({ request, env }) {
+    const url = new URL(request.url);
+    const query = text(url.searchParams.get('q'), 80);
+    const type = text(url.searchParams.get('type'), 20);
+
+    if (query.length < 2) {
+        return json({ results: [] });
+    }
+
+    const limited = await rateLimit(request, env, 'search', 60, 60);
     if (limited) return limited;
 
-    const authError = await requireAdmin(request, env);
-    if (authError) return authError;
-
     try {
-        requireStorage(env);
-        const body = await request.json().catch(() => ({}));
-        const rawItems = Array.isArray(body.items) ? body.items : [];
-        const items = rawItems.map(normalizeGame).filter(Boolean).slice(0, 500);
-        await env.WATCHLIST.put(KV_KEY, JSON.stringify(items));
-        return json({ ok: true, items });
+        if (type === 'anime') return await searchShikimori(query);
+        if (type === 'movie' || type === 'series') return await searchTmdb(query, type, env);
+        return json({ error: 'invalid_type' }, 400);
     } catch (error) {
-        return json({ error: error.message || 'save_failed' }, 500);
+        return json({ error: error.message || 'search_failed' }, 500);
     }
 }
 
