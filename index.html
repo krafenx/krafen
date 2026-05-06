@@ -173,10 +173,47 @@
             background-size: 200% 100%;
             animation: shimmer 2s infinite;
         }
+        .top-nav {
+            width: calc(100vw - 3rem);
+            max-width: 72rem;
+            margin: 0 auto 1.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .top-nav-link {
+            color: rgba(255, 255, 255, 0.28);
+            font-size: 10px;
+            line-height: 1;
+            letter-spacing: 0.32em;
+            text-transform: uppercase;
+            text-decoration: none;
+            transition: color 0.16s ease, transform 0.16s ease;
+        }
+        .top-nav-link:hover {
+            color: rgba(247, 244, 243, 0.78);
+        }
+        .top-nav-link:first-child:hover {
+            transform: translateX(-2px);
+        }
+        .top-nav-link:last-child:hover {
+            transform: translateX(2px);
+        }
+        @media (min-width: 768px) {
+            .top-nav {
+                width: calc(100vw - 6rem);
+            }
+        }
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     </style>
 </head>
 <body class="p-6 md:p-12">
+
+    <nav class="top-nav" aria-label="site sections">
+        <a class="top-nav-link" href="/watchlist">&larr; watchlist</a>
+        <a class="top-nav-link" href="/gamelist">gamelist &rarr;</a>
+    </nav>
 
     <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         
@@ -256,7 +293,6 @@
         <!-- Social cards: rendered by JS -->
         <div id="social-youtube" class="glass col-span-12 md:col-span-4 p-6"></div>
         <div id="social-watchlist" class="glass col-span-12 md:col-span-4 p-6"></div>
-        <div id="social-gamelist" class="glass col-span-12 md:col-span-4 p-6"></div>
         <div id="social-tiktok" class="glass col-span-12 md:col-span-4 p-6"></div>
         <div id="social-boosty" class="glass col-span-12 md:col-span-4 p-6"></div>
         <div id="social-x" class="glass col-span-12 md:col-span-4 p-6"></div>
@@ -377,7 +413,6 @@
                 { id: 'discord',   name: 'Discord',   href: 'https://discord.com/users/krafen',          label: 'Personal chat' },
                 { id: 'youtube',   name: 'YouTube',   href: 'https://youtube.com/@krafen.',              label: 'Videos' },
                 { id: 'watchlist', name: 'Watchlist', href: 'https://krafen.ru/watchlist',             label: 'Content' },
-                { id: 'gamelist',  name: 'Gamelist',  href: 'https://krafen.ru/gamelist',              label: 'Games' },
                 { id: 'tiktok',    name: 'TikTok',    href: 'https://www.tiktok.com/@.krafen',           label: 'Short videos' },
                 { id: 'boosty',    name: 'Boosty',    href: 'https://boosty.to/krafen',                  label: 'Support' },
                 { id: 'x',         name: 'X',         href: 'https://x.com/krafen_',                     label: 'News' },

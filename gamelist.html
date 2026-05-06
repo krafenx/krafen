@@ -355,13 +355,11 @@
             <div class="min-w-0">
                 <div class="flex items-center gap-2">
                     <h1 class="text-xl font-bold tracking-tighter text-white">krafen/game</h1>
-                    <span class="text-[10px] opacity-35">@krafen</span>
                 </div>
                 <div id="stats-tabs" class="stats"></div>
             </div>
             <div class="profile-actions flex items-center gap-2">
                 <button id="add-btn" class="pill-btn admin-only" type="button">+ игра</button>
-                <button id="sort-btn" class="pill-btn" type="button">рейтинг</button>
             </div>
         </section>
 
@@ -819,10 +817,8 @@
         });
         document.getElementById('sort-select').addEventListener('change', e => {
             sortMode = e.target.value;
-            document.getElementById('sort-btn').textContent = e.target.options[e.target.selectedIndex].textContent;
             render();
         });
-        document.getElementById('sort-btn').addEventListener('click', () => document.getElementById('sort-select').focus());
         document.getElementById('add-btn').addEventListener('click', openAddModal);
         document.getElementById('lock-btn').addEventListener('click', openAdminModal);
         document.getElementById('login-btn').addEventListener('click', submitAdminLogin);
