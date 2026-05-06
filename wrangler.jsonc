@@ -6,6 +6,7 @@
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
+    "html_handling": "drop-trailing-slash",
     "run_worker_first": [
       "/api/*"
     ]
