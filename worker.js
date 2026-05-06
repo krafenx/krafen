@@ -580,17 +580,7 @@ export default {
         if (url.pathname === '/api/search') return handleSearch(request, env);
         if (url.pathname === '/api/game-search') return handleGameSearch(request, env);
 
-        if (env.ASSETS) {
-            if (url.pathname === '/gamelist') {
-                url.pathname = '/gamelist.html';
-                return withSecurityHeaders(await env.ASSETS.fetch(new Request(url, request)));
-            }
-            if (url.pathname === '/watchlist') {
-                url.pathname = '/watchlist.html';
-                return withSecurityHeaders(await env.ASSETS.fetch(new Request(url, request)));
-            }
-            return withSecurityHeaders(await env.ASSETS.fetch(request));
-        }
+        if (env.ASSETS) return withSecurityHeaders(await env.ASSETS.fetch(request));
         return withSecurityHeaders(new Response('Not found', { status: 404 }));
     },
 };
