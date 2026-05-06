@@ -64,6 +64,91 @@
         #social-discord > .rounded-2xl > .mb-4 {
             margin-bottom: 0;
         }
+        .discord-profile-card {
+            position: relative;
+            overflow: hidden;
+            min-height: 100%;
+        }
+        .discord-banner {
+            position: absolute;
+            inset: 0 0 auto;
+            height: 5rem;
+            background: linear-gradient(135deg, rgba(88, 101, 242, 0.2), rgba(247, 244, 243, 0.08));
+            opacity: 0.75;
+        }
+        .discord-avatar-wrap {
+            position: relative;
+            width: 4.5rem;
+            height: 4.5rem;
+            flex-shrink: 0;
+        }
+        .discord-avatar-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .discord-avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 1.35rem;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .discord-decoration {
+            position: absolute;
+            inset: -0.55rem;
+            pointer-events: none;
+        }
+        .discord-status-dot {
+            position: absolute;
+            right: -0.12rem;
+            bottom: -0.12rem;
+            width: 1rem;
+            height: 1rem;
+            border: 3px solid #141414;
+            border-radius: 999px;
+        }
+        .discord-badge {
+            display: inline-flex;
+            width: 1.75rem;
+            height: 1.75rem;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.7rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.07);
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 0.55rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .discord-badge img {
+            width: 1.05rem;
+            height: 1.05rem;
+            object-fit: contain;
+        }
+        .discord-activity-art {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 1rem;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.06);
+            flex-shrink: 0;
+        }
+        .discord-platform {
+            width: 1.55rem;
+            height: 1.55rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.6rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 0.62rem;
+            font-weight: 700;
+        }
         #twitch-card > .rounded-2xl {
             height: 100%;
             justify-content: center;
@@ -315,7 +400,9 @@
             </div>
         </div>
 
-        <div id="social-discord" class="glass col-span-12 md:col-span-4 p-6 flex flex-col justify-between self-stretch"></div>
+        <div id="social-discord" class="glass col-span-12 md:col-span-4 p-6 flex flex-col justify-between self-stretch">
+            <div class="h-64 bg-white/5 rounded-2xl shimmer"></div>
+        </div>
 
         <!-- Donations -->
         <div class="glass col-span-12 p-6">
@@ -409,6 +496,8 @@
             lastfm_user:          'krafen',
             lastfm_key:           '6474af65e5e721a2751d9d7f9274b594',
             twitch_user:          'krafen',
+            // Set a numeric Discord user ID here, or provide DISCORD_USER_ID in the Cloudflare Worker env.
+            discord_user_id:      '528449431104651286',
             discord_invite_code:  'kGdxDzxtmK',
             telegram_channel:     'krafenx',
             telegram_username:    'krafen',
@@ -416,7 +505,6 @@
             birthday_month:       1,
             birthday_day:         13,
             socials: [
-                { id: 'discord',   name: 'Discord',   href: 'https://discord.com/users/krafen',          label: 'Personal chat' },
                 { id: 'youtube',   name: 'YouTube',   href: 'https://youtube.com/@krafen.',              label: 'Videos' },
                 { id: 'watchlist', name: 'Watchlist', href: 'https://krafen.ru/watchlist',             label: 'Content' },
                 { id: 'tiktok',    name: 'TikTok',    href: 'https://www.tiktok.com/@.krafen',           label: 'Short videos' },
@@ -485,6 +573,170 @@
 
         function statusBox(message) {
             return `<div class="p-4 rounded-2xl bg-white/5 border border-white/5 text-gray-400">${escapeHTML(message)}</div>`;
+        }
+
+        // DISCORD PROFILE / RICH PRESENCE
+
+        const DISCORD_STATUSES = {
+            online:  { label: 'Online',  color: '#22c55e' },
+            idle:    { label: 'Idle',    color: '#f59e0b' },
+            dnd:     { label: 'DND',     color: '#ef4444' },
+            offline: { label: 'Offline', color: 'rgba(255,255,255,0.35)' },
+        };
+
+        const DISCORD_ACTIVITY_TYPES = {
+            0: 'Playing',
+            1: 'Streaming',
+            2: 'Listening',
+            3: 'Watching',
+            4: 'Status',
+            5: 'Competing',
+        };
+
+        function discordHeader(status = 'offline') {
+            const current = DISCORD_STATUSES[status] || DISCORD_STATUSES.offline;
+            return `
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Discord</h2>
+                    <span class="text-[10px]" style="color:${current.color}">${escapeHTML(current.label)}</span>
+                </div>`;
+        }
+
+        function discordFallback(message = 'Discord profile is unavailable') {
+            setCard('social-discord', discordHeader(), socialCardHTML(
+                'Discord',
+                message,
+                CONFIG.discord_user_id ? `https://discord.com/users/${CONFIG.discord_user_id}` : 'https://discord.com/channels/@me',
+                'Open Discord'
+            ));
+        }
+
+        function renderDiscordBadges(badges) {
+            if (!Array.isArray(badges) || badges.length === 0) {
+                return '<div class="text-[10px] uppercase tracking-[0.18em] opacity-35">No public badges</div>';
+            }
+
+            return badges.map(badge => `
+                <span class="discord-badge" title="${escapeHTML(badge.label)}" aria-label="${escapeHTML(badge.label)}">
+                    ${badge.iconUrl
+                        ? `<img src="${escapeHTML(badge.iconUrl)}" alt="">`
+                        : escapeHTML(badge.icon || 'BD')}
+                </span>`).join('');
+        }
+
+        function formatDiscordTime(activity) {
+            const startedAt = Number(activity.startedAt);
+            const endsAt = Number(activity.endsAt);
+            const now = Date.now();
+
+            if (Number.isFinite(startedAt) && startedAt > 0) {
+                const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
+                const hours = Math.floor(elapsed / 3600);
+                const minutes = Math.floor((elapsed % 3600) / 60);
+                return hours ? `${hours}h ${minutes}m elapsed` : `${minutes}m elapsed`;
+            }
+
+            if (Number.isFinite(endsAt) && endsAt > now) {
+                const remaining = Math.max(0, Math.floor((endsAt - now) / 1000));
+                const minutes = Math.ceil(remaining / 60);
+                return `${minutes}m left`;
+            }
+
+            return '';
+        }
+
+        function renderDiscordActivity(activity) {
+            const label = DISCORD_ACTIVITY_TYPES[activity.type] || 'Activity';
+            const title = activity.type === 4 ? (activity.state || activity.name) : activity.name;
+            const details = [activity.details, activity.state].filter(Boolean).join(' | ');
+            const time = formatDiscordTime(activity);
+            const art = activity.largeImage
+                ? `<img src="${escapeHTML(activity.largeImage)}" class="discord-activity-art" alt="">`
+                : '<div class="discord-activity-art flex items-center justify-center text-[9px] uppercase tracking-[0.16em] text-white/35">RPC</div>';
+
+            return `
+                <div class="flex gap-3 rounded-2xl border border-white/5 bg-black/15 p-3 min-w-0">
+                    ${art}
+                    <div class="min-w-0">
+                        <div class="text-[9px] uppercase tracking-[0.18em] opacity-45">${escapeHTML(label)}</div>
+                        <div class="text-sm font-semibold text-white truncate">${escapeHTML(title || 'Discord')}</div>
+                        ${details ? `<div class="text-[11px] leading-relaxed text-gray-400 line-clamp-2">${escapeHTML(details)}</div>` : ''}
+                        ${time ? `<div class="text-[10px] opacity-35 mt-1">${escapeHTML(time)}</div>` : ''}
+                    </div>
+                </div>`;
+        }
+
+        function renderDiscordPlatforms(activeOn) {
+            const platforms = [
+                { key: 'desktop', label: 'Desktop', icon: 'D' },
+                { key: 'web', label: 'Web', icon: 'W' },
+                { key: 'mobile', label: 'Mobile', icon: 'M' },
+            ];
+
+            return platforms.map(platform => `
+                <span class="discord-platform ${activeOn?.[platform.key] ? 'border-blue-500/30 text-blue-300' : ''}"
+                      title="${escapeHTML(platform.label)}">${platform.icon}</span>`).join('');
+        }
+
+        async function fetchDiscordProfile() {
+            const card = document.getElementById('social-discord');
+            if (!card) return;
+
+            try {
+                const params = new URLSearchParams();
+                if (CONFIG.discord_user_id) params.set('id', CONFIG.discord_user_id);
+                if (CONFIG.discord_invite_code) params.set('invite', CONFIG.discord_invite_code);
+                const query = params.toString() ? `?${params}` : '';
+                const res = await fetch(`/api/discord-profile${query}`, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    if (data.error === 'discord_user_id_missing') {
+                        discordFallback('Set Discord user ID');
+                        return;
+                    }
+                    throw new Error(data.error || 'discord_profile_failed');
+                }
+
+                const status = DISCORD_STATUSES[data.status] || DISCORD_STATUSES.offline;
+                const activities = (Array.isArray(data.activities) ? data.activities : [])
+                    .filter(activity => activity.name && activity.name !== 'Spotify')
+                    .slice(0, 2);
+                const customStatus = (data.activities || []).find(activity => activity.type === 4);
+                const activityHTML = activities.length
+                    ? activities.map(renderDiscordActivity).join('')
+                    : statusBox(customStatus?.state || (data.presenceUnavailable ? 'Rich Presence inactive' : 'No active Rich Presence'));
+                const avatar = data.avatarUrl
+                    ? `<img src="${escapeHTML(data.avatarUrl)}" class="discord-avatar" alt="${escapeHTML(data.displayName)}">`
+                    : '<div class="discord-avatar"></div>';
+
+                setCard('social-discord', discordHeader(data.status), `
+                    <div class="discord-profile-card rounded-2xl border border-white/5 bg-white/5 p-4 h-full flex flex-col gap-4">
+                        <div class="discord-banner"></div>
+                        <div class="relative flex items-end gap-3 pt-8 min-w-0">
+                            <div class="discord-avatar-wrap">
+                                ${avatar}
+                                ${data.avatarDecorationUrl ? `<img src="${escapeHTML(data.avatarDecorationUrl)}" class="discord-decoration" alt="">` : ''}
+                                <span class="discord-status-dot" style="background:${status.color}"></span>
+                            </div>
+                            <div class="min-w-0 pb-1">
+                                <div class="text-sm font-semibold text-white truncate">${escapeHTML(data.displayName)}</div>
+                                <div class="text-[10px] opacity-45 truncate">@${escapeHTML(data.username || 'discord')}</div>
+                            </div>
+                        </div>
+                        <div class="relative flex flex-wrap gap-2">${renderDiscordBadges(data.badges)}</div>
+                        <div class="relative flex items-center gap-2">${renderDiscordPlatforms(data.activeOn)}</div>
+                        <div class="relative grid gap-2">${activityHTML}</div>
+                        <a href="${escapeHTML(data.profileUrl)}" target="_blank" rel="noopener noreferrer"
+                           class="relative inline-flex w-full items-center justify-center rounded-full bg-blue-500/10 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-blue-300 transition hover:bg-blue-500/20">
+                            Open profile
+                        </a>
+                    </div>`);
+            } catch (e) {
+                console.warn('[krafen] Discord profile error:', e);
+                discordFallback('Rich Presence unavailable');
+            }
         }
 
         // SOCIAL LINK CARDS (static, no fetch needed)
@@ -784,6 +1036,7 @@
                 fetchMusic(),
                 fetchGitHub(),
                 fetchDiscordServer(),
+                fetchDiscordProfile(),
                 fetchTwitch(),
             ]);
         }
@@ -796,6 +1049,7 @@
         setInterval(fetchMusic,        30_000);
         setInterval(fetchGitHub,       60_000);
         setInterval(fetchDiscordServer, 60_000);
+        setInterval(fetchDiscordProfile, 30_000);
         setInterval(fetchTwitch,        60_000);
         setInterval(updateBirthdayWidget, 1_000);
     </script>
