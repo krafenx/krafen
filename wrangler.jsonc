@@ -23,9 +23,19 @@
       "secret_name": "ADMIN_PASSWORD"
     },
     {
-      "binding": "OMDB_API_KEY",
+      "binding": "TMDB_ACCESS_TOKEN",
       "store_id": "dbaa438c8dd84df6b699fe1de942e717",
-      "secret_name": "OMDB_API_KEY"
+      "secret_name": "TMDB_ACCESS_TOKEN"
+    },
+    {
+      "binding": "TWITCH_CLIENT_ID",
+      "store_id": "dbaa438c8dd84df6b699fe1de942e717",
+      "secret_name": "TWITCH_CLIENT_ID"
+    },
+    {
+      "binding": "TWITCH_CLIENT_SECRET",
+      "store_id": "dbaa438c8dd84df6b699fe1de942e717",
+      "secret_name": "TWITCH_CLIENT_SECRET"
     }
   ]
 }

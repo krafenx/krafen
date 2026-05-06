@@ -1,15 +1,35 @@
 const KV_KEY = 'items';
+const SESSION_COOKIE = 'kf_admin_session';
+const MAX_WATCHLIST_BODY = 100_000;
 const VALID_TYPES = new Set(['anime', 'movie', 'series']);
 const VALID_STATUSES = new Set(['watched', 'planned', 'dropped']);
+const ITEM_ID_PATTERN = /^[A-Za-z0-9:_-]{1,120}$/;
 
-function json(body, status = 200) {
+const SECURITY_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+};
+
+function json(body, status = 200, extraHeaders = {}) {
     return new Response(JSON.stringify(body), {
         status,
         headers: {
+            ...SECURITY_HEADERS,
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': 'no-store',
+            ...extraHeaders,
         },
     });
+}
+
+async function getSecret(env, name) {
+    const value = env[name];
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value.get === 'function') return await value.get();
+    return '';
 }
 
 function requireStorage(env) {
@@ -18,19 +38,110 @@ function requireStorage(env) {
     }
 }
 
-function requireAdmin(request, env) {
-    const password = request.headers.get('X-Admin-Password') || '';
-    if (!env.ADMIN_PASSWORD) {
-        return json({ error: 'admin_password_missing' }, 500);
+function rejectLargeBody(request, maxBytes) {
+    const length = Number(request.headers.get('Content-Length') || 0);
+    if (Number.isFinite(length) && length > maxBytes) {
+        return json({ error: 'payload_too_large' }, 413);
     }
-    if (password !== env.ADMIN_PASSWORD) {
+    return null;
+}
+
+function parseCookies(request) {
+    return Object.fromEntries((request.headers.get('Cookie') || '')
+        .split(';')
+        .map(cookie => cookie.trim().split('='))
+        .filter(([name, value]) => name && value)
+        .map(([name, value]) => [name, value]));
+}
+
+function base64UrlEncode(value) {
+    const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
+    let binary = '';
+    bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+function base64UrlDecode(value) {
+    const padded = value.replaceAll('-', '+').replaceAll('_', '/') + '==='.slice((value.length + 3) % 4);
+    const binary = atob(padded);
+    return Uint8Array.from(binary, char => char.charCodeAt(0));
+}
+
+async function hmac(secret, value) {
+    const key = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign'],
+    );
+    const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value));
+    return base64UrlEncode(new Uint8Array(signature));
+}
+
+function constantTimeEqual(a, b) {
+    if (a.length !== b.length) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return diff === 0;
+}
+
+async function verifySession(request, env) {
+    const token = parseCookies(request)[SESSION_COOKIE];
+    const adminPassword = await getSecret(env, 'ADMIN_PASSWORD');
+    if (!token || !adminPassword) return false;
+
+    const [payload, signature] = token.split('.');
+    if (!payload || !signature) return false;
+
+    if (!constantTimeEqual(signature, await hmac(adminPassword, payload))) return false;
+
+    try {
+        const data = JSON.parse(new TextDecoder().decode(base64UrlDecode(payload)));
+        return Number(data.exp) > Math.floor(Date.now() / 1000);
+    } catch {
+        return false;
+    }
+}
+
+async function requireAdmin(request, env) {
+    if (!await verifySession(request, env)) {
         return json({ error: 'unauthorized' }, 401);
     }
     return null;
 }
 
+async function rateLimit(request, env, name, limit, windowSeconds) {
+    if (!env.WATCHLIST || typeof env.WATCHLIST.get !== 'function' || typeof env.WATCHLIST.put !== 'function') {
+        return null;
+    }
+
+    const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+    const bucket = Math.floor(Date.now() / 1000 / windowSeconds);
+    const key = `rate:${name}:${ip}:${bucket}`;
+    const current = Number(await env.WATCHLIST.get(key) || 0);
+
+    if (current >= limit) {
+        return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(windowSeconds) });
+    }
+
+    await env.WATCHLIST.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
+    return null;
+}
+
 function cleanText(value, max = 180) {
     return String(value || '').trim().slice(0, max);
+}
+
+function cleanUrl(value, max = 600) {
+    const url = cleanText(value, max);
+    if (!url) return null;
+
+    try {
+        return new URL(url).protocol === 'https:' ? url : null;
+    } catch {
+        return null;
+    }
 }
 
 function normalizeItem(item) {
@@ -39,7 +150,7 @@ function normalizeItem(item) {
     const type = cleanText(item.type, 20);
     const status = cleanText(item.status, 20);
 
-    if (!id || !title || !VALID_TYPES.has(type) || !VALID_STATUSES.has(status)) {
+    if (!ITEM_ID_PATTERN.test(id) || !title || !VALID_TYPES.has(type) || !VALID_STATUSES.has(status)) {
         return null;
     }
 
@@ -50,7 +161,7 @@ function normalizeItem(item) {
         year: cleanText(item.year, 24) || '-',
         type,
         status,
-        poster: cleanText(item.poster, 600) || null,
+        poster: cleanUrl(item.poster),
         addedAt: Number.isFinite(Number(item.addedAt)) ? Number(item.addedAt) : Date.now(),
         updatedAt: Number.isFinite(Number(item.updatedAt)) ? Number(item.updatedAt) : Date.now(),
     };
@@ -67,7 +178,13 @@ export async function onRequestGet({ env }) {
 }
 
 export async function onRequestPut({ request, env }) {
-    const authError = requireAdmin(request, env);
+    const tooLarge = rejectLargeBody(request, MAX_WATCHLIST_BODY);
+    if (tooLarge) return tooLarge;
+
+    const limited = await rateLimit(request, env, 'watchlist-write', 30, 60);
+    if (limited) return limited;
+
+    const authError = await requireAdmin(request, env);
     if (authError) return authError;
 
     try {

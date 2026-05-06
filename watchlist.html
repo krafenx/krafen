@@ -522,7 +522,7 @@
             </div>
             <div class="modal-body">
                 <div class="info-box">
-                    Фильмы и сериалы ищутся через серверный OMDb-прокси, аниме через Shikimori.
+                    Фильмы и сериалы ищутся через серверный TMDB-прокси, аниме через Shikimori.
                 </div>
                 <div class="flex gap-2 mb-4 flex-wrap">
                     <button class="filter-btn active" data-modal-type="movie">фильм</button>
@@ -742,8 +742,8 @@
                 const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
                 const result = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    if (result.error === 'omdb_key_missing') {
-                        el.innerHTML = '<div class="warn-box">OMDb ключ не настроен в Cloudflare Pages: добавь переменную OMDB_API_KEY.</div>';
+                    if (result.error === 'tmdb_key_missing') {
+                        el.innerHTML = '<div class="warn-box">TMDB ключ не настроен в Cloudflare Pages: добавь секрет TMDB_ACCESS_TOKEN или переменную TMDB_API_KEY.</div>';
                         return;
                     }
                     throw new Error(result.error || 'search_failed');

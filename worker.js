@@ -1,12 +1,19 @@
 const KV_KEY = 'items';
+const GAME_KV_KEY = 'games';
+const IGDB_TOKEN_KEY = 'igdb:token';
 const SHIKIMORI_BASE = 'https://shikimori.one';
-const OMDB_BASE = 'https://www.omdbapi.com/';
+const TMDB_BASE = 'https://api.themoviedb.org';
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
+const IGDB_BASE = 'https://api.igdb.com/v4';
+const TWITCH_TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 const SESSION_COOKIE = 'kf_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MAX_LOGIN_BODY = 2_048;
 const MAX_WATCHLIST_BODY = 100_000;
+const MAX_GAMELIST_BODY = 1_500_000;
 const VALID_TYPES = new Set(['anime', 'movie', 'series']);
 const VALID_STATUSES = new Set(['watched', 'planned', 'dropped']);
+const VALID_GAME_STATUSES = new Set(['completed', 'playing', 'dropped', 'wishlist', 'paused']);
 const ITEM_ID_PATTERN = /^[A-Za-z0-9:_-]{1,120}$/;
 
 const SECURITY_HEADERS = {
@@ -24,7 +31,7 @@ const SECURITY_HEADERS = {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         'font-src https://fonts.gstatic.com',
         "img-src 'self' data: https:",
-        "connect-src 'self' https://api.github.com https://ws.audioscrobbler.com https://discord.com https://shikimori.one https://www.omdbapi.com",
+        "connect-src 'self' https://api.github.com https://ws.audioscrobbler.com https://discord.com https://shikimori.one https://api.themoviedb.org",
     ].join('; '),
 };
 
@@ -68,6 +75,26 @@ function cleanUrl(value, max = 600) {
 function yearFrom(value) {
     const match = String(value || '').match(/\d{4}/);
     return match ? match[0] : '-';
+}
+
+function tmdbPoster(value) {
+    const path = text(value, 120);
+    return path && path.startsWith('/') ? `${TMDB_IMAGE_BASE}${path}` : null;
+}
+
+function igdbCover(imageId) {
+    const id = text(imageId, 80);
+    return id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${id}.jpg` : null;
+}
+
+function yearFromUnix(value) {
+    const ts = Number(value);
+    if (!Number.isFinite(ts) || ts <= 0) return '-';
+    return String(new Date(ts * 1000).getUTCFullYear());
+}
+
+function escapeIgdbString(value) {
+    return text(value, 80).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 function rejectLargeBody(request, maxBytes) {
@@ -216,6 +243,39 @@ function normalizeItem(item) {
     };
 }
 
+function cleanStringArray(value, maxItems, maxText) {
+    return Array.isArray(value)
+        ? value.map(item => text(item, maxText)).filter(Boolean).slice(0, maxItems)
+        : [];
+}
+
+function normalizeGameItem(item) {
+    const id = text(item.id, 120);
+    const title = text(item.title, 180);
+    const status = text(item.status, 20);
+    const rating = Math.max(0, Math.min(10, Number(item.rating) || 0));
+
+    if (!ITEM_ID_PATTERN.test(id) || !title || !VALID_GAME_STATUSES.has(status)) {
+        return null;
+    }
+
+    return {
+        id,
+        igdbId: Number.isFinite(Number(item.igdbId)) ? Number(item.igdbId) : null,
+        title,
+        year: text(item.year, 24) || '-',
+        status,
+        rating: Math.round(rating * 10) / 10,
+        review: text(item.review, 5000),
+        cover: cleanUrl(item.cover),
+        genres: cleanStringArray(item.genres, 5, 32),
+        platforms: cleanStringArray(item.platforms, 8, 32),
+        category: Number.isFinite(Number(item.category)) ? Number(item.category) : 0,
+        addedAt: Number.isFinite(Number(item.addedAt)) ? Number(item.addedAt) : Date.now(),
+        updatedAt: Number.isFinite(Number(item.updatedAt)) ? Number(item.updatedAt) : Date.now(),
+    };
+}
+
 async function handleAdmin(request, env) {
     if (request.method === 'GET') {
         return json({ ok: await verifySession(request, env) });
@@ -280,28 +340,79 @@ async function handleWatchlist(request, env) {
     return json({ error: 'method_not_allowed' }, 405);
 }
 
-async function searchOmdb(query, type, env) {
-    const omdbApiKey = await getSecret(env, 'OMDB_API_KEY');
-    if (!omdbApiKey) return json({ error: 'omdb_key_missing' }, 500);
+async function handleGamelist(request, env) {
+    if (request.method === 'GET') {
+        try {
+            requireStorage(env);
+            const items = await env.WATCHLIST.get(GAME_KV_KEY, { type: 'json' });
+            return json({ items: Array.isArray(items) ? items : [] });
+        } catch (error) {
+            return json({ error: error.message || 'storage_error', items: [] }, 500);
+        }
+    }
 
-    const url = new URL(OMDB_BASE);
-    url.searchParams.set('apikey', omdbApiKey);
-    url.searchParams.set('s', query);
-    url.searchParams.set('type', type);
+    if (request.method === 'PUT') {
+        const tooLarge = rejectLargeBody(request, MAX_GAMELIST_BODY);
+        if (tooLarge) return tooLarge;
 
-    const res = await fetch(url);
+        const limited = await rateLimit(request, env, 'gamelist-write', 30, 60);
+        if (limited) return limited;
+
+        const authError = await requireAdmin(request, env);
+        if (authError) return authError;
+
+        try {
+            requireStorage(env);
+            const body = await request.json().catch(() => ({}));
+            const rawItems = Array.isArray(body.items) ? body.items : [];
+            const items = rawItems.map(normalizeGameItem).filter(Boolean).slice(0, 500);
+            await env.WATCHLIST.put(GAME_KV_KEY, JSON.stringify(items));
+            return json({ ok: true, items });
+        } catch (error) {
+            return json({ error: error.message || 'save_failed' }, 500);
+        }
+    }
+
+    return json({ error: 'method_not_allowed' }, 405);
+}
+
+async function searchTmdb(query, type, env) {
+    const tmdbAccessToken = await getSecret(env, 'TMDB_ACCESS_TOKEN');
+    const tmdbApiKey = await getSecret(env, 'TMDB_API_KEY');
+    if (!tmdbAccessToken && !tmdbApiKey) return json({ error: 'tmdb_key_missing' }, 500);
+
+    const isSeries = type === 'series';
+    const url = new URL(isSeries ? '/3/search/tv' : '/3/search/movie', TMDB_BASE);
+    url.searchParams.set('query', query);
+    url.searchParams.set('language', 'ru-RU');
+    url.searchParams.set('include_adult', 'false');
+    url.searchParams.set('page', '1');
+    if (!tmdbAccessToken) {
+        url.searchParams.set('api_key', tmdbApiKey);
+    }
+
+    const headers = { 'Accept': 'application/json' };
+    if (tmdbAccessToken) {
+        headers.Authorization = `Bearer ${tmdbAccessToken.replace(/^Bearer\s+/i, '')}`;
+    }
+
+    const res = await fetch(url, { headers });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return json({ error: 'omdb_unavailable' }, 502);
-    if (data.Response === 'False') return json({ results: [] });
+    if (!res.ok) return json({ error: 'tmdb_unavailable' }, 502);
 
-    const results = (data.Search || []).slice(0, 10).map(item => ({
-        id: text(item.imdbID, 80),
-        title: text(item.Title),
-        titleRu: null,
-        year: yearFrom(item.Year),
-        type: item.Type === 'series' ? 'series' : 'movie',
-        poster: cleanUrl(item.Poster),
-    })).filter(item => item.id && item.title);
+    const results = (Array.isArray(data.results) ? data.results : []).slice(0, 10).map(item => {
+        const localizedTitle = text(isSeries ? item.name : item.title);
+        const originalTitle = text(isSeries ? item.original_name : item.original_title) || localizedTitle;
+
+        return {
+            id: `tmdb_${isSeries ? 'tv' : 'movie'}_${text(item.id, 40)}`,
+            title: originalTitle,
+            titleRu: localizedTitle && localizedTitle !== originalTitle ? localizedTitle : null,
+            year: yearFrom(isSeries ? item.first_air_date : item.release_date),
+            type,
+            poster: cleanUrl(tmdbPoster(item.poster_path)),
+        };
+    }).filter(item => item.id && item.title);
 
     return json({ results });
 }
@@ -335,6 +446,109 @@ async function searchShikimori(query) {
     return json({ results });
 }
 
+async function getIgdbToken(env, clientId) {
+    const staticToken = await getSecret(env, 'IGDB_ACCESS_TOKEN');
+    if (staticToken) return staticToken.replace(/^Bearer\s+/i, '');
+
+    if (env.WATCHLIST && typeof env.WATCHLIST.get === 'function') {
+        const cached = await env.WATCHLIST.get(IGDB_TOKEN_KEY, { type: 'json' }).catch(() => null);
+        if (cached?.accessToken && Number(cached.expiresAt) > Date.now() + 60_000) {
+            return cached.accessToken;
+        }
+    }
+
+    const clientSecret = await getSecret(env, 'TWITCH_CLIENT_SECRET') || await getSecret(env, 'IGDB_CLIENT_SECRET');
+    if (!clientId || !clientSecret) return '';
+
+    const url = new URL(TWITCH_TOKEN_URL);
+    url.searchParams.set('client_id', clientId);
+    url.searchParams.set('client_secret', clientSecret);
+    url.searchParams.set('grant_type', 'client_credentials');
+
+    const res = await fetch(url, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.access_token) return '';
+
+    const accessToken = text(data.access_token, 3000);
+    const expiresIn = Number(data.expires_in) || 3600;
+    if (env.WATCHLIST && typeof env.WATCHLIST.put === 'function') {
+        await env.WATCHLIST.put(IGDB_TOKEN_KEY, JSON.stringify({
+            accessToken,
+            expiresAt: Date.now() + Math.max(60, expiresIn - 300) * 1000,
+        }), { expirationTtl: Math.max(60, expiresIn - 300) });
+    }
+
+    return accessToken;
+}
+
+function normalizeIgdbSearchItem(item) {
+    const platforms = (item.platforms || [])
+        .map(platform => text(platform.abbreviation || platform.name, 24))
+        .filter(Boolean)
+        .slice(0, 4);
+    const genres = (item.genres || [])
+        .map(genre => text(genre.name, 28))
+        .filter(Boolean)
+        .slice(0, 3);
+
+    return {
+        id: `igdb_${text(item.id, 40)}`,
+        igdbId: Number(item.id) || null,
+        title: text(item.name, 180),
+        year: yearFromUnix(item.first_release_date),
+        type: 'game',
+        cover: igdbCover(item.cover?.image_id),
+        genres,
+        platforms,
+        category: Number.isFinite(Number(item.category)) ? Number(item.category) : 0,
+    };
+}
+
+async function searchIgdb(query, env) {
+    const clientId = await getSecret(env, 'TWITCH_CLIENT_ID') || await getSecret(env, 'IGDB_CLIENT_ID');
+    const accessToken = await getIgdbToken(env, clientId);
+    if (!clientId || !accessToken) return json({ error: 'igdb_key_missing' }, 500);
+
+    const body = [
+        'fields name,cover.image_id,genres.name,platforms.abbreviation,platforms.name,first_release_date,category;',
+        `search "${escapeIgdbString(query)}";`,
+        'where version_parent = null;',
+        'limit 10;',
+    ].join(' ');
+
+    const res = await fetch(`${IGDB_BASE}/games`, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Client-ID': clientId,
+            'Authorization': `Bearer ${accessToken}`,
+        },
+        body,
+    });
+    const data = await res.json().catch(() => []);
+    if (!res.ok || !Array.isArray(data)) return json({ error: 'igdb_unavailable' }, 502);
+
+    const results = data.map(normalizeIgdbSearchItem).filter(item => item.id && item.title);
+    return json({ results });
+}
+
+async function handleGameSearch(request, env) {
+    const url = new URL(request.url);
+    const query = text(url.searchParams.get('q'), 80);
+
+    if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+    if (query.length < 2) return json({ results: [] });
+
+    const limited = await rateLimit(request, env, 'game-search', 45, 60);
+    if (limited) return limited;
+
+    try {
+        return await searchIgdb(query, env);
+    } catch (error) {
+        return json({ error: error.message || 'game_search_failed' }, 500);
+    }
+}
+
 async function handleSearch(request, env) {
     const url = new URL(request.url);
     const query = text(url.searchParams.get('q'), 80);
@@ -348,7 +562,7 @@ async function handleSearch(request, env) {
 
     try {
         if (type === 'anime') return await searchShikimori(query);
-        if (type === 'movie' || type === 'series') return await searchOmdb(query, type, env);
+        if (type === 'movie' || type === 'series') return await searchTmdb(query, type, env);
         return json({ error: 'invalid_type' }, 400);
     } catch (error) {
         return json({ error: error.message || 'search_failed' }, 500);
@@ -362,9 +576,21 @@ export default {
         if (request.method === 'OPTIONS') return json({ ok: true });
         if (url.pathname === '/api/admin') return handleAdmin(request, env);
         if (url.pathname === '/api/watchlist') return handleWatchlist(request, env);
+        if (url.pathname === '/api/gamelist') return handleGamelist(request, env);
         if (url.pathname === '/api/search') return handleSearch(request, env);
+        if (url.pathname === '/api/game-search') return handleGameSearch(request, env);
 
-        if (env.ASSETS) return withSecurityHeaders(await env.ASSETS.fetch(request));
+        if (env.ASSETS) {
+            if (url.pathname === '/gamelist') {
+                url.pathname = '/gamelist.html';
+                return withSecurityHeaders(await env.ASSETS.fetch(new Request(url, request)));
+            }
+            if (url.pathname === '/watchlist') {
+                url.pathname = '/watchlist.html';
+                return withSecurityHeaders(await env.ASSETS.fetch(new Request(url, request)));
+            }
+            return withSecurityHeaders(await env.ASSETS.fetch(request));
+        }
         return withSecurityHeaders(new Response('Not found', { status: 404 }));
     },
 };
