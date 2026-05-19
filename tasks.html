@@ -174,15 +174,14 @@
         <div id="categories-container" class="space-y-10 pt-4"></div>
 
         <footer class="mt-20 mb-10 text-center">
-    <p class="text-[10px] uppercase tracking-[0.2em] text-white/20">
-        сделано с 🤍 by krafen
-    </p>
-</footer>
+            <p class="text-[10px] uppercase tracking-[0.2em] text-white/20">
+                сделано с 🤍 by krafen
+            </p>
+        </footer>
 
     </main>
 
     <script>
-        // База квестов, отсортированная по категориям
         const TASKS_DATA = [
             // ЛЕГКИЕ (Быстро или в один клик)
             { id: 1, name: "Купить лотерейный билет", baseBp: 1, category: "easy" },
@@ -254,7 +253,6 @@
             { id: 43, name: "Потушить 25 «огоньков» пожарным", baseBp: 1, category: "skip" }
         ];
 
-        // Маппинг понятных названий категорий для заголовков блоков
         const CATEGORIES_NAMES = {
             easy: "Легкие задания",
             medium: "Средние задания",
@@ -270,6 +268,9 @@
             onlineHours: 0,
             completedTasks: new Set()
         };
+
+        // Ключ для хранения в localStorage
+        const STORAGE_KEY = 'krafen_bp_calculator_state';
 
         // DOM элементы
         const categoriesContainer = document.getElementById('categories-container');
@@ -288,6 +289,37 @@
         const statPercentEl = document.getElementById('stat-percent');
         const progressFill = document.getElementById('progress-fill');
         const statTasksCountEl = document.getElementById('stat-tasks-count');
+
+        // Сохранение в localStorage
+        function saveState() {
+            const dataToSave = {
+                isVip: state.isVip,
+                isX2: state.isX2,
+                onlineHours: state.onlineHours,
+                completedTasks: Array.from(state.completedTasks) // Превращаем Set в обычный массив для JSON
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        }
+
+        // Загрузка из localStorage
+        function loadState() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (!saved) return;
+            try {
+                const parsed = JSON.parse(saved);
+                state.isVip = parsed.isVip || false;
+                state.isX2 = parsed.isX2 || false;
+                state.onlineHours = parsed.onlineHours || 0;
+                state.completedTasks = new Set(parsed.completedTasks || []);
+                
+                // Синхронизируем визуальное состояние системных кнопок и онлайна
+                btnVip.classList.toggle('active', state.isVip);
+                btnX2.classList.toggle('active', state.isX2);
+                onlineHoursEl.textContent = `${state.onlineHours}ч`;
+            } catch (e) {
+                console.error("Ошибка загрузки данных из localStorage", e);
+            }
+        }
 
         function getMultiplier() {
             let mult = 1;
@@ -352,17 +384,14 @@
                 const filteredTasks = TASKS_DATA.filter(t => t.category === categoryKey);
                 if (filteredTasks.length === 0) return;
 
-                // Создаем контейнер блока секции
                 const section = document.createElement('div');
                 section.className = "space-y-3";
 
-                // Заголовок для группы заданий
                 const title = document.createElement('h3');
                 title.className = "text-xs font-bold uppercase opacity-40 tracking-[0.15em] mb-2 pl-1";
                 title.textContent = CATEGORIES_NAMES[categoryKey];
                 section.appendChild(title);
 
-                // Грид-контейнер для карточек
                 const grid = document.createElement('div');
                 grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4";
 
@@ -396,6 +425,7 @@
                             checkbox.checked = true;
                         }
                         updateStatistics();
+                        saveState(); // Сохраняем при изменении таски
                     };
 
                     card.addEventListener('click', (e) => {
@@ -419,6 +449,7 @@
                 state.onlineHours -= 3;
                 onlineHoursEl.textContent = `${state.onlineHours}ч`;
                 updateStatistics();
+                saveState(); // Сохраняем часы
             }
         });
 
@@ -427,6 +458,7 @@
                 state.onlineHours += 3;
                 onlineHoursEl.textContent = `${state.onlineHours}ч`;
                 updateStatistics();
+                saveState(); // Сохраняем часы
             }
         });
 
@@ -435,12 +467,14 @@
             state.isVip = !state.isVip;
             btnVip.classList.toggle('active', state.isVip);
             updateStatistics();
+            saveState(); // Сохраняем VIP статус
         });
 
         btnX2.addEventListener('click', () => {
             state.isX2 = !state.isX2;
             btnX2.classList.toggle('active', state.isX2);
             updateStatistics();
+            saveState(); // Сохраняем X2 статус
         });
 
         btnReset.addEventListener('click', () => {
@@ -459,11 +493,13 @@
             });
             
             updateStatistics();
+            localStorage.removeItem(STORAGE_KEY); // Полностью очищаем хранилище при сбросе
         });
 
-        // Первичный запуск интерфейса
-        renderTasks();
-        updateStatistics();
+        // Порядок запуска изменен для поддержки локального кэша:
+        loadState();        // 1. Сначала подтягиваем старые данные
+        renderTasks();      // 2. Строим карточки (уже с учетом отмеченных чекбоксов)
+        updateStatistics(); // 3. Считаем циферки
     </script>
 </body>
 </html>
