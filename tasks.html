@@ -49,7 +49,6 @@
             background: rgba(91, 35, 51, 0.15);
             box-shadow: 0 0 20px rgba(91, 35, 51, 0.15);
         }
-        /* Кастомный чекбокс в стиле сайта */
         .custom-checkbox {
             appearance: none;
             width: 1.25rem;
@@ -75,7 +74,6 @@
             left: 50%;
             transform: translate(-50%, -50%);
         }
-        /* Кнопки переключателей верхнего бара */
         .toggle-btn {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -168,93 +166,113 @@
 
             <div class="glass col-span-12 p-4 px-6 flex items-center justify-between">
                 <div class="text-[10px] uppercase tracking-widest opacity-40">Выполнено заданий</div>
-                <div class="text-xl font-bold text-white"><span id="stat-tasks-count">0</span> <span class="text-xs opacity-30 font-normal">из 60</span></div>
+                <div class="text-xl font-bold text-white"><span id="stat-tasks-count">0</span> <span class="text-xs opacity-30 font-normal">из 59</span></div>
             </div>
 
         </div>
 
-        <div class="text-left pt-4">
-            <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em] mb-4">Доступные задания</h2>
-            <div id="tasks-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                </div>
-        </div>
+        <div id="categories-container" class="space-y-10 pt-4"></div>
+
+        <footer class="mt-20 mb-10 text-center">
+    <p class="text-[10px] uppercase tracking-[0.2em] text-white/20">
+        сделано с 🤍 by krafen
+    </p>
+</footer>
 
     </main>
 
     <script>
-        // Исходная база квестов со стандартными значениями BP (без множителей)
+        // База квестов, отсортированная по категориям
         const TASKS_DATA = [
-            { id: 1, name: "Купить лотерейный билет", baseBp: 1 },
-            { id: 2, name: "Посетить любой сайт в браузере", baseBp: 1 },
-            { id: 3, name: "Поставить лайк любой анкете в Match", baseBp: 1 },
-            { id: 4, name: "Зайти в любой канал в Brawl", baseBp: 1 },
-            { id: 5, name: "Добавить 5 видео в кинотеатре", baseBp: 1 },
-            { id: 6, name: "Арендовать киностудию", baseBp: 2 },
-            { id: 7, name: "Забить 2 гола в футболе", baseBp: 1 },
-            { id: 8, name: "Починить деталь в автосервисе", baseBp: 1 },
-            { id: 9, name: "Успешная тренировка в тире", baseBp: 1 },
-            { id: 10, name: "Поиграть 1 минуту в настольный теннис", baseBp: 1 },
-            { id: 11, name: "10 действий на ферме", baseBp: 1 },
-            { id: 12, name: "Нули в казино", baseBp: 2 },
-            { id: 13, name: "Ставка межсерверное колесо", baseBp: 3 },
-            { id: 14, name: "Забросить 2 мяча в баскетболе", baseBp: 1 },
-            { id: 15, name: "Поиграть 1 минуту в большой теннис", baseBp: 1 },
-            { id: 16, name: "Победить в дартс", baseBp: 1 },
-            { id: 17, name: "Забить 10 голов в волейболе", baseBp: 1 },
-            { id: 18, name: "Сделать платёж по лизингу", baseBp: 1 },
-            { id: 19, name: "25 действий на стройке", baseBp: 2 },
-            { id: 20, name: "25 действий в порту", baseBp: 2 },
-            { id: 21, name: "25 действий в шахте", baseBp: 2 },
-            { id: 22, name: "26 круга на любом маршруте автобусника", baseBp: 2 }, // В тексте опечатка "2 круга", сохранено по смыслу
-            { id: 23, name: "Выполнить 2 квеста любых клубов", baseBp: 4 },
-            { id: 24, name: "Проехать 1 станцию на метро", baseBp: 2 },
-            { id: 25, name: "Поймать 20 рыб", baseBp: 4 },
-            { id: 26, name: "Кинуть мяч питомцу 15 раз", baseBp: 2 },
-            { id: 27, name: "15 выполненных питомцем команд", baseBp: 2 },
-            { id: 28, name: "20 подходов в тренажерном зале", baseBp: 1 },
-            { id: 29, name: "Выкопать 1 сокровище", baseBp: 1 },
-            { id: 30, name: "5 раз снять 100% шкуру с животных", baseBp: 2 },
-            { id: 31, name: "Выполнить 3 заказа дальнобойщиком", baseBp: 2 },
-            { id: 32, name: "Сыграть в мафию в казино", baseBp: 3 },
-            { id: 33, name: "Выиграть гонку в картинге", baseBp: 1 },
-            { id: 34, name: "Проехать 1 уличную гонку (через тлф. ставка от 1000$)", baseBp: 1 },
-            { id: 35, name: "Выиграть 5 игр в тренировочном комплексе со ставкой (от 100$)", baseBp: 1 },
-            { id: 36, name: "Выиграть 3 любых игры на арене со ставкой (от 100$)", baseBp: 1 },
-            { id: 37, name: "3 победы в Дэнс Баттлах", baseBp: 2 },
-            { id: 38, name: "Победить в армрестлинге", baseBp: 1 },
-            { id: 39, name: "Починка авто другому игроку", baseBp: 2 },
-            { id: 40, name: "10 посылок на почте", baseBp: 1 },
-            { id: 41, name: "Прокрутить за DP серебряный или золотой кейс", baseBp: 10 },
-            { id: 42, name: "Заказ материалов для бизнеса вручную (просто прожать вкл/выкл)", baseBp: 1 },
-            { id: 43, name: "Потушить 25 «огоньков» пожарным", baseBp: 1 },
-            { id: 44, name: "Два раза оплатить смену внешности у хирурга в EMS", baseBp: 2 },
-            { id: 45, name: "Принять участие в двух аирдропах", baseBp: 4 },
-            { id: 46, name: "7 закрашенных граффити", baseBp: 1 },
-            { id: 47, name: "Сдать 5 контрабанды", baseBp: 2 },
-            { id: 48, name: "Участие в каптах/бизварах", baseBp: 1 },
-            { id: 49, name: "Сдать Хаммер с ВЗХ", baseBp: 3 },
-            { id: 50, name: "5 выданных медкарт в EMS", baseBp: 2 },
-            { id: 51, name: "Закрыть 15 вызовов в EMS", baseBp: 2 },
-            { id: 52, name: "Отредактировать 40 объявлений в WN", baseBp: 2 },
-            { id: 53, name: "Взломать 15 замков на ограбах домов или автоугонах", baseBp: 2 },
-            { id: 54, name: "Закрыть 5 кодов в силовых структурах", baseBp: 2 },
-            { id: 55, name: "Поставить на учет 2 автомобиля (для LSPD)", baseBp: 1 },
-            { id: 56, name: "Произвести 1 арест в КПЗ", baseBp: 1 },
-            { id: 57, name: "Выкупить двух человек из КПЗ", baseBp: 2 },
-            { id: 58, name: "Посадить траву в теплице", baseBp: 4 },
-            { id: 59, name: "Запустить переработку обезболивающих в лаборатории", baseBp: 4 }
+            // ЛЕГКИЕ (Быстро или в один клик)
+            { id: 1, name: "Купить лотерейный билет", baseBp: 1, category: "easy" },
+            { id: 2, name: "Посетить любой сайт в браузере", baseBp: 1, category: "easy" },
+            { id: 3, name: "Поставить лайк любой анкете в Match", baseBp: 1, category: "easy" },
+            { id: 4, name: "Зайти в любой канал в Brawl", baseBp: 1, category: "easy" },
+            { id: 5, name: "Добавить 5 видео в кинотеатре", baseBp: 1, category: "easy" },
+            { id: 6, name: "Арендовать киностудию", baseBp: 2, category: "easy" },
+            { id: 8, name: "Починить деталь в автосервисе", baseBp: 1, category: "easy" },
+            { id: 9, name: "Успешная тренировка в тире", baseBp: 1, category: "easy" },
+            { id: 10, name: "Поиграть 1 минуту в настольный теннис", baseBp: 1, category: "easy" },
+            { id: 13, name: "Ставка межсерверное колесо", baseBp: 3, category: "easy" },
+            { id: 15, name: "Поиграть 1 минуту в большой теннис", baseBp: 1, category: "easy" },
+            { id: 18, name: "Сделать платёж по лизингу", baseBp: 1, category: "easy" },
+            { id: 24, name: "Проехать 1 станцию на метро", baseBp: 2, category: "easy" },
+            { id: 28, name: "20 подходов в тренажерном зале", baseBp: 1, category: "easy" },
+            { id: 29, name: "Выкопать 1 сокровище", baseBp: 1, category: "easy" },
+            { id: 41, name: "Прокрутить за DP серебряный или золотой кейс", baseBp: 10, category: "easy" },
+            { id: 42, name: "Заказ материалов для бизнеса вручную (просто прожать вкл/выкл)", baseBp: 1, category: "easy" },
+
+            // СРЕДНИЕ (Требуют немного времени или гринда)
+            { id: 7, name: "Забить 2 гола в футболе", baseBp: 1, category: "medium" },
+            { id: 11, name: "10 действий на ферме", baseBp: 1, category: "medium" },
+            { id: 14, name: "Забросить 2 мяча в баскетболе", baseBp: 1, category: "medium" },
+            { id: 19, name: "25 действий на стройке", baseBp: 2, category: "medium" },
+            { id: 20, name: "25 действий в порту", baseBp: 2, category: "medium" },
+            { id: 21, name: "25 действий в шахте", baseBp: 2, category: "medium" },
+            { id: 22, name: "2 круга на любом маршруте автобусника", baseBp: 2, category: "medium" },
+            { id: 26, name: "Кинуть мяч питомцу 15 раз", baseBp: 2, category: "medium" },
+            { id: 27, name: "15 выполненных питомцем команд", baseBp: 2, category: "medium" },
+            { id: 30, name: "5 раз снять 100% шкуру с животных", baseBp: 2, category: "medium" },
+            { id: 31, name: "Выполнить 3 заказа дальнобойщиком", baseBp: 2, category: "medium" },
+            { id: 34, name: "Проехать 1 уличную гонку (через тлф. ставка от 1000$)", baseBp: 1, category: "medium" },
+            { id: 40, name: "10 посылок на почте", baseBp: 1, category: "medium" },
+            { id: 44, name: "Два раза оплатить смену внешности у хирурга в EMS", baseBp: 2, category: "medium" },
+
+            // СОВМЕСТНЫЕ (С другими игроками или в мини-играх)
+            { id: 16, name: "Победить в дартс", baseBp: 1, category: "coop" },
+            { id: 17, name: "Забить 10 голов в волейболе", baseBp: 1, category: "coop" },
+            { id: 23, name: "Выполнить 2 квеста любых клубов", baseBp: 4, category: "coop" },
+            { id: 32, name: "Сыграть в мафию в казино", baseBp: 3, category: "coop" },
+            { id: 33, name: "Выиграть гонку в картинге", baseBp: 1, category: "coop" },
+            { id: 35, name: "Выиграть 5 игр в тренировочном комплексе со ставкой (от 100$)", baseBp: 1, category: "coop" },
+            { id: 36, name: "Выиграть 3 любых игры на arena со ставкой (от 100$)", baseBp: 1, category: "coop" },
+            { id: 37, name: "3 победы в Дэнс Баттлах", baseBp: 2, category: "coop" },
+            { id: 38, name: "Победить в армрестлинге", baseBp: 1, category: "coop" },
+            { id: 39, name: "Починка авто другому игроку", baseBp: 2, category: "coop" },
+
+            // ФРАКЦИОННЫЕ (Гос, Мафии, Гетто, EMS, WN)
+            { id: 45, name: "Принять участие в двух аирдропах", baseBp: 4, category: "fraction" },
+            { id: 46, name: "7 закрашенных граффити", baseBp: 1, category: "fraction" },
+            { id: 47, name: "Сдать 5 контрабанды", baseBp: 2, category: "fraction" },
+            { id: 48, name: "Участие в каптах/бизварах", baseBp: 1, category: "fraction" },
+            { id: 49, name: "Сдать Хаммер с ВЗХ", baseBp: 3, category: "fraction" },
+            { id: 50, name: "5 выданных медкарт в EMS", baseBp: 2, category: "fraction" },
+            { id: 51, name: "Закрыть 15 вызовов в EMS", baseBp: 2, category: "fraction" },
+            { id: 52, name: "Отредактировать 40 объявлений в WN", baseBp: 2, category: "fraction" },
+            { id: 53, name: "Взломать 15 замков на ограбах домов или автоугонах", baseBp: 2, category: "fraction" },
+            { id: 54, name: "Закрыть 5 кодов в силовых структурах", baseBp: 2, category: "fraction" },
+            { id: 55, name: "Поставить на учет 2 автомобиля (для LSPD)", baseBp: 1, category: "fraction" },
+            { id: 56, name: "Произвести 1 арест в КПЗ", baseBp: 1, category: "fraction" },
+            { id: 57, name: "Выкупить двух человек из КПЗ", baseBp: 2, category: "fraction" },
+            { id: 58, name: "Посадить траву в теплице", baseBp: 4, category: "fraction" },
+            { id: 59, name: "Запустить переработку обезболивающих в лаборатории", baseBp: 4, category: "fraction" },
+
+            // НЕ ХОЧЕТСЯ ДЕЛАТЬ (Душные, долгие или рандомные задания)
+            { id: 12, name: "Нули в казино", baseBp: 2, category: "skip" },
+            { id: 25, name: "Поймать 20 рыб", baseBp: 4, category: "skip" },
+            { id: 43, name: "Потушить 25 «огоньков» пожарным", baseBp: 1, category: "skip" }
         ];
+
+        // Маппинг понятных названий категорий для заголовков блоков
+        const CATEGORIES_NAMES = {
+            easy: "Легкие задания",
+            medium: "Средние задания",
+            coop: "Совместные задания / Мини-игры",
+            fraction: "Фракционные задания",
+            skip: "Не хочется делать (Душные / Долгие)"
+        };
 
         // Глобальное состояние приложения
         let state = {
             isVip: false,
             isX2: false,
             onlineHours: 0,
-            completedTasks: new Set() // Хранит id выполненных задач
+            completedTasks: new Set()
         };
 
         // DOM элементы
-        const tasksContainer = document.getElementById('tasks-container');
+        const categoriesContainer = document.getElementById('categories-container');
         const btnVip = document.getElementById('btn-vip');
         const btnX2 = document.getElementById('btn-x2');
         const btnReset = document.getElementById('btn-reset');
@@ -271,7 +289,6 @@
         const progressFill = document.getElementById('progress-fill');
         const statTasksCountEl = document.getElementById('stat-tasks-count');
 
-        // Вычисление текущего множителя
         function getMultiplier() {
             let mult = 1;
             if (state.isVip) mult *= 2;
@@ -279,28 +296,22 @@
             return mult;
         }
 
-        // Вычисление BP за конкретный таск на основе текущих модификаторов
         function calculateTaskBp(baseBp) {
             return baseBp * getMultiplier();
         }
 
-        // Вычисление BP за онлайн
         function calculateOnlineBp() {
-            // Каждые 3 часа: база = 2 BP. 
-            // Множители работают стандартно (VIP -> 4 BP, VIP+X2 -> 8 BP)
             const steps = Math.floor(state.onlineHours / 3);
             const baseOnlineStepBp = 2;
             return steps * baseOnlineStepBp * getMultiplier();
         }
 
-        // Максимально возможное количество BP при текущих тумблерах
         function calculateMaxPossibleBp() {
             let totalTasksBase = TASKS_DATA.reduce((sum, t) => sum + t.baseBp, 0);
-            let maxOnlineBase = 16; // Для 24 часов база равна 16 BP
+            let maxOnlineBase = 16;
             return (totalTasksBase + maxOnlineBase) * getMultiplier();
         }
 
-        // Обновление интерфейса статистики
         function updateStatistics() {
             let earnedFromTasks = 0;
             TASKS_DATA.forEach(task => {
@@ -316,19 +327,15 @@
             
             const percent = maxPossible > 0 ? Math.min(100, Math.round((totalEarned / maxPossible) * 100)) : 0;
 
-            // Рендер цифр
             statEarnedEl.textContent = totalEarned;
             statLeftEl.textContent = leftBp;
             statPercentEl.textContent = `${percent}%`;
             progressFill.style.width = `${percent}%`;
             statTasksCountEl.textContent = state.completedTasks.size;
 
-            // Обновление значений в карточке онлайна
             onlineCurrentBpEl.textContent = onlineEarned;
-            // Показываем цену шага (за 3 часа)
             onlineBpCounterEl.textContent = 2 * getMultiplier();
 
-            // Динамический пересчет текста цифр на самих плашках задач без перерендера всего DOM
             TASKS_DATA.forEach(task => {
                 const badge = document.getElementById(`bp-badge-${task.id}`);
                 if (badge) {
@@ -337,54 +344,76 @@
             });
         }
 
-        // Генерация карточек квестов в DOM
+        // Рендерим задания секциями на основе заданных категорий
         function renderTasks() {
-            tasksContainer.innerHTML = '';
-            TASKS_DATA.forEach(task => {
-                const isChecked = state.completedTasks.has(task.id);
-                
-                const card = document.createElement('div');
-                card.className = `glass task-card p-4 flex items-center justify-between gap-4 ${isChecked ? 'active' : ''}`;
-                card.setAttribute('data-id', task.id);
+            categoriesContainer.innerHTML = '';
 
-                card.innerHTML = `
-                    <div class="flex items-center gap-3 min-w-0 select-none">
-                        <input type="checkbox" class="custom-checkbox flex-shrink-0" ${isChecked ? 'checked' : ''}>
-                        <span class="text-xs font-medium text-gray-200 leading-snug truncate md:whitespace-normal">${task.name}</span>
-                    </div>
-                    <span id="bp-badge-${task.id}" class="flex-shrink-0 text-[10px] font-bold border border-white/10 px-2.5 py-1 rounded-full text-white bg-white/5">
-                        ${calculateTaskBp(task.baseBp)} BP
-                    </span>
-                `;
+            Object.keys(CATEGORIES_NAMES).forEach(categoryKey => {
+                const filteredTasks = TASKS_DATA.filter(t => t.category === categoryKey);
+                if (filteredTasks.length === 0) return;
 
-                // Элементы управления событиями клика
-                const checkbox = card.querySelector('.custom-checkbox');
-                
-                const toggleTask = () => {
-                    if (state.completedTasks.has(task.id)) {
-                        state.completedTasks.delete(task.id);
-                        card.classList.remove('active');
-                        checkbox.checked = false;
-                    } else {
-                        state.completedTasks.add(task.id);
-                        card.classList.add('active');
-                        checkbox.checked = true;
-                    }
-                    updateStatistics();
-                };
+                // Создаем контейнер блока секции
+                const section = document.createElement('div');
+                section.className = "space-y-3";
 
-                card.addEventListener('click', (e) => {
-                    if(e.target !== checkbox) toggleTask();
+                // Заголовок для группы заданий
+                const title = document.createElement('h3');
+                title.className = "text-xs font-bold uppercase opacity-40 tracking-[0.15em] mb-2 pl-1";
+                title.textContent = CATEGORIES_NAMES[categoryKey];
+                section.appendChild(title);
+
+                // Грид-контейнер для карточек
+                const grid = document.createElement('div');
+                grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4";
+
+                filteredTasks.forEach(task => {
+                    const isChecked = state.completedTasks.has(task.id);
+                    
+                    const card = document.createElement('div');
+                    card.className = `glass task-card p-4 flex items-center justify-between gap-4 ${isChecked ? 'active' : ''}`;
+                    card.setAttribute('data-id', task.id);
+
+                    card.innerHTML = `
+                        <div class="flex items-center gap-3 min-w-0 select-none">
+                            <input type="checkbox" class="custom-checkbox flex-shrink-0" ${isChecked ? 'checked' : ''}>
+                            <span class="text-xs font-medium text-gray-200 leading-snug truncate md:whitespace-normal">${task.name}</span>
+                        </div>
+                        <span id="bp-badge-${task.id}" class="flex-shrink-0 text-[10px] font-bold border border-white/10 px-2.5 py-1 rounded-full text-white bg-white/5">
+                            ${calculateTaskBp(task.baseBp)} BP
+                        </span>
+                    `;
+
+                    const checkbox = card.querySelector('.custom-checkbox');
+                    
+                    const toggleTask = () => {
+                        if (state.completedTasks.has(task.id)) {
+                            state.completedTasks.delete(task.id);
+                            card.classList.remove('active');
+                            checkbox.checked = false;
+                        } else {
+                            state.completedTasks.add(task.id);
+                            card.classList.add('active');
+                            checkbox.checked = true;
+                        }
+                        updateStatistics();
+                    };
+
+                    card.addEventListener('click', (e) => {
+                        if(e.target !== checkbox) toggleTask();
+                    });
+                    checkbox.addEventListener('change', () => {
+                        toggleTask();
+                    });
+
+                    grid.appendChild(card);
                 });
-                checkbox.addEventListener('change', () => {
-                    toggleTask();
-                });
 
-                tasksContainer.appendChild(card);
+                section.appendChild(grid);
+                categoriesContainer.appendChild(section);
             });
         }
 
-        // Логика кнопок онлайна
+        // Логика кликов для карточки онлайн-прогресса
         onlineMinusBtn.addEventListener('click', () => {
             if (state.onlineHours >= 3) {
                 state.onlineHours -= 3;
@@ -401,7 +430,7 @@
             }
         });
 
-        // Слушатели верхних переключателей режима
+        // Слушатели системных переключателей (VIP / X2 / Сброс)
         btnVip.addEventListener('click', () => {
             state.isVip = !state.isVip;
             btnVip.classList.toggle('active', state.isVip);
@@ -432,7 +461,7 @@
             updateStatistics();
         });
 
-        // Инициализация
+        // Первичный запуск интерфейса
         renderTasks();
         updateStatistics();
     </script>
