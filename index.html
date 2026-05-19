@@ -221,9 +221,8 @@
         <a class="top-nav-link" href="/gamelist">gamelist &rarr;</a>
     </nav>
 
-    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6">
         
-        <!-- Hero card -->
         <div class="glass col-span-12 md:col-span-8 p-6 flex flex-col justify-between">
             <div>
                 <div class="flex items-center gap-2 mb-6">
@@ -239,85 +238,81 @@
             </div>
         </div>
 
-        <!-- Twitch -->
-        <div class="glass col-span-12 md:col-span-4 p-6 flex flex-col self-stretch">
+        <div class="glass col-span-12 md:col-span-4 p-6 flex flex-col">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Twitch</h2>
                 <span class="text-[10px] opacity-50">Stream status</span>
             </div>
-            <div id="twitch-card" class="space-y-3 text-sm flex-1">
-                <div class="h-24 bg-white/5 rounded-2xl shimmer"></div>
+            <div id="twitch-card" class="text-sm flex-1 flex flex-col">
+                <div class="min-h-[6rem] bg-white/5 rounded-2xl shimmer flex-1"></div>
             </div>
         </div>
 
-        <!-- Now Playing -->
-        <div class="glass col-span-12 md:col-span-8 p-6 overflow-hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Now Playing</h2>
-                <span class="text-green-500 text-[10px]">SPOTIFY</span>
-            </div>
-            <div id="music-container" class="now-playing-layout">
-                <div id="music-track" class="flex items-center gap-6 min-w-0">
-                    <div class="w-20 h-20 bg-white/5 rounded-2xl flex-shrink-0 shimmer"></div>
-                    <div class="space-y-2 min-w-0">
-                        <div class="h-4 w-32 bg-white/5 rounded animate-pulse"></div>
-                        <div class="h-3 w-24 bg-white/5 rounded animate-pulse"></div>
-                    </div>
+        <div class="glass col-span-12 md:col-span-8 p-6 overflow-hidden flex flex-col justify-between">
+            <div>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Now Playing</h2>
+                    <span class="text-green-500 text-[10px]">SPOTIFY</span>
                 </div>
-                <div id="birthday-widget" class="time-widget">
-                    <div class="flex items-start justify-between gap-3 mb-4">
-                        <div>
-                            <div class="text-[10px] uppercase tracking-[0.22em] opacity-50">Local time</div>
-                            <time id="local-time" class="time-value">--:--:--</time>
+                <div id="music-container" class="now-playing-layout">
+                    <div id="music-track" class="flex items-center gap-6 min-w-0">
+                        <div class="w-20 h-20 bg-white/5 rounded-2xl flex-shrink-0 shimmer"></div>
+                        <div class="space-y-2 min-w-0">
+                            <div class="h-4 w-32 bg-white/5 rounded animate-pulse"></div>
+                            <div class="h-3 w-24 bg-white/5 rounded animate-pulse"></div>
                         </div>
                     </div>
-                    <div class="grid gap-3 text-[10px] uppercase tracking-[0.18em]">
-                        <div class="flex justify-between gap-3 border-t border-white/5 pt-3">
-                            <span class="opacity-50">Birthday</span>
-                            <span id="birthday-date" class="text-blue-300 text-right">13 January</span>
+                    <div id="birthday-widget" class="time-widget">
+                        <div class="flex items-start justify-between gap-3 mb-4">
+                            <div>
+                                <div class="text-[10px] uppercase tracking-[0.22em] opacity-50">Local time</div>
+                                <time id="local-time" class="time-value">--:--:--</time>
+                            </div>
                         </div>
-                        <div class="flex justify-between gap-3">
-                            <span class="opacity-50">Birthday in</span>
-                            <span id="birthday-countdown" class="text-white text-right">--d --h --m --s</span>
+                        <div class="grid gap-3 text-[10px] uppercase tracking-[0.18em]">
+                            <div class="flex justify-between gap-3 border-t border-white/5 pt-3">
+                                <span class="opacity-50">Birthday</span>
+                                <span id="birthday-date" class="text-blue-300 text-right">13 January</span>
+                            </div>
+                            <div class="flex justify-between gap-3">
+                                <span class="opacity-50">Birthday in</span>
+                                <span id="birthday-countdown" class="text-white text-right">--d --h --m --s</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Telegram -->
-        <div class="glass col-span-12 md:col-span-4 p-6">
+        <div class="glass col-span-12 md:col-span-4 p-6 flex flex-col">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Telegram</h2>
                 <span class="text-[10px] opacity-50">Channel & chat</span>
             </div>
-            <div id="telegram-card" class="space-y-3 text-sm">
-                <div class="h-24 bg-white/5 rounded-2xl shimmer"></div>
+            <div id="telegram-card" class="text-sm flex-1 flex flex-col">
+                <div class="min-h-[6rem] bg-white/5 rounded-2xl shimmer flex-1"></div>
             </div>
         </div>
 
-        <!-- Social cards: rendered by JS -->
-        <div id="social-youtube" class="glass col-span-12 md:col-span-4 p-6"></div>
-        <div id="social-watchlist" class="glass col-span-12 md:col-span-4 p-6"></div>
-        <div id="social-tiktok" class="glass col-span-12 md:col-span-4 p-6"></div>
-        <div id="social-boosty" class="glass col-span-12 md:col-span-4 p-6"></div>
-        <div id="social-x" class="glass col-span-12 md:col-span-4 p-6"></div>
-        <div id="social-steam" class="glass col-span-12 md:col-span-4 p-6"></div>
+        <div id="social-youtube" class="glass col-span-12 md:col-span-4 p-6 flex flex-col"></div>
+        <div id="social-watchlist" class="glass col-span-12 md:col-span-4 p-6 flex flex-col"></div>
+        <div id="social-tiktok" class="glass col-span-12 md:col-span-4 p-6 flex flex-col"></div>
+        <div id="social-boosty" class="glass col-span-12 md:col-span-4 p-6 flex flex-col"></div>
+        <div id="social-x" class="glass col-span-12 md:col-span-4 p-6 flex flex-col"></div>
+        <div id="social-steam" class="glass col-span-12 md:col-span-4 p-6 flex flex-col"></div>
 
-        <!-- Discord server stats -->
-        <div class="glass col-span-12 md:col-span-8 p-6">
+        <div class="glass col-span-12 md:col-span-8 p-6 flex flex-col">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xs font-bold uppercase opacity-30 tracking-[0.2em]">Discord server</h2>
                 <span class="text-[10px] opacity-50">Server stats</span>
             </div>
-            <div id="discord-server-card" class="space-y-3 text-sm">
-                <div class="h-24 bg-white/5 rounded-2xl shimmer"></div>
+            <div id="discord-server-card" class="text-sm flex-1 flex flex-col">
+                <div class="min-h-[6rem] bg-white/5 rounded-2xl shimmer flex-1"></div>
             </div>
         </div>
 
-        <div id="social-discord" class="glass col-span-12 md:col-span-4 p-6 flex flex-col justify-between self-stretch"></div>
+        <div id="social-discord" class="glass col-span-12 md:col-span-4 p-6 flex flex-col"></div>
 
-        <!-- Donations -->
         <div class="glass col-span-12 p-6">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-6">
                 <div>
@@ -327,7 +322,6 @@
                 <span class="text-[10px] uppercase tracking-[0.2em] text-blue-400">no judgement</span>
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
-                <!-- Crypto -->
                 <div class="rounded-[2rem] border border-white/10 bg-white/5 p-5">
                     <div class="text-[10px] uppercase tracking-[0.22em] opacity-50 mb-4">crypto</div>
                     <div class="flex flex-col gap-2 mb-5">
@@ -366,7 +360,6 @@
                     </a>
                 </div>
 
-                <!-- Fiat -->
                 <div class="rounded-[2rem] border border-white/10 bg-white/5 p-5">
                     <div class="text-[10px] uppercase tracking-[0.22em] opacity-50 mb-4">fiat</div>
                     <div class="flex flex-wrap gap-2 mb-5">
@@ -401,9 +394,6 @@
     </div>
 
     <script>
-        // CONFIG
-        // NOTE: lastfm_key is a read-only public API key with no write permissions.
-        // For a proper solution move API calls to a backend proxy (e.g. Cloudflare Worker).
         const CONFIG = {
             github_user:          'krafenx',
             lastfm_user:          'krafen',
@@ -429,9 +419,10 @@
         // HELPERS
 
         /** Build a standard social card HTML string */
+        // FIX: h-full заменили на flex-1 h-full, чтобы вложенный блок корректно расширялся во флекс-контейнере
         function socialCardHTML(title, label, href, linkText = 'Open') {
             return `
-                <div class="rounded-2xl border border-white/5 bg-white/5 p-4 transition hover:border-blue-500 h-full flex flex-col justify-between">
+                <div class="rounded-2xl border border-white/5 bg-white/5 p-4 transition hover:border-blue-500 flex-1 h-full flex flex-col justify-between">
                     <div class="mb-4">
                         <div class="text-sm font-semibold text-white">${escapeHTML(title)}</div>
                         <div class="text-[10px] uppercase tracking-[0.22em] opacity-50">${escapeHTML(label)}</div>
@@ -443,7 +434,6 @@
                 </div>`;
         }
 
-        /** Set innerHTML of an element by id, with optional header */
         function setCard(id, headerHTML, bodyHTML) {
             const el = document.getElementById(id);
             if (!el) { console.warn(`[krafen] element #${id} not found`); return; }
@@ -484,10 +474,10 @@
         }
 
         function statusBox(message) {
-            return `<div class="p-4 rounded-2xl bg-white/5 border border-white/5 text-gray-400">${escapeHTML(message)}</div>`;
+            return `<div class="p-4 rounded-2xl bg-white/5 border border-white/5 text-gray-400 flex-1">${escapeHTML(message)}</div>`;
         }
 
-        // SOCIAL LINK CARDS (static, no fetch needed)
+        // SOCIAL LINK CARDS
 
         function renderSocialLinks() {
             CONFIG.socials.forEach(({ id, name, label, href }) => {
@@ -622,8 +612,9 @@
                 if (!res.ok) throw new Error(`Discord request failed: ${res.status}`);
 
                 const data = await res.json();
+                // FIX: Добавлен класс flex-1 и h-full карточке внутри, чтобы растягивать её до высоты правого соседа
                 card.innerHTML = `
-                    <div class="p-4 rounded-2xl border border-white/5 bg-white/5">
+                    <div class="p-4 rounded-2xl border border-white/5 bg-white/5 flex-1 flex flex-col justify-between h-full">
                         <div class="flex justify-between items-center mb-3">
                             <div>
                                 <div class="text-sm font-semibold text-white">${escapeHTML(data.guild?.name ?? 'Discord Server')}</div>
@@ -703,8 +694,9 @@
                     ? `${Number(stream.viewerCount || 0).toLocaleString('en-US')} viewers${stream.gameName ? ` | ${stream.gameName}` : ''}${duration ? ` | ${duration}` : ''}`
                     : `${Number(data.viewCount || 0).toLocaleString('en-US')} total views`;
 
+                // FIX: Добавлен класс flex-1, чтобы карточка занимала всю высоту своего грид-слота
                 card.innerHTML = `
-                    <div class="rounded-2xl border border-white/5 bg-white/5 p-4 h-full flex flex-col justify-between gap-4">
+                    <div class="rounded-2xl border border-white/5 bg-white/5 p-4 h-full flex flex-col justify-between gap-4 flex-1">
                         <div class="flex items-start gap-3 min-w-0">
                             ${avatar}
                             <div class="min-w-0">
@@ -737,10 +729,13 @@
             const card = document.getElementById('telegram-card');
             if (!card) return;
 
+            // FIX: Добавлен h-full и флексы, чтобы блок Telegram ровно тянулся вровень со Spotify
             card.innerHTML = `
-                <div class="p-4 rounded-2xl border border-white/5 bg-white/5">
-                    <div class="text-sm font-semibold text-white">@${escapeHTML(CONFIG.telegram_username)}</div>
-                    <div class="text-[10px] opacity-50">Telegram personal / channel</div>
+                <div class="p-4 rounded-2xl border border-white/5 bg-white/5 flex-1 flex flex-col justify-between h-full">
+                    <div>
+                        <div class="text-sm font-semibold text-white">@${escapeHTML(CONFIG.telegram_username)}</div>
+                        <div class="text-[10px] opacity-50">Telegram personal / channel</div>
+                    </div>
                     <div class="mt-4 grid gap-2 text-[11px]">
                         <a href="https://t.me/${escapeHTML(CONFIG.telegram_username)}" target="_blank" rel="noopener noreferrer"
                            class="inline-flex w-full items-center justify-center rounded-full bg-blue-500/10 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-blue-300 transition hover:bg-blue-500/20">Open chat</a>
@@ -773,13 +768,11 @@
         // INIT
 
         function init() {
-            // Static renders (no fetch)
             renderSocialLinks();
             renderTelegram();
             initDonationCopy();
             updateBirthdayWidget();
 
-            // Async fetches, all in parallel
             Promise.all([
                 fetchMusic(),
                 fetchGitHub(),
@@ -791,8 +784,6 @@
         init();
 
         // POLLING
-        // Music: every 30s (was 777ms = ~77 req/min, now ~2 req/min)
-        // Other data: every 60s (was 10s, cuts requests 6x)
         setInterval(fetchMusic,        30_000);
         setInterval(fetchGitHub,       60_000);
         setInterval(fetchDiscordServer, 60_000);
