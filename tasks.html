@@ -1,0 +1,759 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>krafen / задачи</title>
+    <meta name="description" content="арм BP — отмечай выполненные задания и сохраняй прогресс в браузере">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/krafenx/krafen/8c5ff5d6ae7d406899fbf4906d5bc543e06c6648/cherry-blossom.png">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505;
+            --card: rgba(20, 20, 20, 0.6);
+            --accent: #5b2333;
+            --accent-dark: #5b2333;
+            --accent-light: #f7f4f3;
+            --accent-gradient: linear-gradient(135deg, var(--accent-light), var(--accent-dark));
+            --accent-soft: linear-gradient(135deg, rgba(247, 244, 243, 0.12), rgba(91, 35, 51, 0.28));
+            --border: rgba(255, 255, 255, 0.05);
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html { width: 100%; overflow-x: hidden; }
+        body {
+            background-color: var(--bg);
+            font-family: 'JetBrains Mono', monospace;
+            color: #efefef;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        body > .max-w-6xl {
+            width: calc(100vw - 3rem);
+            max-width: 72rem;
+        }
+        @media (min-width: 768px) {
+            body > .max-w-6xl { width: calc(100vw - 6rem); }
+        }
+        .glass {
+            background: var(--card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 1.5rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 30px rgba(91, 35, 51, 0.25);
+        }
+        .bg-blue-500, .animate-pulse.bg-blue-500 { background: var(--accent-gradient) !important; }
+        .bg-blue-500\/10 { background: var(--accent-soft) !important; }
+        .hover\:bg-blue-500\/20:hover { background: linear-gradient(135deg, rgba(247, 244, 243, 0.18), rgba(91, 35, 51, 0.38)) !important; }
+        .text-blue-300, .text-blue-400, .text-blue-500 {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent !important;
+        }
+        .bg-blue-500\/10.text-blue-300,
+        .bg-blue-500\/10.text-blue-500 {
+            background: var(--accent-soft) !important;
+            -webkit-background-clip: border-box;
+            background-clip: border-box;
+            color: var(--accent-light) !important;
+        }
+        .border-blue-500\/30, .hover\:border-blue-500\/30:hover {
+            border-color: rgba(91, 35, 51, 0.7) !important;
+        }
+        .top-nav {
+            width: calc(100vw - 3rem);
+            max-width: 72rem;
+            margin: 0 auto 1.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .top-nav-link {
+            color: rgba(255, 255, 255, 0.28);
+            font-size: 10px;
+            line-height: 1;
+            letter-spacing: 0.32em;
+            text-transform: uppercase;
+            text-decoration: none;
+            transition: color 0.16s ease, transform 0.16s ease;
+        }
+        .top-nav-link:hover { color: rgba(247, 244, 243, 0.78); }
+        .top-nav-link:first-child:hover { transform: translateX(-2px); }
+        .top-nav-link:last-child:hover { transform: translateX(2px); }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 0.9rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.8);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        .status-pill.ghost { background: rgba(255,255,255,0.04); }
+        .status-pill.active {
+            background: rgba(91, 35, 51, 0.85);
+            border-color: rgba(91, 35, 51, 0.9);
+            color: #fff;
+        }
+        .status-pill strong { color: inherit; font-weight: 700; }
+        .control-bar {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+        .control-button {
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.04);
+            color: #efefef;
+            border-radius: 9999px;
+            padding: 0.65rem 1rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+        .control-button:hover { border-color: rgba(91,35,51,0.8); transform: translateY(-1px); background: rgba(91,35,51,0.12); }
+        .control-button.ghost {
+            background: transparent;
+            border-color: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.72);
+        }
+        .metric-card {
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 1.25rem;
+            padding: 1rem 1.1rem;
+            background: rgba(255,255,255,0.04);
+        }
+        .metric-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.18em; color: rgba(255,255,255,0.5); margin-bottom: 0.5rem; }
+        .metric-value { font-size: 1.8rem; font-weight: 700; color: #fff; line-height: 1; }
+        .metric-sub { font-size: 0.78rem; color: rgba(255,255,255,0.65); margin-top: 0.35rem; }
+        .section-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .section-head h2 {
+            margin: 0;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: rgba(255,255,255,0.65);
+        }
+        .section-head .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+        .section-head .tabs button {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.7);
+            border-radius: 9999px;
+            padding: 0.65rem 0.95rem;
+            font-size: 0.72rem;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .section-head .tabs button:hover { border-color: rgba(91,35,51,0.7); color: #fff; }
+        details {
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 1.4rem;
+            background: rgba(255,255,255,0.03);
+        }
+        summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            color: rgba(255,255,255,0.88);
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary:hover { color: #fff; }
+        .summary-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .summary-title small {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.55);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+        }
+        .chevron {
+            width: 1.1rem;
+            height: 1.1rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,0.12);
+            display: grid;
+            place-items: center;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        details[open] .chevron { transform: rotate(180deg); border-color: rgba(91,35,51,0.8); }
+        .chevron::after {
+            content: '▾';
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.8);
+        }
+        .task-list {
+            display: grid;
+            gap: 0.15rem;
+            padding: 0 1.25rem 1.1rem;
+        }
+        .task-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.85rem;
+            align-items: center;
+            padding: 0.95rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .task-row:last-child { border-bottom: none; }
+        .task-main {
+            display: flex;
+            gap: 0.85rem;
+            align-items: center;
+            min-width: 0;
+        }
+        .task-checkbox {
+            width: 1rem;
+            height: 1rem;
+            accent-color: #5b2333;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .task-label {
+            font-size: 0.86rem;
+            color: rgba(255,255,255,0.82);
+            line-height: 1.4;
+            min-width: 0;
+            word-break: break-word;
+        }
+        .task-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(247,244,243,0.9);
+            background: rgba(255,255,255,0.04);
+            padding: 0.35rem 0.6rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,0.08);
+            white-space: nowrap;
+        }
+        .task-row input:checked + .task-label { color: #fff; }
+        .category-note {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.55);
+            padding: 0 1.25rem 1rem;
+        }
+        .summary-counter {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: rgba(255,255,255,0.7);
+        }
+        .summary-counter strong { color: #fff; font-weight: 700; }
+        @media (max-width: 768px) {
+            .control-bar { grid-template-columns: 1fr; }
+            .status-pill { width: 100%; justify-content: center; }
+            summary { padding: 0.95rem 1rem; }
+        }
+        .metric-value {
+    transition:
+        transform .25s ease,
+        color .25s ease;
+}
+
+.metric-value.bump {
+    transform: scale(1.08);
+    color: #f7f4f3;
+}
+
+.level-max {
+    box-shadow:
+        0 0 25px rgba(247,244,243,.18),
+        0 0 60px rgba(91,35,51,.35);
+}
+    </style>
+</head>
+<body class="p-6 md:p-12">
+    <nav class="top-nav" aria-label="site sections">
+        <a class="top-nav-link" href="watchlist.html">&larr; watchlist</a>
+        <a class="top-nav-link" href="gamelist.html">gamelist &rarr;</a>
+    </nav>
+    <main class="max-w-6xl mx-auto space-y-6">
+        <section class="glass p-6">
+            <div class="flex flex-col gap-5">
+                <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+                    <div>
+                        <p class="text-sm uppercase tracking-[0.35em] text-blue-300">арм бонус поинтов (BP)</p>
+                        <h1 class="mt-3 text-4xl md:text-5xl font-bold tracking-tighter text-white">Отмечай выполненные задания — прогресс сохраняется в браузере</h1>
+                        <p class="mt-4 text-sm leading-6 text-gray-400 max-w-2xl">Просто отмечай чекбоксы, чтобы видеть накопленный BP. Всё сохраняется в локальном браузере и не теряется при перезагрузке.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-3 justify-end">
+                        <button id="platinumToggle" class="status-pill active" type="button"><strong>Platinum VIP</strong></button>
+                        <button id="x2Toggle" class="status-pill ghost" type="button"><strong>Акция x2</strong></button>
+                        <button id="resetButton" class="control-button ghost" type="button">Сбросить всё</button>
+                    </div>
+                </div>
+                <div class="control-bar">
+                    <div class="glass p-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <p class="text-xs uppercase tracking-[0.25em] text-white/60">Онлайн</p>
+                                <button id="onlineMinus" class="control-button ghost" type="button">-</button>
+                                <span id="onlineHours" class="text-3xl font-bold text-white">0ч</span>
+                                <button id="onlinePlus" class="control-button ghost" type="button">+</button>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs uppercase tracking-[0.25em] text-white/60">+ BP</p>
+                                <p class="mt-2 text-3xl font-bold text-white" id="selectedBp">0 BP</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="metric-card">
+                            <div class="metric-title">Набрано</div>
+                            <div class="metric-value" id="taskBpTotal">0 BP</div>
+                            <div class="metric-sub">за всё отмеченное</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-title">Сталось</div>
+                            <div class="metric-value" id="remainingBp">120 BP</div>
+                            <div class="metric-sub">до следующего уровня</div>
+                            <div class="mt-4">
+    <div class="flex justify-between text-xs text-white/50 mb-2">
+        <span>Прогресс уровня</span>
+        <span id="progressPercent">0%</span>
+    </div>
+
+    <div class="w-full h-3 rounded-full bg-white/5 overflow-hidden">
+        <div
+            id="progressBar"
+            class="h-full rounded-full transition-all duration-500"
+            style="
+                width:0%;
+                background: linear-gradient(
+                    90deg,
+                    #5b2333,
+                    #f7f4f3
+                );
+            "
+        ></div>
+    </div>
+</div>
+
+<div class="metric-card">
+    <div class="metric-title">Выполнено</div>
+
+    <div class="metric-value" id="completedTasks">
+        0
+    </div>
+
+    <div class="metric-sub">
+        отмеченных заданий
+    </div>
+</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="glass p-6">
+            <div class="section-head">
+                <div>
+                    <h2>Задания</h2>
+                    <p class="text-sm text-gray-400 mt-2">Выбирай категории и отмечай выполненные активности.</p>
+                </div>
+                <div class="tabs">
+                    <button id="expandAll" type="button">Развернуть всё</button>
+                    <button id="collapseAll" type="button">Свернуть всё</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+                <details open>
+                    <summary>
+                        <div class="summary-title">
+                            <span>Лёгкие</span>
+                            <small>+28 BP</small>
+                        </div>
+                        <span class="summary-counter"><strong>18</strong> заданий</span>
+                    </summary>
+                    <div class="task-list">
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-1"><span class="task-label">Купить лотерейный билет</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-2"><span class="task-label">Посетить любой сайт в браузере</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-3"><span class="task-label">оставить лайк любой анкете в Match</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-4"><span class="task-label">Зайти в любой канал в Brawl</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-5"><span class="task-label">Добавить 5 видео в кинотеатре</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-6"><span class="task-label">Арендовать киностудию</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-7"><span class="task-label">Забить 2 гола в футболе</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-8"><span class="task-label">Починить деталь в автосервисе</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-9"><span class="task-label">Успешная тренировка в тире</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-10"><span class="task-label">Поиграть 1 минуту в настольный теннис</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-11"><span class="task-label">10 действий на ферме</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-12"><span class="task-label">Сходить в казино</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="6" id="task-13"><span class="task-label">Ставка межсерверное колесо</span></span><span class="task-badge">6 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-14"><span class="task-label">Бросить 2 мяча в баскетболе</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-15"><span class="task-label">Поиграть 1 минуту в большой теннис</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-16"><span class="task-label">Победить в дартс</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-17"><span class="task-label">Забить 10 голов в волейболе</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-18"><span class="task-label">Сделать платёж по лизингу</span></span><span class="task-badge">2 BP</span></label>
+                    </div>
+                    <p class="category-note">Лёгкие задания можно отмечать сразу — они быстро добавляют BP.</p>
+                </details>
+                <details open>
+                    <summary>
+                        <div class="summary-title">
+                            <span>Средние</span>
+                            <small>+12 BP</small>
+                        </div>
+                        <span class="summary-counter"><strong>13</strong> заданий</span>
+                    </summary>
+                    <div class="task-list">
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-19"><span class="task-label">25 действий на стройке</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-20"><span class="task-label">25 действий в порту</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-21"><span class="task-label">25 действий в шахте</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-22"><span class="task-label">2 круга на любом маршруте автобусника</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="8" id="task-23"><span class="task-label">Выполнить 2 квеста любых клубов</span></span><span class="task-badge">8 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-24"><span class="task-label">Проехать 1 станцию на метро</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="8" id="task-25"><span class="task-label">Поймать 20 рыб</span></span><span class="task-badge">8 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-26"><span class="task-label">Пиннуть мяч питомцу 15 раз</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-27"><span class="task-label">15 выполненных питомцем команд</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-28"><span class="task-label">20 подходов в тренажерном зале</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-29"><span class="task-label">Выкопать 1 сокровище</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-30"><span class="task-label">5 раз снять 100% шкуру с животных</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-31"><span class="task-label">Выполнить 3 заказа дальнобойщиком</span></span><span class="task-badge">4 BP</span></label>
+                    </div>
+                    <p class="category-note">Средние задания дают хороший прогресс и немного больше BP за одну задачу.</p>
+                </details>
+                <details open>
+                    <summary>
+                        <div class="summary-title">
+                            <span>Совместные</span>
+                            <small>+2 BP</small>
+                        </div>
+                        <span class="summary-counter"><strong>8</strong> заданий</span>
+                    </summary>
+                    <div class="task-list">
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="6" id="task-32"><span class="task-label">Сыграть в мафию в казино</span></span><span class="task-badge">6 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-33"><span class="task-label">Выиграть гонку в картинге</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-34"><span class="task-label">Проехать 1 уличную гонку (через тлф. ставка от 1000$)</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-35"><span class="task-label">Выиграть 5 игр в тренировочном комплексе со ставкой (от 100$)</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-36"><span class="task-label">Выиграть 3 любые игры на арене со ставкой (от 100$)</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-37"><span class="task-label">3 победы в энс аттлах</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-38"><span class="task-label">Победить в армрестлинге</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-39"><span class="task-label">Починка авто другому игроку</span></span><span class="task-badge">4 BP</span></label>
+                    </div>
+                    <p class="category-note">Совместные задания удобнее отмечать после групповых активностей.</p>
+                </details>
+                <details open>
+                    <summary>
+                        <div class="summary-title">
+                            <span>Не хочется</span>
+                            <small>0 BP</small>
+                        </div>
+                        <span class="summary-counter"><strong>6</strong> заданий</span>
+                    </summary>
+                    <div class="task-list">
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-40"><span class="task-label">10 посылок на почте</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="20" id="task-41"><span class="task-label">Прокрутить за DP серебряный или золотой кейс</span></span><span class="task-badge">20 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-42"><span class="task-label">Заказать материалы для бизнеса вручную (просто прожать вкл/выкл)</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-43"><span class="task-label">Отушить 25 «огоньков» пожарным</span></span><span class="task-badge">2 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-44"><span class="task-label">Два раза оплатить смену внешности у хирурга в EMS</span></span><span class="task-badge">4 BP</span></label>
+                        <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="8" id="task-45"><span class="task-label">Принять участие в двух аирдропах</span></span><span class="task-badge">8 BP</span></label>
+                    </div>
+                    <p class="category-note">Статистика «Не хочется» показывает самые редкие и дорогостоящие задания.</p>
+                </details>
+            </div>
+        </section>
+        <section class="glass p-6">
+            <details open>
+                <summary>
+                    <div class="summary-title"><span>Фракционные</span><small>▴</small></div>
+                    <span class="summary-counter"><strong>14</strong> заданий</span>
+                </summary>
+                <div class="task-list">
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-46"><span class="task-label">7 закрашенных граффити</span></span><span class="task-badge">2 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-47"><span class="task-label">Сдать 5 контрабанды</span></span><span class="task-badge">4 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-48"><span class="task-label">Участие в каптах/бизварах</span></span><span class="task-badge">2 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="6" id="task-49"><span class="task-label">Сдать Хаммер с Х</span></span><span class="task-badge">6 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-50"><span class="task-label">5 выданных медкарт в EMS</span></span><span class="task-badge">4 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-51"><span class="task-label">Закрыть 15 вызовов в EMS</span></span><span class="task-badge">4 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-52"><span class="task-label">Отредактировать 40 объявлений в WN</span></span><span class="task-badge">4 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-53"><span class="task-label">зломать 15 замков на ограбах домов или автоугонах</span></span><span class="task-badge">4 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-54"><span class="task-label">Закрыть 5 кодов в силовых структурах</span></span><span class="task-badge">4 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-55"><span class="task-label">оставить на учет 2 автомобиля (для LSPD)</span></span><span class="task-badge">2 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="2" id="task-56"><span class="task-label">Произвести 1 арест в полиции</span></span><span class="task-badge">2 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="4" id="task-57"><span class="task-label">Выкупить двух человек из тюрьмы</span></span><span class="task-badge">4 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="8" id="task-58"><span class="task-label">Посадить траву в теплице</span></span><span class="task-badge">8 BP</span></label>
+                    <label class="task-row"><span class="task-main"><input class="task-checkbox" type="checkbox" data-bp="8" id="task-59"><span class="task-label">Запустить переработку обезболивающих в лаборатории</span></span><span class="task-badge">8 BP</span></label>
+                </div>
+                <p class="category-note">Фракционные задания — самые редкие и долгие, но приносят крупный BP.</p>
+            </details>
+        </section>
+    </main>
+    <script>
+        const STORAGE_KEY = 'krafen-tasks-state';
+        const selectedBpNode = document.getElementById('selectedBp');
+        const taskBpTotalNode = document.getElementById('taskBpTotal');
+        const platinumToggle = document.getElementById('platinumToggle');
+        const x2Toggle = document.getElementById('x2Toggle');
+        const onlineMinus = document.getElementById('onlineMinus');
+        const onlinePlus = document.getElementById('onlinePlus');
+        const onlineHoursNode = document.getElementById('onlineHours');
+        const checkboxes = Array.from(document.querySelectorAll('.task-checkbox'));
+        const resetButton = document.getElementById('resetButton');
+        const expandButton = document.getElementById('expandAll');
+        const collapseButton = document.getElementById('collapseAll');
+        const detailsSections = Array.from(document.querySelectorAll('details'));
+
+        let platinumActive = true;
+        let x2Active = false;
+        let onlineBlocks = 0;
+        const MAX_ONLINE_BLOCKS = 8;
+
+        const setToggleState = () => {
+            platinumToggle.classList.toggle('active', platinumActive);
+            platinumToggle.classList.toggle('ghost', !platinumActive);
+            x2Toggle.classList.toggle('active', x2Active);
+            x2Toggle.classList.toggle('ghost', !x2Active);
+            platinumToggle.setAttribute('aria-pressed', platinumActive);
+            x2Toggle.setAttribute('aria-pressed', x2Active);
+        };
+
+        const getMultiplier = () => {
+            const platinum = platinumActive ? 1 : 0.5;
+            const x2 = x2Active ? 2 : 1;
+            return platinum * x2;
+        };
+
+        const getOnlinePerBlock = () => {
+            if (platinumActive && x2Active) return 8;
+            if (platinumActive) return 4;
+            return 2;
+        };
+
+        const formatBp = value => `${value} BP`;
+
+        const updateOnlineDisplay = () => {
+            const displayBlocks = Math.min(MAX_ONLINE_BLOCKS, Math.max(0, onlineBlocks));
+            onlineHoursNode.textContent = `${displayBlocks * 3}ч`;
+            selectedBpNode.textContent = formatBp(displayBlocks * getOnlinePerBlock());
+        };
+
+        const getLevelTarget = () => {
+
+    const multiplier = getMultiplier();
+
+    return checkboxes.reduce((sum, cb) => {
+
+        return sum + Math.round(
+            Number(cb.dataset.bp) * multiplier
+        );
+
+    }, 0);
+};
+
+       const updateTaskTotals = () => {
+
+    let taskTotal = 0;
+
+    const multiplier = getMultiplier();
+
+    const displayOnlineBlocks = Math.min(
+        MAX_ONLINE_BLOCKS,
+        Math.max(0, onlineBlocks)
+    );
+
+    let completedCount = 0;
+
+    checkboxes.forEach(cb => {
+
+        const baseBp = Number(cb.dataset.bp);
+
+        const effective = Math.round(
+            baseBp * multiplier
+        );
+
+        const row = cb.closest('.task-row');
+
+        const badge = row.querySelector('.task-badge');
+
+        badge.textContent = formatBp(effective);
+
+        if (cb.checked) {
+
+            completedCount++;
+
+            taskTotal += effective;
+
+            row.style.opacity = '.55';
+            row.style.order = '999';
+
+        } else {
+
+            row.style.opacity = '1';
+            row.style.order = '0';
+        }
+    });
+
+    const onlineBp =
+        displayOnlineBlocks * getOnlinePerBlock();
+
+    const totalProgress =
+        taskTotal + onlineBp;
+    const LEVEL_TARGET = getLevelTarget();
+
+    // ONLINE
+    selectedBpNode.textContent =
+        formatBp(onlineBp);
+
+    // TOTAL
+    taskBpTotalNode.textContent =
+        formatBp(totalProgress);
+
+    // COMPLETED
+    document.getElementById(
+        'completedTasks'
+    ).textContent = completedCount;
+
+    // REMAINING
+    const remainingNode =
+        document.getElementById('remainingBp');
+
+    if (totalProgress >= LEVEL_TARGET) {
+
+        remainingNode.textContent = 'MAX';
+
+        document.body.classList.add('level-max');
+
+    } else {
+
+        remainingNode.textContent = formatBp(
+            LEVEL_TARGET - totalProgress
+        );
+
+        document.body.classList.remove('level-max');
+    }
+
+    // PROGRESS BAR
+    const progress =
+        Math.min(
+            100,
+            (totalProgress / LEVEL_TARGET) * 100
+        );
+
+    document.getElementById(
+        'progressBar'
+    ).style.width = `${progress}%`;
+
+    document.getElementById(
+        'progressPercent'
+    ).textContent =
+        `${Math.floor(progress)}%`;
+
+    // CATEGORY TOTALS
+    detailsSections.forEach(detail => {
+
+        const sum = Array
+            .from(
+                detail.querySelectorAll(
+                    '.task-checkbox'
+                )
+            )
+            .reduce((sum, cb) => {
+
+                return sum + Math.round(
+                    Number(cb.dataset.bp)
+                    * multiplier
+                );
+
+            }, 0);
+
+        const summary =
+            detail.querySelector('summary small');
+
+        if (summary) {
+
+            summary.textContent =
+                `+${sum} BP`;
+        }
+    });
+
+    // bump animation
+    taskBpTotalNode.classList.remove('bump');
+
+    void taskBpTotalNode.offsetWidth;
+
+    taskBpTotalNode.classList.add('bump');
+};
+
+        const saveState = () => {
+            const state = {
+                tasks: checkboxes.filter(cb => cb.checked).map(cb => cb.id),
+                platinumActive,
+                x2Active,
+                onlineBlocks
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        };
+
+        const loadState = () => {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            if (Array.isArray(saved.tasks)) {
+                checkboxes.forEach(cb => { cb.checked = saved.tasks.includes(cb.id); });
+            }
+            platinumActive = saved.platinumActive !== false;
+            x2Active = saved.x2Active === true;
+            onlineBlocks = Math.max(0, Math.min(MAX_ONLINE_BLOCKS, Number(saved.onlineBlocks) || 0));
+            setToggleState();
+            updateOnlineDisplay();
+            updateTaskTotals();
+        };
+
+        const applyState = () => {
+            setToggleState();
+            updateOnlineDisplay();
+            updateTaskTotals();
+            saveState();
+        };
+
+        checkboxes.forEach(cb => cb.addEventListener('change', () => { updateTaskTotals(); saveState(); }));
+        resetButton.addEventListener('click', () => {
+            checkboxes.forEach(cb => cb.checked = false);
+            onlineBlocks = 0;
+            applyState();
+        });
+        expandButton.addEventListener('click', () => detailsSections.forEach(detail => detail.open = true));
+        collapseButton.addEventListener('click', () => detailsSections.forEach(detail => detail.open = false));
+        platinumToggle.addEventListener('click', () => { platinumActive = !platinumActive; applyState(); });
+        x2Toggle.addEventListener('click', () => { x2Active = !x2Active; applyState(); });
+        onlineMinus.addEventListener('click', () => { onlineBlocks = Math.max(0, onlineBlocks - 1); applyState(); });
+        onlinePlus.addEventListener('click', () => { onlineBlocks = Math.min(MAX_ONLINE_BLOCKS, onlineBlocks + 1); applyState(); });
+
+        loadState();
+    </script>
+</body>
+</html>
