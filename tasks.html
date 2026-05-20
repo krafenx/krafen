@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>krafen — Задания BP</title>
+    <title>krafen / tasks</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/krafenx/krafen/8c5ff5d6ae7d406899fbf4906d5bc543e06c6648/cherry-blossom.png">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -90,6 +90,11 @@
             border-color: #5b2333;
             color: #ffcbd1;
         }
+        .toggle-btn.active-timer {
+            background: rgba(91, 35, 51, 0.25);
+            border-color: rgba(161, 61, 86, 0.5);
+            color: #ffcbd1;
+        }
         .progress-bar-fill {
             background: linear-gradient(90deg, #5b2333, #a13d56);
             box-shadow: 0 0 10px rgba(161, 61, 86, 0.5);
@@ -169,6 +174,11 @@
                 <div class="text-xl font-bold text-white"><span id="stat-tasks-count">0</span> <span class="text-xs opacity-30 font-normal">из 59</span></div>
             </div>
 
+        </div>
+
+        <div class="space-y-3 pt-4">
+            <h3 class="text-xs font-bold uppercase opacity-40 tracking-[0.15em] mb-2 pl-1">Клубные квесты (Кулдаун 2ч)</h3>
+            <div id="timers-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"></div>
         </div>
 
         <div id="categories-container" class="space-y-10 pt-4"></div>
@@ -261,19 +271,36 @@
             skip: "Не хочется делать (Душные / Долгие)"
         };
 
+        const CLUBS_DATA = [
+            { id: "epsilon", name: "Epsilon Programs" },
+            { id: "merryweather", name: "Merryweather" },
+            { id: "rednecks", name: "Rednecks" },
+            { id: "carmeet", name: "Carmeet" },
+            { id: "lost", name: "Lost MC" }
+        ];
+
+        const TIMER_DURATION = 2 * 60 * 60; // 2 часа в секундах
+
         // Глобальное состояние приложения
         let state = {
             isVip: false,
             isX2: false,
             onlineHours: 0,
-            completedTasks: new Set()
+            completedTasks: new Set(),
+            timers: {} // Будет хранить { id: { endTime: timestamp/null, timeLeft: seconds, running: bool } }
         };
+
+        // Инициализация дефолтных таймеров в стейте
+        CLUBS_DATA.forEach(club => {
+            state.timers[club.id] = { endTime: null, timeLeft: TIMER_DURATION, running: false };
+        });
 
         // Ключ для хранения в localStorage
         const STORAGE_KEY = 'krafen_bp_calculator_state';
 
         // DOM элементы
         const categoriesContainer = document.getElementById('categories-container');
+        const timersContainer = document.getElementById('timers-container');
         const btnVip = document.getElementById('btn-vip');
         const btnX2 = document.getElementById('btn-x2');
         const btnReset = document.getElementById('btn-reset');
@@ -290,13 +317,38 @@
         const progressFill = document.getElementById('progress-fill');
         const statTasksCountEl = document.getElementById('stat-tasks-count');
 
+        // Звуковое оповещение через встроенный Web Audio API (без внешних зависимостей)
+        function playNotificationSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                function beep(delay, freq, duration) {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+                    gain.gain.setValueAtTime(0.15, ctx.currentTime + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + duration);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + delay);
+                    osc.stop(ctx.currentTime + delay + duration);
+                }
+                // Красивый двойной перезвон
+                beep(0, 587.33, 0.15); 
+                beep(0.15, 880, 0.25);
+            } catch (e) {
+                console.error("Audio playback error:", e);
+            }
+        }
+
         // Сохранение в localStorage
         function saveState() {
             const dataToSave = {
                 isVip: state.isVip,
                 isX2: state.isX2,
                 onlineHours: state.onlineHours,
-                completedTasks: Array.from(state.completedTasks) // Превращаем Set в обычный массив для JSON
+                completedTasks: Array.from(state.completedTasks),
+                timers: state.timers
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
         }
@@ -312,6 +364,25 @@
                 state.onlineHours = parsed.onlineHours || 0;
                 state.completedTasks = new Set(parsed.completedTasks || []);
                 
+                if (parsed.timers) {
+                    Object.keys(parsed.timers).forEach(id => {
+                        if (state.timers[id]) {
+                            state.timers[id] = parsed.timers[id];
+                            // Если таймер был запущен, пересчитываем оставшееся время на основе сохраненного метки конца
+                            if (state.timers[id].running && state.timers[id].endTime) {
+                                let rem = Math.ceil((state.timers[id].endTime - Date.now()) / 1000);
+                                if (rem <= 0) {
+                                    state.timers[id].running = false;
+                                    state.timers[id].endTime = null;
+                                    state.timers[id].timeLeft = TIMER_DURATION;
+                                } else {
+                                    state.timers[id].timeLeft = rem;
+                                }
+                            }
+                        }
+                    });
+                }
+
                 // Синхронизируем визуальное состояние системных кнопок и онлайна
                 btnVip.classList.toggle('active', state.isVip);
                 btnX2.classList.toggle('active', state.isX2);
@@ -376,6 +447,111 @@
             });
         }
 
+        // Форматирование секунд в 00:00:00
+        function formatTime(totalSeconds) {
+            const hrs = Math.floor(totalSeconds / 3600);
+            const mins = Math.floor((totalSeconds % 3600) / 60);
+            const secs = totalSeconds % 60;
+            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        // Рендер клубных таймеров
+        function renderTimers() {
+            timersContainer.innerHTML = '';
+            CLUBS_DATA.forEach(club => {
+                const timerState = state.timers[club.id];
+                const card = document.createElement('div');
+                card.className = "glass p-4 flex flex-col justify-between items-center text-center space-y-3";
+                card.id = `timer-card-${club.id}`;
+
+                card.innerHTML = `
+                    <div class="text-[10px] uppercase tracking-wider text-white/50 font-bold leading-tight min-h-[20px] flex items-center justify-center">
+                        ${club.name}
+                    </div>
+                    <div id="display-${club.id}" class="text-xl font-bold tracking-tight text-white select-none">
+                        ${formatTime(timerState.timeLeft)}
+                    </div>
+                    <div class="flex gap-1.5 w-full">
+                        <button id="btn-start-${club.id}" class="toggle-btn text-[9px] uppercase tracking-widest py-1.5 flex-1 rounded-md font-bold transition">
+                            ${timerState.running ? 'Пауза' : 'Старт'}
+                        </button>
+                        <button id="btn-reset-${club.id}" class="text-[9px] text-white/30 uppercase tracking-widest py-1.5 px-2 rounded-md border border-white/5 hover:border-white/20 hover:text-white/80 transition">
+                            ✕
+                        </button>
+                    </div>
+                `;
+
+                const startBtn = card.querySelector(`#btn-start-${club.id}`);
+                const resetBtn = card.querySelector(`#btn-reset-${club.id}`);
+
+                if (timerState.running) startBtn.classList.add('active-timer');
+
+                startBtn.addEventListener('click', () => {
+                    if (timerState.running) {
+                        // Пауза
+                        timerState.running = false;
+                        timerState.timeLeft = Math.max(0, Math.ceil((timerState.endTime - Date.now()) / 1000));
+                        timerState.endTime = null;
+                        startBtn.textContent = 'Старт';
+                        startBtn.classList.remove('active-timer');
+                    } else {
+                        // Старт
+                        timerState.running = true;
+                        timerState.endTime = Date.now() + (timerState.timeLeft * 1000);
+                        startBtn.textContent = 'Пауза';
+                        startBtn.classList.add('active-timer');
+                    }
+                    saveState();
+                });
+
+                resetBtn.addEventListener('click', () => {
+                    timerState.running = false;
+                    timerState.endTime = null;
+                    timerState.timeLeft = TIMER_DURATION;
+                    startBtn.textContent = 'Старт';
+                    startBtn.classList.remove('active-timer');
+                    document.getElementById(`display-${club.id}`).textContent = formatTime(TIMER_DURATION);
+                    saveState();
+                });
+
+                timersContainer.appendChild(card);
+            });
+        }
+
+        // Единый интервал для обработки тиков всех таймеров (1 раз в секунду)
+        setInterval(() => {
+            let stateChanged = false;
+            CLUBS_DATA.forEach(club => {
+                const timerState = state.timers[club.id];
+                if (timerState.running && timerState.endTime) {
+                    let rem = Math.ceil((timerState.endTime - Date.now()) / 1000);
+                    if (rem <= 0) {
+                        // Таймер завершился
+                        timerState.running = false;
+                        timerState.endTime = null;
+                        timerState.timeLeft = TIMER_DURATION;
+                        
+                        const display = document.getElementById(`display-${club.id}`);
+                        if (display) display.textContent = formatTime(TIMER_DURATION);
+                        
+                        const startBtn = document.getElementById(`btn-start-${club.id}`);
+                        if (startBtn) {
+                            startBtn.textContent = 'Старт';
+                            startBtn.classList.remove('active-timer');
+                        }
+                        
+                        playNotificationSound();
+                        stateChanged = true;
+                    } else {
+                        timerState.timeLeft = rem;
+                        const display = document.getElementById(`display-${club.id}`);
+                        if (display) display.textContent = formatTime(rem);
+                    }
+                }
+            });
+            if (stateChanged) saveState();
+        }, 1000);
+
         // Рендерим задания секциями на основе заданных категорий
         function renderTasks() {
             categoriesContainer.innerHTML = '';
@@ -425,7 +601,7 @@
                             checkbox.checked = true;
                         }
                         updateStatistics();
-                        saveState(); // Сохраняем при изменении таски
+                        saveState(); 
                     };
 
                     card.addEventListener('click', (e) => {
@@ -449,7 +625,7 @@
                 state.onlineHours -= 3;
                 onlineHoursEl.textContent = `${state.onlineHours}ч`;
                 updateStatistics();
-                saveState(); // Сохраняем часы
+                saveState(); 
             }
         });
 
@@ -458,7 +634,7 @@
                 state.onlineHours += 3;
                 onlineHoursEl.textContent = `${state.onlineHours}ч`;
                 updateStatistics();
-                saveState(); // Сохраняем часы
+                saveState(); 
             }
         });
 
@@ -467,14 +643,14 @@
             state.isVip = !state.isVip;
             btnVip.classList.toggle('active', state.isVip);
             updateStatistics();
-            saveState(); // Сохраняем VIP статус
+            saveState(); 
         });
 
         btnX2.addEventListener('click', () => {
             state.isX2 = !state.isX2;
             btnX2.classList.toggle('active', state.isX2);
             updateStatistics();
-            saveState(); // Сохраняем X2 статус
+            saveState(); 
         });
 
         btnReset.addEventListener('click', () => {
@@ -482,6 +658,11 @@
             state.onlineHours = 0;
             state.isVip = false;
             state.isX2 = false;
+            
+            // Сброс таймеров
+            CLUBS_DATA.forEach(club => {
+                state.timers[club.id] = { endTime: null, timeLeft: TIMER_DURATION, running: false };
+            });
             
             btnVip.classList.remove('active');
             btnX2.classList.remove('active');
@@ -492,14 +673,16 @@
                 card.querySelector('.custom-checkbox').checked = false;
             });
             
+            renderTimers();
             updateStatistics();
-            localStorage.removeItem(STORAGE_KEY); // Полностью очищаем хранилище при сбросе
+            localStorage.removeItem(STORAGE_KEY); 
         });
 
-        // Порядок запуска изменен для поддержки локального кэша:
-        loadState();        // 1. Сначала подтягиваем старые данные
-        renderTasks();      // 2. Строим карточки (уже с учетом отмеченных чекбоксов)
-        updateStatistics(); // 3. Считаем циферки
+        // Порядок запуска:
+        loadState();        // 1. Сначала подтягиваем кэш
+        renderTimers();     // 2. Строим блок таймеров
+        renderTasks();      // 3. Строим карточки заданий
+        updateStatistics(); // 4. Считаем циферки
     </script>
 </body>
 </html>
