@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>krafen / watchlist</title>
+    <meta name="description" content="Список аниме, фильмов и сериалов krafen">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/krafenx/krafen/8c5ff5d6ae7d406899fbf4906d5bc543e06c6648/cherry-blossom.png">
+    <link href="https://fonts.cdnfonts.com/css/google-sans" rel="stylesheet">
+    <style>
+        :root {
+            --md-bg: #121318;
+            --md-surface-container: #1e1f25;
+            --md-surface-container-high: #2a2a31;
+            --md-primary: #adc6ff;
+            --md-on-primary: #002e69;
+            --md-primary-container: #1d437e;
+            --md-on-primary-container: #d8e2ff;
+            --md-outline-variant: #44474f;
+            --md-on-surface: #e2e2e9;
+            --md-on-surface-variant: #c4c6d0;
+        }
+
+        body { background-color: var(--md-bg); font-family: 'Google Sans', sans-serif; color: var(--md-on-surface); }
+        
+        .filter-btn {
+            font-size: 14px; font-weight: 500; padding: 6px 16px;
+            border-radius: 8px; border: 1px solid var(--md-outline-variant);
+            background: transparent; color: var(--md-on-surface-variant);
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .filter-btn.active {
+            background-color: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            border-color: transparent;
+        }
+
+        .media-card {
+            background-color: var(--md-surface-container);
+            border-radius: 12px; overflow: hidden;
+            border: 1px solid var(--md-outline-variant);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        .media-card:hover {
+            transform: translateY(-4px);
+            background-color: var(--md-surface-container-high);
+        }
+
+        .m3-badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 9999px; }
+        .badge-watched { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+        .badge-planned { background: rgba(173, 198, 255, 0.15); color: #adc6ff; }
+
+        #toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(40px);
+            background-color: var(--md-surface-container-high); border: 1px solid var(--md-outline-variant);
+            padding: 12px 24px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            font-size: 14px; z-index: 200; opacity: 0; pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-12 flex flex-col items-center">
+
+    <div class="w-full max-w-5xl flex flex-col">
+        <header class="flex justify-between items-center mb-8 w-full px-1">
+            <a href="/" class="text-sm font-medium text-[var(--md-primary)] hover:underline">← Главная</a>
+            <h1 class="text-2xl font-bold tracking-tight">watchlist</h1>
+        </header>
+
+        <div class="space-y-3 mb-6">
+            <div class="flex gap-2 flex-wrap" id="type-filters">
+                <button class="filter-btn active" data-type="all">Все</button>
+                <button class="filter-btn" data-type="anime">Аниме</button>
+                <button class="filter-btn" data-type="movie">Фильмы</button>
+                <button class="filter-btn" data-type="series">Сериалы</button>
+            </div>
+            <div class="flex gap-2 flex-wrap" id="status-filters">
+                <button class="filter-btn active" data-status="all">Все статусы</button>
+                <button class="filter-btn" data-status="watched">Просмотрено</button>
+                <button class="filter-btn" data-status="planned">В планах</button>
+            </div>
+        </div>
+
+        <div id="cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 w-full"></div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        let mediaItems = [];
+        let typeFilter = 'all';
+        let statusFilter = 'all';
+
+        function checkAdminSession() {}
+
+        function fetchList() {
+            mediaItems = [
+                { id: '1', title: 'Elfen Lied', type: 'anime', status: 'watched', year: '2004' },
+                { id: '2', title: 'Honkai: Star Rail Short Animations', type: 'anime', status: 'planned', year: '2023' }
+            ];
+            render();
+        }
+
+        function render() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+
+            const filtered = mediaItems.filter(item => {
+                const tMatch = typeFilter === 'all' || item.type === typeFilter;
+                const sMatch = statusFilter === 'all' || item.status === statusFilter;
+                return tMatch && sMatch;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-12 opacity-40 text-sm">Список пуст</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'media-card flex flex-col';
+                card.innerHTML = `
+                    <div class="aspect-[2/3] bg-[var(--md-surface-container-high)] flex items-center justify-center text-xs text-[var(--md-on-surface-variant)] opacity-50 border-b border-[var(--md-outline-variant)] text-center p-4">
+                        Постер временно отсутствует
+                    </div>
+                    <div class="p-3 flex-1 flex flex-col justify-between space-y-3">
+                        <div>
+                            <h3 class="text-sm font-bold text-white line-clamp-2 leading-tight">${item.title}</h3>
+                            <div class="text-[11px] text-[var(--md-on-surface-variant)] mt-1">${item.type.toUpperCase()} &bull; ${item.year}</div>
+                        </div>
+                        <div>
+                            <span class="m3-badge ${item.status === 'watched' ? 'badge-watched' : 'badge-planned'}">
+                                ${item.status === 'watched' ? 'Просмотрено' : 'В планах'}
+                            </span>
+                        </div>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        document.querySelectorAll('#type-filters .filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                typeFilter = btn.dataset.type;
+                document.querySelectorAll('#type-filters .filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                render();
+            });
+        });
+
+        document.querySelectorAll('#status-filters .filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                statusFilter = btn.dataset.status;
+                document.querySelectorAll('#status-filters .filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                render();
+            });
+        });
+
+        let toastTimer = null;
+        function showToast(msg, color) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.style.borderColor = color || 'var(--md-outline-variant)';
+            clearTimeout(toastTimer);
+            el.classList.add('show');
+            toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+        }
+
+        checkAdminSession();
+        fetchList();
+    </script>
+</body>
+</html>
