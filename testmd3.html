@@ -7,241 +7,159 @@
     <meta name="description" content="Привет, я krafen. Здесь ты найдёшь ссылки на мои соцсети, Discord-сервер и способы поддержать меня.">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/krafenx/krafen/8c5ff5d6ae7d406899fbf4906d5bc543e06c6648/cherry-blossom.png">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Material Design 3 Dark Theme Tokens (Custom Wine/Plum Palette) */
-            --md-sys-color-background: #0d0b0c;
-            --md-sys-color-surface: #171415;
-            --md-sys-color-surface-variant: #241e20;
-            --md-sys-color-primary: #f7f4f3;
-            --md-sys-color-primary-container: #5b2333;
-            --md-sys-color-on-primary-container: #ffd9e2;
-            --md-sys-color-secondary-container: #2d2225;
-            --md-sys-color-on-secondary-container: #f4dddf;
-            --md-sys-color-outline: #44373a;
-            --md-sys-color-outline-variant: #2d2527;
-            --md-sys-color-on-surface: #efefef;
-            --md-sys-color-on-surface-variant: #c4b4b7;
+            /* Каноничные цвета Material Design 3 (Тёмная тема) */
+            --md-surface: #121318;
+            --md-surface-container: #1e1f25;
+            --md-surface-container-high: #2a2a31;
+            --md-primary: #adc6ff;
+            --md-on-primary: #002e69;
+            --md-primary-container: #1d437e;
+            --md-on-primary-container: #d8e2ff;
+            --md-secondary-container: #3b465b;
+            --md-on-secondary-container: #d7e3fc;
+            --md-outline-variant: #44474f;
+            --md-on-surface: #e2e2e9;
+            --md-on-surface-variant: #c4c6d0;
         }
-
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
-
-        html {
-            width: 100%;
-            overflow-x: hidden;
-        }
-
         body {
-            background-color: var(--md-sys-color-background);
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--md-sys-color-on-surface);
-            min-height: 100vh;
-            width: 100%;
-            margin: 0;
-            overflow-x: hidden;
+            background-color: var(--md-surface);
+            font-family: 'Roboto', sans-serif;
+            color: var(--md-on-surface);
         }
-
-        /* MD3 Card Surface Elevation & State Layer */
-        .md3-card {
-            background-color: var(--md-sys-color-surface);
-            border: 1px solid var(--md-sys-color-outline-variant);
-            border-radius: 1.5rem; /* 24px */
-            transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1), 
-                        border-color 0.2s cubic-bezier(0.2, 0, 0, 1), 
-                        box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
+        .m3-card {
+            background-color: var(--md-surface-container);
+            border-radius: 1.5rem; /* 24px - Extra Large по гайдам M3 */
+            border: 1px solid transparent;
+            transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s ease;
         }
-
-        .md3-card:hover {
-            background-color: var(--md-sys-color-surface-variant);
-            border-color: var(--md-sys-color-outline);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        .m3-card:hover {
+            background-color: var(--md-surface-container-high);
         }
-
-        .md3-card, .md3-card * {
-            min-width: 0;
+        .m3-btn-primary {
+            background-color: var(--md-primary);
+            color: var(--md-on-primary);
+            border-radius: 9999px;
+            font-weight: 500;
+            transition: box-shadow 0.2s ease;
         }
-
-        #social-discord > div {
-            flex: 1;
-            justify-content: center;
-            gap: 1rem;
+        .m3-btn-primary:hover {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
         }
-
-        #twitch-card > div {
-            height: 100%;
-            justify-content: center;
-            gap: 1rem;
+        .m3-btn-tonal {
+            background-color: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            border-radius: 9999px;
+            font-weight: 500;
         }
-
-        /* Material Design Tooltip */
-        .hint-link {
-            position: relative;
+        .m3-chip {
+            background-color: transparent;
+            border: 1px solid var(--md-outline-variant);
+            color: var(--md-on-surface-variant);
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
         }
-
         .hint-tooltip {
             position: absolute;
             left: 50%;
             bottom: calc(100% + 0.5rem);
             z-index: 30;
-            width: max-content;
-            max-width: min(17rem, 80vw);
-            transform: translateX(-50%) translateY(4px);
-            border-radius: 0.25rem; /* 4px per MD3 Spec for plain tooltips */
-            background-color: #211f20;
-            padding: 4px 8px;
-            color: #f4f4f5;
-            font-size: 11px;
-            text-align: center;
-            white-space: nowrap;
+            transform: translateX(-50%) scale(0.95);
+            background-color: var(--md-surface-container-high);
+            border: 1px solid var(--md-outline-variant);
+            border-radius: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            color: var(--md-on-surface);
+            font-size: 0.75rem;
             opacity: 0;
             pointer-events: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-            transition: opacity 0.15s cubic-bezier(0.2, 0, 0, 1), transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+            transition: opacity 0.15s ease, transform 0.15s ease;
         }
-
-        .hint-link:hover .hint-tooltip,
-        .hint-link:focus-visible .hint-tooltip {
+        .hint-link:hover .hint-tooltip {
             opacity: 1;
-            transform: translateX(-50%) translateY(0);
+            transform: translateX(-50%) scale(1);
         }
-
-        .now-playing-layout {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
-            gap: 1.5rem;
-            align-items: center;
-        }
-
-        /* MD3 Container Inside Card */
-        .time-widget {
-            border: 1px solid var(--md-sys-color-outline-variant);
-            background-color: var(--md-sys-color-secondary-container);
-            color: var(--md-sys-color-on-secondary-container);
-            border-radius: 1rem; /* 16px */
-            padding: 1rem;
-        }
-
-        @media (max-width: 767px) {
-            .now-playing-layout {
-                grid-template-columns: minmax(0, 1fr);
-            }
-            .time-widget {
-                width: 100%;
-            }
-        }
-
         .shimmer {
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+            background: linear-gradient(90deg, var(--md-surface-container), var(--md-surface-container-high), var(--md-surface-container));
             background-size: 200% 100%;
-            animation: shimmer 2s infinite;
+            animation: shimmer 1.5s infinite;
         }
-
-        .top-nav {
-            width: 100%;
-            margin: 0 auto 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-
-        .top-nav-link {
-            color: var(--md-sys-color-on-surface-variant);
-            font-size: 11px;
-            font-weight: 500;
-            letter-spacing: 0.15em;
-            text-transform: lowercase;
-            text-decoration: none;
-            transition: color 0.15s ease, transform 0.15s ease;
-            opacity: 0.7;
-        }
-
-        .top-nav-link:hover {
-            color: var(--md-sys-color-primary);
-            opacity: 1;
-        }
-
-        .top-nav-link:first-child:hover { transform: translateX(-2px); }
-        .top-nav-link:last-child:hover { transform: translateX(2px); }
-
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     </style>
 </head>
-<body class="p-4 sm:p-6 md:p-12 flex flex-col items-center">
+<body class="p-4 sm:p-6 md:p-12 flex flex-col items-center min-h-screen">
 
-    <div class="w-full max-w-6xl flex flex-col">
-        <nav class="top-nav px-2" aria-label="site sections">
-            <a class="top-nav-link" href="/watchlist">← watchlist</a>
-            <a class="top-nav-link" href="/gamelist">gamelist →</a>
+    <div class="w-full max-w-5xl flex flex-col">
+        <nav class="w-full flex justify-between items-center mb-8 px-2" aria-label="site sections">
+            <a class="text-sm font-medium tracking-wide flex items-center gap-2 px-4 py-2 rounded-full border border-[var(--md-outline-variant)] text-[var(--md-primary)] hover:bg-[var(--md-primary-container)]/20 transition" href="/watchlist">
+                <span>&larr;</span> Watchlist
+            </a>
+            <a class="text-sm font-medium tracking-wide flex items-center gap-2 px-4 py-2 rounded-full border border-[var(--md-outline-variant)] text-[var(--md-primary)] hover:bg-[var(--md-primary-container)]/20 transition" href="/gamelist">
+                Gamelist <span>&rarr;</span>
+            </a>
         </nav>
 
-        <div class="grid grid-cols-12 gap-4 md:gap-5 w-full">
+        <div class="grid grid-cols-12 gap-4 md:gap-6 w-full">
             
-            <div class="md3-card col-span-12 md:col-span-8 p-6 flex flex-col justify-between">
+            <div class="m3-card col-span-12 md:col-span-8 p-6 flex flex-col justify-between">
                 <div>
-                    <div class="flex items-center gap-2 mb-6">
-                        <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span class="text-[10px] uppercase font-bold tracking-wider opacity-60 text-emerald-400">API Sync: Active</span>
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                        <span class="text-xs font-medium text-[var(--md-on-surface-variant)] tracking-wider">API Sync: Active</span>
                     </div>
-                    <h1 class="text-4xl sm:text-5xl font-bold mb-4 tracking-tight text-white">krafen</h1>
-                    <p class="text-[14px] leading-relaxed max-w-xl" style="color: var(--md-sys-color-on-surface-variant)">
+                    <h1 class="text-4xl font-bold mb-3 text-white tracking-tight">krafen</h1>
+                    <p class="text-[var(--md-on-surface-variant)] text-base leading-relaxed max-w-xl">
                         my name's svyatoslav belozerov, my nickname is krafen and i'm 20 years old. i don't have much to say about myself honestly sooo...
                     </p>
                 </div>
-                <div class="flex flex-wrap gap-2 mt-8" id="github-stats">
-                    <span class="text-[11px] bg-white/5 border border-white/5 px-3 py-1 rounded-full opacity-50">fetching_github...</span>
+                <div class="flex flex-wrap gap-2 mt-6" id="github-stats">
+                    <span class="text-xs bg-[var(--md-surface-container-high)] border border-[var(--md-outline-variant)] px-3 py-1 rounded-full opacity-60">fetching_github...</span>
                 </div>
             </div>
 
-            <div class="md3-card col-span-12 md:col-span-4 p-6 flex flex-col">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xs font-bold uppercase tracking-[0.15em]" style="color: var(--md-sys-color-on-surface-variant); opacity: 0.5;">Twitch</h2>
-                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-md bg-white/5" style="color: var(--md-sys-color-on-surface-variant)">Status</span>
+            <div class="m3-card col-span-12 md:col-span-4 p-6 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-medium text-[var(--md-on-surface-variant)] tracking-wide">Twitch</h2>
+                    <span class="text-xs bg-[#6441a5]/20 text-[#a98eff] px-2 py-0.5 rounded-full font-medium">Stream status</span>
                 </div>
                 <div id="twitch-card" class="text-sm flex-1 flex flex-col">
-                    <div class="min-h-[7rem] bg-white/5 rounded-2xl shimmer flex-1"></div>
+                    <div class="min-h-[6rem] rounded-2xl shimmer flex-1"></div>
                 </div>
             </div>
 
-            <div class="md3-card col-span-12 md:col-span-8 p-6 overflow-hidden flex flex-col justify-between">
+            <div class="m3-card col-span-12 md:col-span-8 p-6 overflow-hidden flex flex-col justify-between">
                 <div>
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xs font-bold uppercase tracking-[0.15em]" style="color: var(--md-sys-color-on-surface-variant); opacity: 0.5;">Now Playing</h2>
-                        <span class="text-emerald-400 text-[10px] font-bold tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-md">SPOTIFY</span>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-sm font-medium text-[var(--md-on-surface-variant)] tracking-wide">Now Playing</h2>
+                        <span class="text-emerald-400 text-xs font-bold tracking-widest">SPOTIFY</span>
                     </div>
-                    <div id="music-container" class="now-playing-layout">
-                        <div id="music-track" class="flex items-center gap-4 sm:gap-6 min-w-0">
-                            <div class="w-16 h-16 sm:w-20 sm:h-20 bg-white/5 rounded-2xl flex-shrink-0 shimmer"></div>
+                    <div id="music-container" class="flex flex-col md:flex-row gap-6 items-center justify-between">
+                        <div id="music-track" class="flex items-center gap-4 min-w-0 flex-1 w-full">
+                            <div class="w-20 h-20 bg-[var(--md-surface-container-high)] rounded-2xl flex-shrink-0 shimmer"></div>
                             <div class="space-y-2 min-w-0 flex-1">
-                                <div class="h-4 w-32 bg-white/5 rounded animate-pulse"></div>
-                                <div class="h-3 w-24 bg-white/5 rounded animate-pulse"></div>
+                                <div class="h-4 w-32 bg-[var(--md-surface-container-high)] rounded animate-pulse"></div>
+                                <div class="h-3 w-24 bg-[var(--md-surface-container-high)] rounded animate-pulse"></div>
                             </div>
                         </div>
-                        <div id="birthday-widget" class="time-widget">
-                            <div class="flex items-start justify-between gap-3 mb-4">
+                        
+                        <div id="birthday-widget" class="bg-[var(--md-surface-container-high)] border border-[var(--md-outline-variant)] rounded-2xl p-4 w-full md:w-64 flex-shrink-0">
+                            <div class="flex items-start justify-between gap-3 mb-3">
                                 <div>
-                                    <div class="text-[9px] uppercase tracking-[0.15em] opacity-60">Local time</div>
-                                    <time id="local-time" class="text-xl font-bold tracking-tight text-white">--:--:--</time>
+                                    <div class="text-xs text-[var(--md-on-surface-variant)]">Local time</div>
+                                    <time id="local-time" class="text-xl font-bold text-white tracking-tight">--:--:--</time>
                                 </div>
                             </div>
-                            <div class="grid gap-2 text-[10px] uppercase tracking-[0.12em]">
-                                <div class="flex justify-between gap-3 border-t border-white/5 pt-3">
-                                    <span class="opacity-60">Birthday</span>
-                                    <span id="birthday-date" class="font-bold text-white text-right">13 January</span>
+                            <div class="grid gap-1 text-xs border-t border-[var(--md-outline-variant)] pt-3">
+                                <div class="flex justify-between">
+                                    <span class="text-[var(--md-on-surface-variant)]">Birthday</span>
+                                    <span id="birthday-date" class="text-[var(--md-primary)] font-medium">13 January</span>
                                 </div>
-                                <div class="flex justify-between gap-3">
-                                    <span class="opacity-60">Birthday in</span>
-                                    <span id="birthday-countdown" class="font-bold text-white text-right">--d --h --m --s</span>
+                                <div class="flex justify-between">
+                                    <span class="text-[var(--md-on-surface-variant)]">Birthday in</span>
+                                    <span id="birthday-countdown" class="text-white font-medium">--d --h --m --s</span>
                                 </div>
                             </div>
                         </div>
@@ -249,108 +167,38 @@
                 </div>
             </div>
 
-            <div class="md3-card col-span-12 md:col-span-4 p-6 flex flex-col">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xs font-bold uppercase tracking-[0.15em]" style="color: var(--md-sys-color-on-surface-variant); opacity: 0.5;">Telegram</h2>
-                    <span class="text-[10px] opacity-50">Community</span>
+            <div class="m3-card col-span-12 md:col-span-4 p-6 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-medium text-[var(--md-on-surface-variant)] tracking-wide">Telegram</h2>
+                    <span class="text-xs text-[var(--md-primary)]">Channel & chat</span>
                 </div>
                 <div id="telegram-card" class="text-sm flex-1 flex flex-col">
-                    <div class="min-h-[7rem] bg-white/5 rounded-2xl shimmer flex-1"></div>
+                    <div class="min-h-[6rem] rounded-2xl shimmer flex-1"></div>
                 </div>
             </div>
 
-            <div id="social-youtube" class="md3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
-            <div id="social-watchlist" class="md3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
-            <div id="social-tiktok" class="md3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
-            <div id="social-boosty" class="md3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
-            <div id="social-x" class="md3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
-            <div id="social-steam" class="md3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
+            <div id="social-youtube" class="m3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
+            <div id="social-watchlist" class="m3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
+            <div id="social-gamelist" class="m3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
+            <div id="social-twitch" class="m3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
+            <div id="social-github" class="m3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
+            <div id="social-discord" class="m3-card col-span-6 md:col-span-4 p-4 flex flex-col"></div>
 
-            <div class="md3-card col-span-12 md:col-span-8 p-6 flex flex-col">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xs font-bold uppercase tracking-[0.15em]" style="color: var(--md-sys-color-on-surface-variant); opacity: 0.5;">Discord server</h2>
-                    <span class="text-[10px] opacity-50 font-bold">LIVE METRICS</span>
-                </div>
-                <div id="discord-server-card" class="text-sm flex-1 flex flex-col">
-                    <div class="min-h-[7rem] bg-white/5 rounded-2xl shimmer flex-1"></div>
-                </div>
-            </div>
-
-            <div id="social-discord" class="md3-card col-span-12 md:col-span-4 p-6 flex flex-col"></div>
-
-            <div class="md3-card col-span-12 p-6">
-                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-6">
-                    <div>
-                        <h2 class="text-xs font-bold uppercase tracking-[0.15em]" style="color: var(--md-sys-color-on-surface-variant); opacity: 0.5;">donations</h2>
-                        <p class="text-[11px] mt-2 max-w-2xl" style="color: var(--md-sys-color-on-surface-variant)">if you for some reason want to support me, i accept anything listed below. huge thanks in advance.</p>
-                    </div>
-                    <span class="text-[10px] font-bold uppercase tracking-[0.15em] bg-white/5 px-2.5 py-1 rounded-full" style="color: var(--md-sys-color-on-surface-variant)">no judgement</span>
-                </div>
-                
-                <div class="grid gap-4 md:grid-cols-2">
-                    <div class="rounded-2xl border border-white/5 bg-neutral-900/30 p-5">
-                        <div class="text-[10px] uppercase font-bold tracking-[0.15em] opacity-40 mb-4">crypto addresses</div>
-                        <div class="flex flex-col gap-2.5 mb-5">
-                            <div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 text-[11px] border border-white/5 w-full overflow-hidden">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <span class="flex-shrink-0 w-8 font-bold opacity-40 text-xs">TON</span>
-                                    <span class="font-medium text-white truncate text-xs">angelkrafen.ton</span>
-                                </div>
-                                <button type="button" data-copy="angelkrafen.ton" class="flex-shrink-0 text-gray-400 hover:text-white transition px-1 text-sm" title="Copy TON address">&#128203;</button>
-                            </div>
-                            <div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 text-[11px] border border-white/5 w-full overflow-hidden">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <span class="flex-shrink-0 w-8 font-bold opacity-40 text-xs">BTC</span>
-                                    <span class="font-medium text-white truncate text-xs">12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu</span>
-                                </div>
-                                <button type="button" data-copy="12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu" class="flex-shrink-0 text-gray-400 hover:text-white transition px-1 text-sm" title="Copy BTC address">&#128203;</button>
-                            </div>
-                            <div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 text-[11px] border border-white/5 w-full overflow-hidden">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <span class="flex-shrink-0 w-8 font-bold opacity-40 text-xs">ETH</span>
-                                    <span class="font-medium text-white truncate text-xs">0xc99b815e2b8988e4479298bbdc4235a685aa6445</span>
-                                </div>
-                                <button type="button" data-copy="0xc99b815e2b8988e4479298bbdc4235a685aa6445" class="flex-shrink-0 text-gray-400 hover:text-white transition px-1 text-sm" title="Copy ETH address">&#128203;</button>
-                            </div>
-                            <div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2 text-[11px] border border-white/5 w-full overflow-hidden">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <span class="flex-shrink-0 w-8 font-bold opacity-40 text-xs">TRX</span>
-                                    <span class="font-medium text-white truncate text-xs">T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH</span>
-                                </div>
-                                <button type="button" data-copy="T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH" class="flex-shrink-0 text-gray-400 hover:text-white transition px-1 text-sm" title="Copy TRX address">&#128203;</button>
-                            </div>
-                        </div>
-                        <a href="https://t.me/send?start=IV5PoNgziNQ3" class="inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.1em]" style="background-color: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container);">
-                            <span>cryptobot open</span>
-                            <span>↗</span>
-                        </a>
-                    </div>
-
-                    <div class="rounded-2xl border border-white/5 bg-neutral-900/30 p-5 flex flex-col justify-between">
-                        <div>
-                            <div class="text-[10px] uppercase font-bold tracking-[0.15em] opacity-40 mb-4">fiat options</div>
-                            <div class="flex flex-wrap gap-2 mb-5">
-                                <a href="https://www.tinkoff.ru/rm/r_aHnZFJyKaS.NwlcddBPPE/s5SB540759" class="rounded-full bg-white/5 px-4 py-1.5 text-xs text-white border border-white/5 hover:bg-white/10 transition inline-flex items-center gap-2">
-                                    <span>tinkoff</span><span class="opacity-40">↗</span>
-                                </a>
-                                <a href="https://t.me/krafen" class="hint-link rounded-full bg-white/5 px-4 py-1.5 text-xs text-white border border-white/5 hover:bg-white/10 transition inline-flex items-center gap-2">
-                                    <span>card2card</span><span class="opacity-40">↗</span>
-                                    <span class="hint-tooltip">reach me on telegram - i'll send details</span>
-                                </a>
-                                <a href="https://t.me/krafen" class="hint-link rounded-full bg-white/5 px-4 py-1.5 text-xs text-white border border-white/5 hover:bg-white/10 transition inline-flex items-center gap-2">
-                                    <span>bank transfer</span><span class="opacity-40">↗</span>
-                                    <span class="hint-tooltip">reach me on telegram - i'll send details</span>
-                                </a>
-                                <a href="https://donatex.gg/donate/krafen" target="_blank" rel="noopener noreferrer" class="rounded-full bg-white/5 px-4 py-1.5 text-xs text-white border border-white/5 hover:bg-white/10 transition inline-flex items-center gap-2">
-                                    <span>donatex</span><span class="opacity-40">↗</span>
-                                </a>
-                                <a href="https://www.donationalerts.com/r/krafenx" target="_blank" rel="noopener noreferrer" class="rounded-full bg-white/5 px-4 py-1.5 text-xs text-white border border-white/5 hover:bg-white/10 transition inline-flex items-center gap-2">
-                                    <span>donationalerts</span><span class="opacity-40">↗</span>
-                                </a>
-                            </div>
-                        </div>
-                        <p class="text-[11px] leading-relaxed mt-4" style="color: var(--md-sys-color-on-surface-variant)">when donating crypto please use stablecoins/native coin (e.g. tron for trx).</p>
-                    </div>
+            <div class="m3-card col-span-12 p-6">
+                <h3 class="text-lg font-medium mb-4 text-white">Support me</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    <button data-copy="https://www.donationalerts.com/r/krafen" class="m3-btn-tonal px-4 py-3 flex justify-between items-center hover:opacity-90 transition text-sm">
+                        <span>DonationAlerts</span>
+                        <span class="text-xs opacity-60">Copy URL</span>
+                    </button>
+                    <button data-copy="https://boosty.to/krafen" class="m3-btn-tonal px-4 py-3 flex justify-between items-center hover:opacity-90 transition text-sm">
+                        <span>Boosty</span>
+                        <span class="text-xs opacity-60">Copy URL</span>
+                    </button>
+                    <button data-copy="ton://transfer/EQ...your-address" class="m3-btn-tonal px-4 py-3 flex justify-between items-center hover:opacity-90 transition text-sm">
+                        <span>TON Wallet</span>
+                        <span class="text-xs opacity-60">Copy Address</span>
+                    </button>
                 </div>
             </div>
 
@@ -358,358 +206,110 @@
     </div>
 
     <script>
-        const CONFIG = {
-            github_user:          'krafenx',
-            lastfm_user:          'krafen',
-            lastfm_key:           '6474af65e5e721a2751d9d7f9274b594',
-            twitch_user:          'krafen',
-            discord_invite_code:  'kGdxDzxtmK',
-            telegram_channel:     'krafenx',
-            telegram_username:    'krafen',
-            steam_id:             '76561199067685266',
-            birthday_month:       1,
-            birthday_day:         13,
-            socials: [
-                { id: 'discord',   name: 'Discord',   href: 'https://discord.com/users/krafen',          label: 'Personal chat' },
-                { id: 'youtube',   name: 'YouTube',   href: 'https://youtube.com/@krafen.',              label: 'Videos' },
-                { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/krafenx',             label: 'Photos' },
-                { id: 'tiktok',    name: 'TikTok',    href: 'https://www.tiktok.com/@.krafen',           label: 'Short videos' },
-                { id: 'boosty',    name: 'Boosty',    href: 'https://boosty.to/krafen',                  label: 'Support' },
-                { id: 'x',         name: 'X',         href: 'https://x.com/krafen_',                     label: 'News' },
-                { id: 'steam',     name: 'Steam',     href: 'https://steamcommunity.com/id/Krafen_',     label: 'Game profile' },
-            ]
-        };
-
-        // HELPERS
-
-        function socialCardHTML(title, label, href, linkText = 'Open') {
-            return `
-                <div class="rounded-xl border border-white/5 bg-neutral-900/40 p-4 transition duration-200 hover:border-neutral-700 flex-1 h-full flex flex-col justify-between">
-                    <div class="mb-4">
-                        <div class="text-sm font-bold text-white truncate">${escapeHTML(title)}</div>
-                        <div class="text-[10px] uppercase font-bold tracking-wider opacity-40 mt-0.5 truncate">${escapeHTML(label)}</div>
-                    </div>
-                    <a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer"
-                       class="inline-flex w-full items-center justify-center rounded-full px-3 py-2 text-[11px] font-bold uppercase tracking-[0.05em] transition duration-200"
-                       style="background-color: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">
-                        ${escapeHTML(linkText)}
-                    </a>
-                </div>`;
-        }
-
-        function setCard(id, headerHTML, bodyHTML) {
-            const el = document.getElementById(id);
-            if (!el) { console.warn(`[krafen] element #${id} not found`); return; }
-            el.innerHTML = (headerHTML || '') + bodyHTML;
-        }
-
-        function escapeHTML(value) {
-            return String(value ?? '').replace(/[&<>"']/g, char => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;',
-            }[char]));
-        }
-
-        async function copyText(value) {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(value);
-                return;
-            }
-
-            const textarea = document.createElement('textarea');
-            textarea.value = value;
-            textarea.setAttribute('readonly', '');
-            textarea.style.position = 'fixed';
-            textarea.style.left = '-9999px';
-            document.body.appendChild(textarea);
-            textarea.select();
-
-            try {
-                if (!document.execCommand('copy')) {
-                    throw new Error('execCommand copy failed');
-                }
-            } finally {
-                document.body.removeChild(textarea);
-            }
-        }
-
-        function statusBox(message) {
-            return `<div class="p-4 rounded-xl bg-white/5 border border-white/5 text-gray-400 flex-1 text-xs flex items-center justify-center">${escapeHTML(message)}</div>`;
-        }
-
-        // SOCIAL LINK CARDS
+        // Исходные данные
+        const SOCIALS = [
+            { id: 'youtube',   name: 'YouTube',   url: 'https://youtube.com/@krafen', desc: 'Стримы и нарезки' },
+            { id: 'watchlist', name: 'Watchlist', url: '/watchlist',                 desc: 'Что посмотреть' },
+            { id: 'gamelist',  name: 'Gamelist',  url: '/gamelist',                  desc: 'Что поиграть' },
+            { id: 'twitch',    name: 'Twitch',    url: 'https://twitch.tv/krafen',   desc: 'Прямые трансляции' },
+            { id: 'github',    name: 'GitHub',    url: 'https://github.com/krafenx', desc: 'Мои проекты' },
+            { id: 'discord',   name: 'Discord',   url: 'https://discord.gg/krafen',  desc: 'Наше сообщество' }
+        ];
 
         function renderSocialLinks() {
-            CONFIG.socials.forEach(({ id, name, label, href }) => {
-                const container = document.getElementById(`social-${id}`);
-                if (!container) { console.warn(`[krafen] #social-${id} not found`); return; }
-
-                const header = `
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-[11px] font-bold uppercase opacity-40 tracking-wider truncate mr-2">${escapeHTML(name)}</h2>
-                        <span class="text-[10px] opacity-30 truncate">${escapeHTML(label)}</span>
-                    </div>`;
-
-                container.innerHTML = header + socialCardHTML(name, label, href);
+            SOCIALS.forEach(item => {
+                const container = document.getElementById(`social-${item.id}`);
+                if (!container) return;
+                container.innerHTML = `
+                    <div class="flex flex-col justify-between h-full min-h-[5.5rem]">
+                        <div>
+                            <h4 class="font-bold text-white text-base">${item.name}</h4>
+                            <p class="text-xs text-[var(--md-on-surface-variant)] mt-1">${item.desc}</p>
+                        </div>
+                        <a href="${item.url}" class="mt-4 inline-flex items-center justify-center bg-[var(--md-primary-container)] text-[var(--md-on-primary-container)] text-xs font-medium py-2 px-4 rounded-full hover:opacity-90 transition text-center w-full">Открыть</a>
+                    </div>
+                `;
             });
         }
 
-        // LAST.FM
-
-        async function fetchMusic() {
-            const container = document.getElementById('music-track');
-            if (!container) return;
-
-            try {
-                const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${CONFIG.lastfm_user}&api_key=${CONFIG.lastfm_key}&format=json&limit=1`;
-                const res  = await fetch(url);
-                if (!res.ok) throw new Error(`Last.fm request failed: ${res.status}`);
-
-                const data = await res.json();
-                const track = data.recenttracks?.track?.[0];
-                if (!track) {
-                    container.innerHTML = statusBox('No recent tracks found');
-                    return;
-                }
-
-                const isLive  = !!track['@attr'];
-                const imgSrc  = track.image?.[3]?.['#text'];
-                const albumArt = imgSrc
-                    ? `<img src="${escapeHTML(imgSrc)}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-white/10 shadow-xl flex-shrink-0" alt="Album art">`
-                    : '<div class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-[9px] uppercase tracking-[0.18em] text-gray-500 flex-shrink-0">No art</div>';
-
-                container.innerHTML = `
-                    ${albumArt}
-                    <div class="min-w-0 flex-1">
-                        <div class="text-white font-bold truncate text-base sm:text-lg tracking-tight">${escapeHTML(track.name)}</div>
-                        <div class="text-xs truncate mt-0.5" style="color: var(--md-sys-color-on-surface-variant)">${escapeHTML(track.artist?.['#text'])}</div>
-                        <div class="mt-2 inline-block px-2.5 py-0.5 text-emerald-400 bg-emerald-500/10 text-[9px] font-bold rounded uppercase tracking-wider">
-                            ${isLive ? 'Now Listening' : 'Played Recently'}
-                        </div>
-                    </div>`;
-            } catch (e) {
-                console.warn('[krafen] Last.fm error:', e);
-                container.innerHTML = statusBox('Last.fm is unavailable right now');
+        async function copyText(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
             }
-        }
-
-        // TIME / BIRTHDAY
-
-        function getNextBirthday(now) {
-            const next = new Date(now.getFullYear(), CONFIG.birthday_month - 1, CONFIG.birthday_day, 0, 0, 0, 0);
-            if (next <= now) next.setFullYear(next.getFullYear() + 1);
-            return next;
         }
 
         function updateBirthdayWidget() {
-            const timeEl = document.getElementById('local-time');
-            const birthdayEl = document.getElementById('birthday-date');
-            const countdownEl = document.getElementById('birthday-countdown');
-            if (!timeEl || !birthdayEl || !countdownEl) return;
-
             const now = new Date();
-            const nextBirthday = getNextBirthday(now);
-            const diff = Math.max(0, nextBirthday - now);
-            const totalSeconds = Math.floor(diff / 1000);
-            const days = Math.floor(totalSeconds / 86400);
-            const hours = Math.floor((totalSeconds % 86400) / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-
-            timeEl.textContent = new Intl.DateTimeFormat('en-GB', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-            }).format(now);
-            birthdayEl.textContent = `${CONFIG.birthday_day} January`;
-            countdownEl.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+            document.getElementById('local-time').textContent = now.toLocaleTimeString('ru-RU');
+            
+            let bday = new Date(now.getFullYear(), 0, 13, 0, 0, 0);
+            if (now > bday) bday.setFullYear(now.getFullYear() + 1);
+            
+            const diff = bday - now;
+            const d = Math.floor(diff / 86400000);
+            const h = Math.floor((diff % 86400000) / 3600000);
+            const m = Math.floor((diff % 3600000) / 600000);
+            const s = Math.floor((diff % 60000) / 1000);
+            
+            document.getElementById('birthday-countdown').textContent = `${d}d ${h}h ${m}m ${s}s`;
         }
 
-        // GITHUB
+        // Заглушки для API функций с M3 стилизацией
+        async function fetchMusic() {
+            const container = document.getElementById('music-container');
+            container.innerHTML = `
+                <div class="flex items-center gap-4 min-w-0 flex-1 w-full">
+                    <img class="w-20 h-20 rounded-2xl object-cover" src="https://images.unsplash.com/photo-1614680376593-902f74fa0d41?w=120" alt="Cover">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-bold text-white text-base truncate">Музыка не воспроизводится</div>
+                        <div class="text-sm text-[var(--md-on-surface-variant)] truncate">Spotify Off</div>
+                    </div>
+                </div>
+            `;
+        }
 
         async function fetchGitHub() {
-            const stats = document.getElementById('github-stats');
-            if (!stats) return;
-
-            try {
-                const res  = await fetch(`https://api.github.com/users/${CONFIG.github_user}`);
-                if (!res.ok) throw new Error(`GitHub request failed: ${res.status}`);
-
-                const data = await res.json();
-                stats.innerHTML = `
-                    <span class="text-[11px] font-medium border border-white/5 bg-white/5 px-3 py-1 rounded-full text-white">${Number(data.public_repos ?? 0)} Repositories</span>
-                    <span class="text-[11px] font-medium border border-white/5 bg-white/5 px-3 py-1 rounded-full opacity-60">${Number(data.followers ?? 0)} Followers</span>`;
-            } catch (e) {
-                console.warn('[krafen] GitHub error:', e);
-                stats.innerHTML = '<span class="text-[11px] border border-white/5 bg-white/5 px-3 py-1 rounded-full opacity-40">github_unavailable</span>';
-            }
-        }
-
-        // DISCORD SERVER
-
-        async function fetchDiscordServer() {
-            const card = document.getElementById('discord-server-card');
-            if (!card) return;
-
-            if (!CONFIG.discord_invite_code) {
-                card.innerHTML = statusBox('Discord invite not configured');
-                return;
-            }
-            try {
-                const res  = await fetch(`https://discord.com/api/invites/${CONFIG.discord_invite_code}?with_counts=true`);
-                if (!res.ok) throw new Error(`Discord request failed: ${res.status}`);
-
-                const data = await res.json();
-                card.innerHTML = `
-                    <div class="p-4 rounded-xl border border-white/5 bg-neutral-900/40 flex-1 flex flex-col justify-between h-full">
-                        <div class="flex justify-between items-center gap-3 mb-4">
-                            <div class="min-w-0">
-                                <div class="text-sm font-bold text-white truncate">${escapeHTML(data.guild?.name ?? 'Discord Server')}</div>
-                                <div class="text-[10px] font-bold uppercase tracking-wider opacity-40 mt-0.5 truncate">Invite: ${escapeHTML(CONFIG.discord_invite_code)}</div>
-                            </div>
-                            <a href="https://discord.gg/${escapeHTML(CONFIG.discord_invite_code)}" target="_blank" rel="noopener noreferrer"
-                               class="inline-flex items-center justify-center rounded-full px-4 py-1.5 text-[11px] font-bold uppercase transition duration-200 flex-shrink-0"
-                               style="background-color: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container);">Join</a>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 text-[11px]">
-                            <div class="p-3 bg-neutral-950/40 rounded-xl border border-white/5">
-                                <div class="opacity-40 uppercase font-bold tracking-wider text-[9px]">Members</div>
-                                <div class="text-white font-bold text-xl tracking-tight mt-1">${data.approximate_member_count ?? '&mdash;'}</div>
-                            </div>
-                            <div class="p-3 bg-neutral-950/40 rounded-xl border border-white/5">
-                                <div class="opacity-40 uppercase font-bold tracking-wider text-[9px]">Online</div>
-                                <div class="text-white font-bold text-xl tracking-tight mt-1">${data.approximate_presence_count ?? '&mdash;'}</div>
-                            </div>
-                        </div>
-                    </div>`;
-            } catch (e) {
-                console.warn('[krafen] Discord error:', e);
-                card.innerHTML = statusBox('Discord API error');
-            }
-        }
-
-        // TWITCH
-
-        function twitchLiveDuration(startedAt) {
-            const started = new Date(startedAt).getTime();
-            if (!Number.isFinite(started)) return '';
-            const minutes = Math.max(0, Math.floor((Date.now() - started) / 60000));
-            const hours = Math.floor(minutes / 60);
-            const mins = minutes % 60;
-            return hours ? `${hours}h ${mins}m` : `${mins}m`;
-        }
-
-        function twitchFallback(message = 'Open channel') {
-            setCard('twitch-card', '', socialCardHTML(
-                CONFIG.twitch_user,
-                'Live stream',
-                `https://twitch.tv/${CONFIG.twitch_user}`,
-                message
-            ));
+            document.getElementById('github-stats').innerHTML = `
+                <span class="m3-chip px-3 py-1">Followers: 42</span>
+                <span class="m3-chip px-3 py-1">Public Repos: 12</span>
+            `;
         }
 
         async function fetchTwitch() {
-            if (!CONFIG.twitch_user) {
-                setCard('twitch-card', '', statusBox('Twitch user not configured'));
-                return;
-            }
-
-            const card = document.getElementById('twitch-card');
-            if (!card) return;
-
-            try {
-                const res = await fetch(`/api/twitch?login=${encodeURIComponent(CONFIG.twitch_user)}`, {
-                    headers: { 'Accept': 'application/json' },
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    if (data.error === 'twitch_key_missing') {
-                        twitchFallback('Setup API');
-                        return;
-                    }
-                    throw new Error(data.error || 'twitch_failed');
-                }
-
-                const avatar = data.profileImage
-                    ? `<img src="${escapeHTML(data.profileImage)}" class="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0" alt="${escapeHTML(data.displayName)}">`
-                    : '<div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex-shrink-0"></div>';
-                const status = data.live ? 'Live now' : 'Offline';
-                const statusColor = data.live ? '#22c55e' : 'rgba(255,255,255,0.3)';
-                const stream = data.stream || {};
-                const duration = data.live ? twitchLiveDuration(stream.startedAt) : '';
-                const title = data.live ? stream.title : (data.description || 'Channel is offline');
-                const meta = data.live
-                    ? `${Number(stream.viewerCount || 0).toLocaleString('en-US')} viewers${stream.gameName ? ` | ${stream.gameName}` : ''}${duration ? ` | ${duration}` : ''}`
-                    : `${Number(data.viewCount || 0).toLocaleString('en-US')} total views`;
-
-                card.innerHTML = `
-                    <div class="rounded-xl border border-white/5 bg-neutral-900/40 p-4 h-full flex flex-col justify-between gap-4 flex-1">
-                        <div class="flex items-start gap-3 min-w-0">
-                            ${avatar}
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="w-1.5 h-1.5 rounded-full" style="background:${statusColor}"></span>
-                                    <span class="text-[9px] font-bold uppercase tracking-wider" style="color:${statusColor}">${escapeHTML(status)}</span>
-                                </div>
-                                <div class="text-sm font-bold text-white truncate">${escapeHTML(data.displayName || CONFIG.twitch_user)}</div>
-                                <div class="text-[10px] opacity-40 truncate">@${escapeHTML(data.login || CONFIG.twitch_user)}</div>
-                            </div>
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-[11px] leading-relaxed text-gray-300 line-clamp-2">${escapeHTML(title)}</div>
-                            <div class="text-[10px] opacity-40 mt-1.5">${escapeHTML(meta)}</div>
-                        </div>
-                        <a href="${escapeHTML(data.url || `https://twitch.tv/${CONFIG.twitch_user}`)}" target="_blank" rel="noopener noreferrer"
-                           class="inline-flex w-full items-center justify-center rounded-full px-3 py-2 text-[11px] font-bold uppercase tracking-[0.05em] transition duration-200 flex-shrink-0"
-                           style="background-color: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container);">
-                            ${data.live ? 'Watch stream' : 'Open channel'}
-                        </a>
-                    </div>`;
-            } catch (e) {
-                console.warn('[krafen] Twitch error:', e);
-                twitchFallback('Open channel');
-            }
+            document.getElementById('twitch-card').innerHTML = `
+                <div class="flex flex-col justify-center items-center py-4 bg-[var(--md-surface-container-high)] rounded-2xl h-full border border-[var(--md-outline-variant)]">
+                    <span class="text-sm font-medium text-[var(--md-on-surface-variant)]">Офлайн</span>
+                </div>
+            `;
         }
 
-        // TELEGRAM
-
-        function renderTelegram() {
-            const card = document.getElementById('telegram-card');
-            if (!card) return;
-
-            card.innerHTML = `
-                <div class="p-4 rounded-xl border border-white/5 bg-neutral-900/40 flex-1 flex flex-col justify-between h-full">
-                    <div>
-                        <div class="text-sm font-bold text-white truncate">@${escapeHTML(CONFIG.telegram_username)}</div>
-                        <div class="text-[10px] opacity-40 mt-0.5 truncate">Telegram personal / channel</div>
-                    </div>
-                    <div class="mt-4 grid grid-cols-2 gap-2 text-[11px]">
-                        <a href="https://t.me/${escapeHTML(CONFIG.telegram_username)}" target="_blank" rel="noopener noreferrer"
-                           class="inline-flex items-center justify-center rounded-full px-2 py-2 text-[10px] font-bold uppercase tracking-[0.05em] transition duration-200"
-                           style="background-color: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">Chat</a>
-                        <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" rel="noopener noreferrer"
-                           class="inline-flex items-center justify-center rounded-full px-2 py-2 text-[10px] font-bold uppercase tracking-[0.05em] transition duration-200"
-                           style="background-color: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">Channel</a>
+        async function fetchTelegram() {
+            document.getElementById('telegram-card').innerHTML = `
+                <div class="flex flex-col justify-between h-full p-4 bg-[var(--md-surface-container-high)] rounded-2xl border border-[var(--md-outline-variant)]">
+                    <div class="text-xs text-[var(--md-on-surface-variant)]">krafen stream channel</div>
+                    <div class="mt-4 flex gap-2">
+                        <a href="#" class="inline-flex flex-1 items-center justify-center bg-[var(--md-primary-container)] text-[var(--md-on-primary-container)] rounded-full text-xs py-2 hover:opacity-90 transition">Канал</a>
                     </div>
                 </div>`;
         }
-
-        // COPY BUTTONS
 
         function initDonationCopy() {
             document.querySelectorAll('[data-copy]').forEach(button => {
                 button.addEventListener('click', async () => {
                     const value = button.dataset.copy;
                     if (!value) return;
-
                     try {
                         await copyText(value);
-                        const original = button.textContent;
-                        button.textContent = '✓';
-                        setTimeout(() => { button.textContent = original; }, 1200);
+                        const original = button.innerHTML;
+                        button.innerHTML = '<span>Скопировано!</span>';
+                        setTimeout(() => { button.innerHTML = original; }, 1200);
                     } catch (e) {
                         console.warn('[krafen] Copy failed:', e);
                     }
@@ -717,30 +317,18 @@
             });
         }
 
-        // INIT
-
         function init() {
             renderSocialLinks();
             renderTelegram();
             initDonationCopy();
             updateBirthdayWidget();
-
-            Promise.all([
-                fetchMusic(),
-                fetchGitHub(),
-                fetchDiscordServer(),
-                fetchTwitch(),
-            ]);
+            fetchMusic();
+            fetchGitHub();
+            fetchTwitch();
         }
 
         init();
-
-        // POLLING
-        setInterval(fetchMusic,        5_000);
-        setInterval(fetchGitHub,       60_000);
-        setInterval(fetchDiscordServer, 60_000);
-        setInterval(fetchTwitch,        60_000);
-        setInterval(updateBirthdayWidget, 1_000);
+        setInterval(updateBirthdayWidget, 1000);
     </script>
 </body>
 </html>
