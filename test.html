@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>krafen</title>
-    <meta name="description" content="Personal page with links, Discord server, Twitch, Last.fm and support options.">
+    <meta name="description" content="Привет, я krafen. Здесь ты найдёшь ссылки на мои соцсети, Discord-сервер и способы поддержать меня.">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/krafenx/krafen/8c5ff5d6ae7d406899fbf4906d5bc543e06c6648/cherry-blossom.png">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,6 +81,24 @@
         .music-content {
             position: relative;
             z-index: 1;
+        }
+
+        .timeline-bar {
+            height: 3px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 2px;
+            position: relative;
+        }
+
+        .timeline-progress {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0%;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 2px;
+            transition: width 1s linear;
         }
 
         .widget-grid {
@@ -302,7 +320,7 @@
         <div class="stars stars-large"></div>
     </div>
 
-    <div class="w-full max-w-5xl flex flex-col">
+    <div class="w-full max-w-[1440px] flex flex-col">
         <nav class="w-full flex items-center justify-between mb-5 px-1" aria-label="site sections">
             <a class="top-nav-link" href="/watchlist">&larr; watchlist</a>
             <a class="top-nav-link" href="/gamelist">gamelist &rarr;</a>
@@ -311,10 +329,6 @@
         <div class="grid grid-cols-12 gap-4 w-full">
             <div class="glass col-span-12 md:col-span-8 p-5 flex flex-col justify-between min-h-[160px]">
                 <div>
-                    <div class="flex items-center gap-2 mb-3">
-                        <div class="w-1.5 h-1.5 rounded-full bg-[#f7f4f3] shadow-[0_0_8px_#f7f4f3] animate-pulse"></div>
-                        <span class="text-[9px] uppercase tracking-[0.2em] text-zinc-500">API Sync: Active</span>
-                    </div>
                     <h1 class="text-3xl font-bold mb-2 tracking-tight text-white">krafen</h1>
                     <p class="text-zinc-400 text-xs leading-relaxed max-w-xl">
                         my name's svyatoslav belozerov, my nickname is krafen and i'm 20 years old. i don't have much to say about myself honestly sooo...
@@ -360,18 +374,21 @@
                                 </div>
                             </div>
 
-                            <div class="mt-4 flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] text-zinc-500 tracking-wider font-mono">
-                                <span id="track-status" class="text-zinc-200">Syncing...</span>
-                                <span class="opacity-30">/</span>
-                                <span id="track-meta-primary" class="truncate">Loading...</span>
-                                <span class="opacity-30">/</span>
-                                <span id="track-meta-secondary" class="truncate">Please wait</span>
+                            <div class="mt-4 flex items-center gap-3 text-[10px] text-zinc-500 tracking-wider font-mono">
+                                <span id="track-time-current">0:00</span>
+                                <div class="timeline-bar flex-1">
+                                    <div id="track-progress" class="timeline-progress"></div>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="flex gap-0.5 h-2.5 items-center px-1 opacity-80">
+                                        <div class="w-[2px] h-full bg-white"></div>
+                                        <div class="w-[2px] h-full bg-white"></div>
+                                    </div>
+                                    <span id="track-time-total">0:00</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="text-[9px] text-zinc-600 tracking-wide px-1">
-                    this data is approximate and may be delayed by a few seconds.
                 </div>
             </div>
 
@@ -392,23 +409,6 @@
                 </div>
             </div>
 
-            <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Telegram</h2>
-                    <span class="text-[9px] text-zinc-500">Channels</span>
-                </div>
-                <div id="telegram-card" class="text-xs flex-1 flex flex-col justify-center">
-                    <div class="h-16 bg-white/5 rounded-lg shimmer"></div>
-                </div>
-            </div>
-
-            <div id="social-youtube" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
-            <div id="social-watchlist" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
-            <div id="social-tiktok" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
-            <div id="social-boosty" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
-            <div id="social-x" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
-            <div id="social-steam" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
-
             <div class="glass col-span-12 md:col-span-8 p-4 flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Discord Server</h2>
@@ -420,6 +420,23 @@
             </div>
 
             <div id="social-discord" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
+
+            <div class="glass col-span-12 md:col-span-6 xl:col-span-6 p-4 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Telegram</h2>
+                    <span class="text-[9px] text-zinc-500">Channels</span>
+                </div>
+                <div id="telegram-card" class="text-xs flex-1 flex flex-col justify-center">
+                    <div class="h-24 bg-white/5 rounded-lg shimmer"></div>
+                </div>
+            </div>
+
+            <div id="social-youtube" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
+            <div id="social-watchlist" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
+            <div id="social-tiktok" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
+            <div id="social-boosty" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
+            <div id="social-x" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
+            <div id="social-steam" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
 
             <div class="glass col-span-12 p-4 sm:p-5">
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4 border-b border-white/5 pb-3">
@@ -522,6 +539,10 @@
             ]
         };
 
+        let currentTrackDuration = 0;
+        let currentTrackElapsed = 0;
+        let trackTimerInterval = null;
+
         function escapeHTML(value) {
             return String(value ?? '').replace(/[&<>"']/g, char => ({
                 '&': '&amp;',
@@ -597,6 +618,66 @@
             return formatAbsoluteTime(uts);
         }
 
+        function formatTime(seconds) {
+            const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+            const mins = Math.floor(safe / 60);
+            const secs = safe % 60;
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        function hashString(value) {
+            let hash = 0;
+            const input = String(value || '');
+            for (let i = 0; i < input.length; i++) {
+                hash = ((hash << 5) - hash) + input.charCodeAt(i);
+                hash |= 0;
+            }
+            return Math.abs(hash);
+        }
+
+        function estimateTrackDuration(trackName, artist, album) {
+            const seed = hashString(`${trackName}|${artist}|${album}`);
+            return 150 + (seed % 121);
+        }
+
+        function estimateTrackElapsed(signature, duration) {
+            if (!duration) return 0;
+            const seed = hashString(signature);
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            return (nowSeconds + seed) % duration;
+        }
+
+        function updateTrackProgress() {
+            const progress = document.getElementById('track-progress');
+            const current = document.getElementById('track-time-current');
+            const total = document.getElementById('track-time-total');
+            if (!progress || !current || !total || !currentTrackDuration) return;
+
+            const pct = Math.min(100, (currentTrackElapsed / currentTrackDuration) * 100);
+            progress.style.width = `${pct}%`;
+            current.textContent = formatTime(currentTrackElapsed);
+            total.textContent = formatTime(currentTrackDuration);
+        }
+
+        function startTrackTimer(isLive) {
+            clearInterval(trackTimerInterval);
+
+            if (!isLive) {
+                currentTrackElapsed = currentTrackDuration;
+                updateTrackProgress();
+                return;
+            }
+
+            updateTrackProgress();
+            trackTimerInterval = setInterval(() => {
+                currentTrackElapsed += 1;
+                if (currentTrackElapsed > currentTrackDuration) {
+                    currentTrackElapsed = 0;
+                }
+                updateTrackProgress();
+            }, 1000);
+        }
+
         function twitchLiveDuration(startedAt) {
             const started = new Date(startedAt).getTime();
             if (!Number.isFinite(started)) return '';
@@ -626,12 +707,15 @@
 
         function renderTelegram() {
             setCard('telegram-card', `
-                <div class="flex items-center justify-between gap-3 w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl">
+                <div class="w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl flex flex-col gap-3">
                     <div class="min-w-0">
-                        <div class="text-xs font-medium text-white truncate">@${escapeHTML(CONFIG.telegram_channel)}</div>
-                        <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Official Channel</div>
+                        <div class="text-xs font-medium text-white truncate">@${escapeHTML(CONFIG.telegram_username)}</div>
+                        <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Telegram personal / channel</div>
                     </div>
-                    <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">View</a>
+                    <div class="grid gap-2 text-[11px]">
+                        <a href="https://t.me/${escapeHTML(CONFIG.telegram_username)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-2 text-[9px] uppercase tracking-wider btn-action text-center">Open chat</a>
+                        <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-2 text-[9px] uppercase tracking-wider btn-action text-center">Open channel</a>
+                    </div>
                 </div>`);
         }
 
@@ -664,11 +748,11 @@
             const artContainer = document.getElementById('music-art-container');
             const trackName = document.getElementById('track-name');
             const trackArtist = document.getElementById('track-artist');
-            const trackStatus = document.getElementById('track-status');
-            const trackMetaPrimary = document.getElementById('track-meta-primary');
-            const trackMetaSecondary = document.getElementById('track-meta-secondary');
             const blurBg = document.getElementById('music-blur');
-            if (!artContainer || !trackName || !trackArtist || !trackStatus || !trackMetaPrimary || !trackMetaSecondary || !blurBg) return;
+            const trackProgress = document.getElementById('track-progress');
+            const trackTimeCurrent = document.getElementById('track-time-current');
+            const trackTimeTotal = document.getElementById('track-time-total');
+            if (!artContainer || !trackName || !trackArtist || !blurBg || !trackProgress || !trackTimeCurrent || !trackTimeTotal) return;
 
             try {
                 const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(CONFIG.lastfm_user)}&api_key=${encodeURIComponent(CONFIG.lastfm_key)}&format=json&limit=1`;
@@ -681,9 +765,12 @@
                 if (!track) {
                     trackName.textContent = 'Nothing playing';
                     trackArtist.innerHTML = '<span class="text-zinc-500">no recent tracks</span>';
-                    trackStatus.textContent = 'No Data';
-                    trackMetaPrimary.textContent = 'No album info';
-                    trackMetaSecondary.textContent = 'No scrobbles found';
+                    currentTrackDuration = 0;
+                    currentTrackElapsed = 0;
+                    clearInterval(trackTimerInterval);
+                    trackProgress.style.width = '0%';
+                    trackTimeCurrent.textContent = '0:00';
+                    trackTimeTotal.textContent = '0:00';
                     blurBg.style.backgroundImage = 'none';
                     artContainer.innerHTML = '<div class="w-14 h-14 sm:w-16 sm:h-16 rounded bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-500 uppercase">No Art</div>';
                     return;
@@ -693,7 +780,7 @@
                 const imgSrc = track.image?.[3]?.['#text'] || track.image?.[2]?.['#text'] || '';
                 const artist = track.artist?.['#text'] || 'Unknown artist';
                 const album = track.album?.['#text'] || 'No album info';
-                const playedAt = track.date?.uts;
+                const signature = `${track.name}|${artist}|${album}`;
 
                 if (imgSrc) {
                     artContainer.innerHTML = `<img src="${escapeHTML(imgSrc)}" class="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover border border-white/10 shadow-xl" alt="Cover">`;
@@ -705,17 +792,21 @@
 
                 trackName.textContent = track.name || 'Unknown track';
                 trackArtist.innerHTML = `<span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600 font-medium text-zinc-300">${escapeHTML(artist)}</span>`;
-                trackStatus.textContent = isLive ? 'Now Listening' : 'Last Scrobble';
-                trackMetaPrimary.textContent = album;
-                trackMetaSecondary.textContent = isLive
-                    ? 'Syncing from Last.fm now'
-                    : `${formatRelativeTime(playedAt)} / ${formatAbsoluteTime(playedAt)}`;
+
+                currentTrackDuration = estimateTrackDuration(track.name, artist, album);
+                currentTrackElapsed = isLive
+                    ? estimateTrackElapsed(signature, currentTrackDuration)
+                    : currentTrackDuration;
+                startTrackTimer(isLive);
             } catch (error) {
                 trackName.textContent = 'Last.fm Offline';
                 trackArtist.innerHTML = '<span class="text-zinc-500">unable to reach api</span>';
-                trackStatus.textContent = 'Offline';
-                trackMetaPrimary.textContent = 'Unavailable';
-                trackMetaSecondary.textContent = 'Try again later';
+                currentTrackDuration = 0;
+                currentTrackElapsed = 0;
+                clearInterval(trackTimerInterval);
+                trackProgress.style.width = '0%';
+                trackTimeCurrent.textContent = '0:00';
+                trackTimeTotal.textContent = '0:00';
             }
         }
 
