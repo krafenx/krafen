@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>krafen</title>
+    <meta name="description" content="Привет, я krafen. Здесь ты найдёшь ссылки на мои соцсети, Discord-сервер и способы поддержать меня.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/krafenx/krafen/8c5ff5d6ae7d406899fbf4906d5bc543e06c6648/cherry-blossom.png">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030303;
+            --card: rgba(13, 13, 13, 0.45);
+            --accent: #5b2333;
+            --accent-light: #f7f4f3;
+            --accent-dark: #3a1420;
+            --accent-gradient: linear-gradient(135deg, var(--accent-light), var(--accent));
+            --border: rgba(255, 255, 255, 0.04);
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html { width: 100%; overflow-x: hidden; scroll-behavior: smooth; }
+        
+        body {
+            background-color: var(--bg);
+            font-family: 'JetBrains Mono', monospace;
+            color: #e4e4e7;
+            min-height: 100vh;
+            width: 100%;
+            margin: 0;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Задний фон со звёздами в стиле первого скриншота */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.5), rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 100px 150px, #fff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 200px 80px, rgba(255,255,255,0.3), rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 300px 250px, rgba(255,255,255,0.6), rgba(0,0,0,0));
+            background-size: 550px 550px;
+            opacity: 0.25;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Компактный и эстетичный стеклянный дизайн карточек */
+        .glass {
+            background: var(--card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 0.85rem; /* Сделали карточки аккуратнее */
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass:hover {
+            border-color: rgba(91, 35, 51, 0.4);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(91, 35, 51, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Стилизация виджета музыки под стиль второго скриншота */
+        .music-player-card {
+            position: relative;
+            background: rgba(28, 28, 30, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.75rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .music-blur-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            filter: blur(32px) brightness(0.5) saturate(1.4);
+            opacity: 0.45;
+            z-index: 0;
+            transform: scale(1.1);
+            pointer-events: none;
+        }
+        .music-content {
+            position: relative;
+            z-index: 1;
+        }
+        .timeline-bar {
+            height: 3px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 2px;
+            position: relative;
+        }
+        .timeline-progress {
+            position: absolute;
+            left: 0; top: 0; bottom: 0; width: 35%;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 2px;
+        }
+
+        /* Подсказки */
+        .hint-link { position: relative; }
+        .hint-tooltip {
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 0.5rem);
+            z-index: 30;
+            width: max-content;
+            transform: translateX(-50%) translateY(3px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.4rem;
+            background: #0a0a0c;
+            padding: 0.4rem 0.6rem;
+            color: #a1a1aa;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+            transition: all 0.15s ease;
+        }
+        .hint-link:hover .hint-tooltip {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Шиммер-эффект загрузки */
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 1.8s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+        .top-nav-link {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 10px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+        .top-nav-link:hover { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
+        
+        /* Компактные кнопки */
+        .btn-action {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: #d4d4d8;
+            transition: all 0.2s ease;
+        }
+        .btn-action:hover {
+            background: rgba(91, 35, 51, 0.2);
+            border-color: rgba(91, 35, 51, 0.5);
+            color: #fff;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-10 flex flex-col items-center">
+
+    <div class="w-full max-w-5xl flex flex-col">
+        <!-- Навигация -->
+        <nav class="w-full flex items-center justify-between mb-5 px-1" aria-label="site sections">
+            <a class="top-nav-link" href="/watchlist">&larr; watchlist</a>
+            <a class="top-nav-link" href="/gamelist">gamelist &rarr;</a>
+        </nav>
+
+        <!-- Основная сетка -->
+        <div class="grid grid-cols-12 gap-4 w-full">
+            
+            <!-- Профиль (Главная карточка) -->
+            <div class="glass col-span-12 md:col-span-8 p-5 flex flex-col justify-between min-h-[180px]">
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-1.5 h-1.5 rounded-full bg-[#f7f4f3] shadow-[0_0_8px_#f7f4f3] animate-pulse"></div>
+                        <span class="text-[9px] uppercase tracking-[0.2em] text-zinc-500">API Sync: Active</span>
+                    </div>
+                    <h1 class="text-3xl font-bold mb-2 tracking-tight text-white">krafen</h1>
+                    <p class="text-zinc-400 text-xs leading-relaxed max-w-xl">
+                        my name's svyatoslav belozerov, my nickname is krafen and i'm 20 years old. i don't have much to say about myself honestly sooo...
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-4" id="github-stats">
+                    <span class="text-[9px] uppercase tracking-wider bg-white/5 border border-white/5 px-2.5 py-1 rounded-md text-zinc-500">fetching_github...</span>
+                </div>
+            </div>
+
+            <!-- Twitch -->
+            <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Twitch</h2>
+                    <span class="text-[9px] text-zinc-500">Status</span>
+                </div>
+                <div id="twitch-card" class="text-xs flex-1 flex flex-col justify-center">
+                    <div class="h-16 bg-white/5 rounded-lg shimmer"></div>
+                </div>
+            </div>
+
+            <!-- Блок музыки (Исполнение точь-в-точь по второму скрину) -->
+            <div class="glass col-span-12 md:col-span-8 p-4 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Now Playing</h2>
+                    <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Last.fm</span>
+                </div>
+                
+                <!-- Контейнер плеера -->
+                <div class="music-player-card p-3 sm:p-4 mb-4">
+                    <div id="music-blur" class="music-blur-bg"></div>
+                    <div class="music-content flex flex-col sm:flex-row items-center gap-4 min-w-0">
+                        <div id="music-art-container" class="flex-shrink-0">
+                            <div class="w-14 h-14 sm:w-16 sm:h-16 bg-white/5 rounded-md shimmer"></div>
+                        </div>
+                        <div class="flex-1 min-w-0 w-full">
+                            <div class="flex justify-between items-start gap-2 mb-1">
+                                <div class="min-w-0">
+                                    <div id="track-name" class="text-white font-medium truncate text-sm sm:text-base">Loading track...</div>
+                                    <div id="track-artist" class="text-zinc-400 text-xs mt-0.5">
+                                        <span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600">Please wait</span>
+                                    </div>
+                                </div>
+                                <!-- Иконка платформы из правого верхнего угла -->
+                                <div class="text-zinc-400 opacity-60 hover:opacity-100 transition">
+                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.216.354-.678.47-1.032.256-2.864-1.75-6.47-2.144-10.716-1.18-.404.092-.812-.162-.904-.564-.092-.403.162-.812.564-.904 4.646-1.062 8.624-.613 11.832 1.343.354.215.47.677.256 1.033zm1.467-3.258c-.272.44-.847.584-1.288.312-3.278-2.015-8.277-2.603-12.155-1.425-.494.15-1.018-.13-1.168-.623-.15-.493.13-1.018.623-1.168 4.433-1.344 9.935-.696 13.676 1.604.44.27.584.846.312 1.287zm.126-3.41c-3.93-2.334-10.418-2.55-14.19-1.405-.602.183-1.242-.152-1.425-.754-.183-.603.152-1.242.754-1.425 4.344-1.32 11.503-1.07 16.035 1.62.543.322.72 1.025.4 1.568-.323.542-1.024.72-1.574.396z"/></svg>
+                                </div>
+                            </div>
+
+                            <!-- Линия прогресса и тайминги -->
+                            <div class="mt-4 flex items-center gap-3 text-[10px] text-zinc-500 tracking-wider">
+                                <span>0:00</span>
+                                <div class="timeline-bar flex-1">
+                                    <div class="timeline-progress"></div>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <!-- Кнопка паузы из центра бара -->
+                                    <div class="flex gap-0.5 h-2.5 items-center px-1 opacity-80 cursor-pointer hover:opacity-100">
+                                        <div class="w-[2px] h-full bg-white"></div>
+                                        <div class="w-[2px] h-full bg-white"></div>
+                                    </div>
+                                    <span>2:23</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-[9px] text-zinc-600 tracking-wide px-1 mb-1">
+                    this data is approximate and may be delayed by a few seconds.
+                </div>
+            </div>
+
+            <!-- Время и День рождения -->
+            <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Status info</h2>
+                    <span id="local-time" class="text-[10px] font-medium text-white tracking-wider">00:00:00</span>
+                </div>
+                <div class="space-y-2.5 text-[10px] uppercase tracking-wider text-zinc-400 pt-2">
+                    <div class="flex justify-between border-t border-white/5 pt-2.5">
+                        <span class="opacity-50">Birthday</span>
+                        <span id="birthday-date" class="text-zinc-200">13 January</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="opacity-50">Remaining</span>
+                        <span id="birthday-countdown" class="text-white font-medium">--d --h --m --s</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Telegram -->
+            <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Telegram</h2>
+                    <span class="text-[9px] text-zinc-500">Channels</span>
+                </div>
+                <div id="telegram-card" class="text-xs flex-1 flex flex-col justify-center">
+                    <div class="h-16 bg-white/5 rounded-lg shimmer"></div>
+                </div>
+            </div>
+
+            <!-- Сетка соцсетей (Сделали компактнее: p-3 вместо p-6) -->
+            <div id="social-youtube" class="glass col-span-6 md:col-span-4 p-3 flex flex-col"></div>
+            <div id="social-watchlist" class="glass col-span-6 md:col-span-4 p-3 flex flex-col"></div>
+            <div id="social-tiktok" class="glass col-span-6 md:col-span-4 p-3 flex flex-col"></div>
+            <div id="social-boosty" class="glass col-span-6 md:col-span-4 p-3 flex flex-col"></div>
+            <div id="social-x" class="glass col-span-6 md:col-span-4 p-3 flex flex-col"></div>
+            <div id="social-steam" class="glass col-span-6 md:col-span-4 p-3 flex flex-col"></div>
+
+            <!-- Discord Server -->
+            <div class="glass col-span-12 md:col-span-8 p-4 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Discord Server</h2>
+                    <span class="text-[9px] text-zinc-500">Community</span>
+                </div>
+                <div id="discord-server-card" class="text-xs flex-1 flex flex-col justify-center">
+                    <div class="h-16 bg-white/5 rounded-lg shimmer"></div>
+                </div>
+            </div>
+
+            <!-- Личный Discord -->
+            <div id="social-discord" class="glass col-span-12 md:col-span-4 p-4 flex flex-col"></div>
+
+            <!-- Донаты -->
+            <div class="glass col-span-12 p-4 sm:p-5">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4 border-b border-white/5 pb-3">
+                    <div>
+                        <h2 class="text-[10px] font-bold uppercase text-zinc-500 tracking-[0.2em]">Donations</h2>
+                        <p class="text-[9px] text-zinc-500 mt-1 max-w-xl">If you want to support me, I appreciate anything listed below.</p>
+                    </div>
+                </div>
+                
+                <div class="grid gap-4 md:grid-cols-2">
+                    <!-- Крипта -->
+                    <div class="rounded-xl border border-white/5 bg-white/[0.01] p-3.5 flex flex-col justify-between">
+                        <div>
+                            <div class="text-[9px] uppercase tracking-widest text-zinc-500 mb-2.5">Cryptocurrency</div>
+                            <div class="flex flex-col gap-1.5 mb-4">
+                                <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="font-bold text-zinc-500 text-[10px]">TON</span>
+                                        <span class="text-zinc-200 truncate font-mono">angelkrafen.ton</span>
+                                    </div>
+                                    <button type="button" data-copy="angelkrafen.ton" class="text-zinc-400 hover:text-white px-1 text-xs">&#128203;</button>
+                                </div>
+                                <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="font-bold text-zinc-500 text-[10px]">BTC</span>
+                                        <span class="text-zinc-200 truncate font-mono">12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu</span>
+                                    </div>
+                                    <button type="button" data-copy="12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu" class="text-zinc-400 hover:text-white px-1 text-xs">&#128203;</button>
+                                </div>
+                                <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="font-bold text-zinc-500 text-[10px]">ETH</span>
+                                        <span class="text-zinc-200 truncate font-mono">0xc99b815e2b8988e4479298bbdc4235a685aa6445</span>
+                                    </div>
+                                    <button type="button" data-copy="0xc99b815e2b8988e4479298bbdc4235a685aa6445" class="text-zinc-400 hover:text-white px-1 text-xs">&#128203;</button>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="https://t.me/send?start=IV5PoNgziNQ3" class="inline-flex w-full items-center justify-center rounded-md btn-action py-1.5 text-[9px] uppercase tracking-wider">
+                            CryptoBot Open &nearr;
+                        </a>
+                    </div>
+
+                    <!-- Фиат -->
+                    <div class="rounded-xl border border-white/5 bg-white/[0.01] p-3.5 flex flex-col justify-between">
+                        <div>
+                            <div class="text-[9px] uppercase tracking-widest text-zinc-500 mb-2.5">Fiat / Cards</div>
+                            <div class="flex flex-wrap gap-1.5 mb-4">
+                                <a href="https://www.tinkoff.ru/rm/r_aHnZFJyKaS.NwlcddBPPE/s5SB540759" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
+                                    tinkoff &nearr;
+                                </a>
+                                <a href="https://t.me/krafen" class="hint-link rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
+                                    card2card &nearr;
+                                    <span class="hint-tooltip">DM me on Telegram for details</span>
+                                </a>
+                                <a href="https://donatex.gg/donate/krafen" target="_blank" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
+                                    donatex &nearr;
+                                </a>
+                                <a href="https://www.donationalerts.com/r/krafenx" target="_blank" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
+                                    donationalerts &nearr;
+                                </a>
+                            </div>
+                        </div>
+                        <p class="text-[9px] leading-relaxed text-zinc-500 font-mono">Please use native/stable networks for transfers.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            github_user:          'krafenx',
+            lastfm_user:          'krafen',
+            lastfm_key:           '6474af65e5e721a2751d9d7f9274b594',
+            twitch_user:          'krafen',
+            discord_invite_code:  'kGdxDzxtmK',
+            telegram_channel:     'krafenx',
+            telegram_username:    'krafen',
+            steam_id:             '76561199067685266',
+            birthday_month:       1,
+            birthday_day:         13,
+            socials: [
+                { id: 'discord',   name: 'Discord',   href: 'https://discord.com/users/krafen',          label: 'Personal chat' },
+                { id: 'youtube',   name: 'YouTube',   href: 'https://youtube.com/@krafen.',              label: 'Videos' },
+                { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/krafenx',             label: 'Photos' },
+                { id: 'tiktok',    name: 'TikTok',    href: 'https://www.tiktok.com/@.krafen',           label: 'Short videos' },
+                { id: 'boosty',    name: 'Boosty',    href: 'https://boosty.to/krafen',                  label: 'Support' },
+                { id: 'x',         name: 'X',         href: 'https://x.com/krafen_',                     label: 'News' },
+                { id: 'steam',     name: 'Steam',     href: 'https://steamcommunity.com/id/Krafen_',     label: 'Game profile' },
+            ]
+        };
+
+        // Вспомогательные функции
+        function escapeHTML(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            }[char]));
+        }
+
+        function socialCardHTML(title, label, href, linkText = 'Open') {
+            return `
+                <div class="rounded-xl border border-white/5 bg-white/[0.02] p-2.5 flex flex-col justify-between h-full transition hover:border-zinc-700">
+                    <div class="mb-2">
+                        <div class="text-[11px] font-medium text-white truncate">${escapeHTML(title)}</div>
+                        <div class="text-[8px] uppercase tracking-wider text-zinc-500 truncate mt-0.5">${escapeHTML(label)}</div>
+                    </div>
+                    <a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex w-full items-center justify-center rounded bg-white/5 py-1 text-[9px] uppercase tracking-wider text-zinc-300 transition hover:bg-white/10 hover:text-white">
+                        ${escapeHTML(linkText)}
+                    </a>
+                </div>`;
+        }
+
+        function renderSocialLinks() {
+            CONFIG.socials.forEach(({ id, name, label, href }) => {
+                const container = document.getElementById(`social-${id}`);
+                if (!container) return;
+                const header = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-[9px] font-bold uppercase text-zinc-600 tracking-widest truncate mr-2">${escapeHTML(name)}</h2>
+                    </div>`;
+                container.innerHTML = header + socialCardHTML(name, label, href);
+            });
+        }
+
+        // Запрос музыкального трека Last.fm (Генерация стиля по скриншоту)
+        async function fetchMusic() {
+            const artContainer = document.getElementById('music-art-container');
+            const trackName = document.getElementById('track-name');
+            const trackArtist = document.getElementById('track-artist');
+            const blurBg = document.getElementById('music-blur');
+            if (!artContainer || !trackName || !trackArtist) return;
+
+            try {
+                const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${CONFIG.lastfm_user}&api_key=${CONFIG.lastfm_key}&format=json&limit=1`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                const track = data.recenttracks?.track?.[0];
+
+                if (!track) {
+                    trackName.textContent = 'Nothing playing';
+                    return;
+                }
+
+                const imgSrc = track.image?.[3]?.['#text'] || track.image?.[2]?.['#text'];
+                if (imgSrc) {
+                    artContainer.innerHTML = `<img src="${escapeHTML(imgSrc)}" class="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover border border-white/10 shadow-xl" alt="Cover">`;
+                    blurBg.style.backgroundImage = `url('${imgSrc}')`;
+                } else {
+                    artContainer.innerHTML = `<div class="w-14 h-14 sm:w-16 sm:h-16 rounded bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-500 uppercase">No Art</div>`;
+                    blurBg.style.backgroundImage = 'none';
+                }
+
+                trackName.textContent = track.name;
+                trackArtist.innerHTML = `<span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600 font-medium text-zinc-300">${escapeHTML(track.artist?.['#text'])}</span>`;
+            } catch (e) {
+                trackName.textContent = 'Last.fm Offline';
+            }
+        }
+
+        // Таймер обратного отсчета дня рождения
+        function updateBirthdayWidget() {
+            const timeEl = document.getElementById('local-time');
+            const countdownEl = document.getElementById('birthday-countdown');
+            if (!timeEl || !countdownEl) return;
+
+            const now = new Date();
+            timeEl.textContent = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now);
+
+            let nextBirthday = new Date(now.getFullYear(), CONFIG.birthday_month - 1, CONFIG.birthday_day);
+            if (nextBirthday <= now) nextBirthday.setFullYear(nextBirthday.getFullYear() + 1);
+
+            const diff = nextBirthday - now;
+            const totalSecs = Math.floor(diff / 1000);
+            const d = Math.floor(totalSecs / 86400);
+            const h = Math.floor((totalSecs % 86400) / 3600);
+            const m = Math.floor((totalSecs % 3600) / 60);
+            const s = totalSecs % 60;
+
+            countdownEl.textContent = `${d}d ${h}h ${m}m ${s}s`;
+        }
+
+        // GitHub данные
+        async function fetchGitHub() {
+            const stats = document.getElementById('github-stats');
+            if (!stats) return;
+            try {
+                const res = await fetch(`https://api.github.com/users/${CONFIG.github_user}`);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                stats.innerHTML = `
+                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-300">${Number(data.public_repos ?? 0)} Repositories</span>
+                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-400">${Number(data.followers ?? 0)} Followers</span>`;
+            } catch (e) {
+                stats.innerHTML = '<span class="text-[9px] text-zinc-600 uppercase">github_unavailable</span>';
+            }
+        }
+
+        // Discord Server данные
+        async function fetchDiscordServer() {
+            const card = document.getElementById('discord-server-card');
+            if (!card) return;
+            try {
+                const res = await fetch(`https://discord.com/api/invites/${CONFIG.discord_invite_code}?with_counts=true`);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-3 w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl">
+                        <div class="min-w-0">
+                            <div class="text-xs font-medium text-white truncate">${escapeHTML(data.guild?.name || 'Discord Server')}</div>
+                            <div class="text-[9px] text-zinc-500 mt-1 flex gap-3 uppercase tracking-wider">
+                                <span>Members: <strong class="text-zinc-300">${data.approximate_member_count || 0}</strong></span>
+                                <span>Online: <strong class="text-zinc-400">${data.approximate_presence_count || 0}</strong></span>
+                            </div>
+                        </div>
+                        <a href="https://discord.gg/${escapeHTML(CONFIG.discord_invite_code)}" target="_blank" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Join</a>
+                    </div>`;
+            } catch (e) {
+                card.innerHTML = `<div class="text-zinc-600 text-[10px] uppercase">Discord API error</div>`;
+            }
+        }
+
+        // Twitch Кастомный Виджет
+        async function fetchTwitch() {
+            const card = document.getElementById('twitch-card');
+            if (!card) return;
+            try {
+                const res = await fetch(`/api/twitch?login=${encodeURIComponent(CONFIG.twitch_user)}`);
+                const data = await res.json().catch(() => ({}));
+                const isLive = !!data.live;
+                
+                card.innerHTML = `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl border border-white/5 bg-white/[0.01]">
+                        <div class="min-w-0 flex items-center gap-2.5">
+                            <div class="w-1.5 h-1.5 rounded-full ${isLive ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-zinc-600'}"></div>
+                            <div class="min-w-0">
+                                <div class="text-xs font-medium text-white truncate">${escapeHTML(CONFIG.twitch_user)}</div>
+                                <div class="text-[9px] text-zinc-500 uppercase mt-0.5">${isLive ? 'Streaming Now' : 'Offline'}</div>
+                            </div>
+                        </div>
+                        <a href="https://twitch.tv/${CONFIG.twitch_user}" target="_blank" class="rounded px-2.5 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Watch</a>
+                    </div>`;
+            } catch (e) {
+                card.innerHTML = socialCardHTML(CONFIG.twitch_user, 'Twitch Channel', `https://twitch.tv/${CONFIG.twitch_user}`);
+            }
+        }
+
+        // Telegram Кастомный Виджет
+        function renderTelegram() {
+            const card = document.getElementById('telegram-card');
+            if (!card) return;
+            card.innerHTML = `
+                <div class="grid grid-cols-2 gap-2 w-full">
+                    <a href="https://t.me/${escapeHTML(CONFIG.telegram_username)}" target="_blank" class="rounded-lg p-2 bg-white/[0.01] border border-white/5 text-center transition hover:border-zinc-700">
+                        <div class="text-white font-medium text-[11px]">Personal</div>
+                        <div class="text-[8px] text-zinc-500 uppercase tracking-wider mt-0.5">Open DM</div>
+                    </a>
+                    <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" class="rounded-lg p-2 bg-white/[0.01] border border-white/5 text-center transition hover:border-zinc-700">
+                        <div class="text-white font-medium text-[11px]">Channel</div>
+                        <div class="text-[8px] text-zinc-500 uppercase tracking-wider mt-0.5">Explore</div>
+                    </a>
+                </div>`;
+        }
+
+        // Кнопка копирования адресов
+        document.querySelectorAll('[data-copy]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const val = btn.dataset.copy;
+                if (!val) return;
+                try {
+                    await navigator.clipboard.writeText(val);
+                    const base = btn.innerHTML;
+                    btn.textContent = 'OK';
+                    setTimeout(() => { btn.innerHTML = base; }, 1000);
+                } catch {}
+            });
+        });
+
+        // Инициализация скриптов
+        function init() {
+            renderSocialLinks();
+            renderTelegram();
+            updateBirthdayWidget();
+            fetchMusic();
+            fetchGitHub();
+            fetchDiscordServer();
+            fetchTwitch();
+        }
+
+        init();
+        setInterval(fetchMusic, 7000);
+        setInterval(updateBirthdayWidget, 1000);
+    </script>
+</body>
+</html>
