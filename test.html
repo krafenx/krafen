@@ -419,24 +419,13 @@
                 </div>
             </div>
 
-            <div id="social-discord" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
-
-            <div class="glass col-span-12 md:col-span-6 xl:col-span-6 p-4 flex flex-col justify-between">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Telegram</h2>
-                    <span class="text-[9px] text-zinc-500">Channels</span>
-                </div>
-                <div id="telegram-card" class="text-xs flex-1 flex flex-col justify-center">
-                    <div class="h-24 bg-white/5 rounded-lg shimmer"></div>
-                </div>
+            <div id="contact-card" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
+                <div class="h-24 bg-white/5 rounded-lg shimmer"></div>
             </div>
 
-            <div id="social-youtube" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
-            <div id="social-watchlist" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
-            <div id="social-tiktok" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
-            <div id="social-boosty" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
-            <div id="social-x" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
-            <div id="social-steam" class="glass col-span-12 md:col-span-6 xl:col-span-3 p-4 flex flex-col justify-between"></div>
+            <div id="social-links-card" class="glass col-span-12 p-4 flex flex-col justify-between">
+                <div class="h-24 bg-white/5 rounded-lg shimmer"></div>
+            </div>
 
             <div class="glass col-span-12 p-4 sm:p-5">
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4 border-b border-white/5 pb-3">
@@ -688,33 +677,55 @@
         }
 
         function renderSocialLinks() {
-            CONFIG.socials.forEach(({ id, name, label, href, subtext }) => {
-                const container = document.getElementById(`social-${id}`);
-                if (!container) return;
+            const socialCard = document.getElementById('social-links-card');
+            if (!socialCard) return;
 
-                container.innerHTML = `
-                    <div class="flex justify-between items-center mb-3">
-                        <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">${escapeHTML(name)}</h2>
-                    </div>
-                    <div class="w-full">
-                        <a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer" class="block w-full rounded-lg p-3 bg-white/[0.01] border border-white/5 text-center transition hover:border-zinc-700">
-                            <div class="text-white font-medium text-[11px]">${escapeHTML(label)}</div>
-                            <div class="text-[8px] text-zinc-500 uppercase tracking-wider mt-0.5">${escapeHTML(subtext)}</div>
-                        </a>
-                    </div>`;
-            });
+            const linkItems = CONFIG.socials
+                .filter(({ id }) => id !== 'discord')
+                .map(({ name, label, href, subtext }) => `
+                    <a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-white/5 bg-white/[0.01] px-3 py-3 flex items-center justify-between gap-3 transition hover:border-zinc-700">
+                        <div class="min-w-0">
+                            <div class="text-white font-medium text-[11px] truncate">${escapeHTML(name)}</div>
+                            <div class="text-[8px] text-zinc-500 uppercase tracking-wider mt-0.5 truncate">${escapeHTML(label)}</div>
+                        </div>
+                        <span class="text-[8px] text-zinc-500 uppercase tracking-wider flex-shrink-0">${escapeHTML(subtext)}</span>
+                    </a>
+                `)
+                .join('');
+
+            socialCard.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Links</h2>
+                    <span class="text-[9px] text-zinc-500">Profiles</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    ${linkItems}
+                </div>`;
         }
 
-        function renderTelegram() {
-            setCard('telegram-card', `
-                <div class="w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl flex flex-col gap-3">
-                    <div class="min-w-0">
-                        <div class="text-xs font-medium text-white truncate">@${escapeHTML(CONFIG.telegram_username)}</div>
-                        <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Telegram personal / channel</div>
+        function renderContacts() {
+            setCard('contact-card', `
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Contacts</h2>
+                    <span class="text-[9px] text-zinc-500">Direct</span>
+                </div>
+                <div class="grid gap-3">
+                    <div class="w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl flex flex-col gap-3">
+                        <div class="min-w-0">
+                            <div class="text-xs font-medium text-white truncate">Discord</div>
+                            <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Personal chat</div>
+                        </div>
+                        <a href="https://discord.com/users/krafen" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-2 text-[9px] uppercase tracking-wider btn-action text-center">Open DM</a>
                     </div>
-                    <div class="grid gap-2 text-[11px]">
-                        <a href="https://t.me/${escapeHTML(CONFIG.telegram_username)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-2 text-[9px] uppercase tracking-wider btn-action text-center">Open chat</a>
-                        <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-2 text-[9px] uppercase tracking-wider btn-action text-center">Open channel</a>
+                    <div class="w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl flex flex-col gap-3">
+                        <div class="min-w-0">
+                            <div class="text-xs font-medium text-white truncate">@${escapeHTML(CONFIG.telegram_username)}</div>
+                            <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Telegram personal / channel</div>
+                        </div>
+                        <div class="grid gap-2 text-[11px]">
+                            <a href="https://t.me/${escapeHTML(CONFIG.telegram_username)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-2 text-[9px] uppercase tracking-wider btn-action text-center">Open chat</a>
+                            <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-2 text-[9px] uppercase tracking-wider btn-action text-center">Open channel</a>
+                        </div>
                     </div>
                 </div>`);
         }
@@ -961,7 +972,7 @@
 
         function init() {
             renderSocialLinks();
-            renderTelegram();
+            renderContacts();
             initDonationCopy();
             updateBirthdayWidget();
 
