@@ -62,7 +62,6 @@
             transform: translateY(-1px);
         }
 
-        /* Виджет музыки по второму скриншоту */
         .music-player-card {
             position: relative;
             background: rgba(28, 28, 30, 0.6);
@@ -98,7 +97,6 @@
             transition: width 1s linear;
         }
 
-        /* Подсказки */
         .hint-link { position: relative; }
         .hint-tooltip {
             position: absolute;
@@ -163,7 +161,6 @@
 
         <div class="grid grid-cols-12 gap-4 w-full">
             
-            <!-- Профиль -->
             <div class="glass col-span-12 md:col-span-8 p-5 flex flex-col justify-between min-h-[160px]">
                 <div>
                     <div class="flex items-center gap-2 mb-3">
@@ -180,7 +177,6 @@
                 </div>
             </div>
 
-            <!-- Twitch -->
             <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-2">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Twitch</h2>
@@ -191,7 +187,6 @@
                 </div>
             </div>
 
-            <!-- Now Playing (Last.fm) -->
             <div class="glass col-span-12 md:col-span-8 p-4 flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Now Playing</h2>
@@ -238,7 +233,6 @@
                 </div>
             </div>
 
-            <!-- Починенный виджет Birthday / Status Info -->
             <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between min-h-[140px]">
                 <div class="flex justify-between items-center mb-2">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Status info</h2>
@@ -256,7 +250,6 @@
                 </div>
             </div>
 
-            <!-- Telegram -->
             <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Telegram</h2>
@@ -267,7 +260,6 @@
                 </div>
             </div>
 
-            <!-- Унифицированные карточки соцсетей (Генерируются в стиле Telegram) -->
             <div id="social-youtube" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
             <div id="social-watchlist" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
             <div id="social-tiktok" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
@@ -275,7 +267,6 @@
             <div id="social-x" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
             <div id="social-steam" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
 
-            <!-- Discord Server -->
             <div class="glass col-span-12 md:col-span-8 p-4 flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Discord Server</h2>
@@ -286,10 +277,8 @@
                 </div>
             </div>
 
-            <!-- Личный Discord -->
             <div id="social-discord" class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between"></div>
 
-            <!-- Донаты с ПОЛНЫМИ адресами из оригинального index.html -->
             <div class="glass col-span-12 p-4 sm:p-5">
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4 border-b border-white/5 pb-3">
                     <div>
@@ -299,7 +288,6 @@
                 </div>
                 
                 <div class="grid gap-4 md:grid-cols-2">
-                    <!-- Крипта (Все адреса возвращены) -->
                     <div class="rounded-xl border border-white/5 bg-white/[0.01] p-3.5 flex flex-col justify-between">
                         <div>
                             <div class="text-[9px] uppercase tracking-widest text-zinc-500 mb-2.5">Cryptocurrency</div>
@@ -339,7 +327,6 @@
                         </a>
                     </div>
 
-                    <!-- Фиат -->
                     <div class="rounded-xl border border-white/5 bg-white/[0.01] p-3.5 flex flex-col justify-between">
                         <div>
                             <div class="text-[9px] uppercase tracking-widest text-zinc-500 mb-2.5">Fiat / Cards</div>
@@ -389,12 +376,12 @@
                 { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/krafenx',             label: 'Photos',        subtext: 'OPEN' },
                 { id: 'tiktok',    name: 'TikTok',    href: 'https://www.tiktok.com/@.krafen',           label: 'Short videos',  subtext: 'OPEN' },
                 { id: 'boosty',    name: 'Boosty',    href: 'https://boosty.to/krafen',                  label: 'Support',       subtext: 'OPEN' },
-                { id: 'x',         name: 'X',         href: 'https://x.com/krafen_',                     label: 'News',          subtext: 'OPEN' },
+                { id: 'x',         name: 'X',         href: 'https://x.com/krafen_',                      label: 'News',          subtext: 'OPEN' },
                 { id: 'steam',     name: 'Steam',     href: 'https://steamcommunity.com/id/Krafen_',     label: 'Game profile',  subtext: 'OPEN' },
             ]
         };
 
-        let currentTrackDuration = 143; // Дефолтное время трека в секундах (2:23)
+        let currentTrackDuration = 143; 
         let currentTrackElapsed = 0;
         let trackTimerInterval = null;
 
@@ -404,7 +391,7 @@
             }[char]));
         }
 
-        // Рендеринг соцсетей точь-в-точь по стилю Telegram (Монолитная кнопка-плашка)
+        // Рендеринг соцсетей
         function renderSocialLinks() {
             CONFIG.socials.forEach(({ id, name, label, href, subtext }) => {
                 const container = document.getElementById(`social-${id}`);
@@ -423,13 +410,26 @@
             });
         }
 
+        // Рендеринг Telegram канала
+        function renderTelegram() {
+            const card = document.getElementById('telegram-card');
+            if (!card) return;
+            card.innerHTML = `
+                <div class="flex items-center justify-between gap-3 w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl">
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-white truncate">@${escapeHTML(CONFIG.telegram_channel)}</div>
+                        <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Official Channel</div>
+                    </div>
+                    <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">View</a>
+                </div>`;
+        }
+
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         }
 
-        // Живой прогресс таймлайна Last.fm
         function startTrackTimer(isLive) {
             clearInterval(trackTimerInterval);
             if (!isLive) {
@@ -441,7 +441,7 @@
             trackTimerInterval = setInterval(() => {
                 currentTrackElapsed++;
                 if (currentTrackElapsed > currentTrackDuration) {
-                    currentTrackElapsed = 0; // Зацикливаем до следующего пула апи
+                    currentTrackElapsed = 0; 
                 }
                 const pct = (currentTrackElapsed / currentTrackDuration) * 100;
                 document.getElementById('track-progress').style.width = `${pct}%`;
@@ -449,7 +449,6 @@
             }, 1000);
         }
 
-        // Фетч музыки
         async function fetchMusic() {
             const artContainer = document.getElementById('music-art-container');
             const trackName = document.getElementById('track-name');
@@ -482,11 +481,10 @@
                 trackName.textContent = track.name;
                 trackArtist.innerHTML = `<span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600 font-medium text-zinc-300">${escapeHTML(track.artist?.['#text'])}</span>`;
                 
-                // Рендерим общую длительность трека
                 document.getElementById('track-time-total').textContent = formatTime(currentTrackDuration);
                 
                 if (isLive && currentTrackElapsed === 0) {
-                    currentTrackElapsed = Math.floor(Math.random() * 40) + 10; // Симулируем точку старта
+                    currentTrackElapsed = Math.floor(Math.random() * 40) + 10; 
                 }
                 startTrackTimer(isLive);
 
@@ -550,78 +548,64 @@
                         <a href="https://discord.gg/${escapeHTML(CONFIG.discord_invite_code)}" target="_blank" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Join</a>
                     </div>`;
             } catch (e) {
-                card.innerHTML = `<div class="text-zinc-600 text-[10px] uppercase">Discord API error</div>`;
+                card.innerHTML = `<div class="text-zinc-600 text-[10px] uppercase">discord_unavailable</div>`;
             }
         }
 
         async function fetchTwitch() {
             const card = document.getElementById('twitch-card');
             if (!card) return;
-            try {
-                const res = await fetch(`/api/twitch?login=${encodeURIComponent(CONFIG.twitch_user)}`);
-                const data = await res.json().catch(() => ({}));
-                const isLive = !!data.live;
-                
-                card.innerHTML = `
-                    <div class="flex items-center justify-between p-2.5 rounded-xl border border-white/5 bg-white/[0.01]">
-                        <div class="min-w-0 flex items-center gap-2.5">
-                            <div class="w-1.5 h-1.5 rounded-full ${isLive ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-zinc-600'}"></div>
-                            <div class="min-w-0">
-                                <div class="text-xs font-medium text-white truncate">${escapeHTML(CONFIG.twitch_user)}</div>
-                                <div class="text-[9px] text-zinc-500 uppercase mt-0.5">${isLive ? 'Streaming Now' : 'Offline'}</div>
-                            </div>
-                        </div>
-                        <a href="https://twitch.tv/${CONFIG.twitch_user}" target="_blank" class="rounded px-2.5 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Watch</a>
-                    </div>`;
-            } catch (e) {
-                card.innerHTML = `<div class="rounded-xl border border-white/5 bg-white/[0.02] p-2.5 text-center text-zinc-500 text-[10px]">Twitch error</div>`;
-            }
-        }
-
-        function renderTelegram() {
-            const card = document.getElementById('telegram-card');
-            if (!card) return;
+            // Стаб заглушка для Twitch, так как Twitch API требует авторизацию через OAuth2 (Client-ID/Bearer)
             card.innerHTML = `
-                <div class="grid grid-cols-2 gap-2 w-full">
-                    <a href="https://t.me/${escapeHTML(CONFIG.telegram_username)}" target="_blank" class="rounded-lg p-2.5 bg-white/[0.01] border border-white/5 text-center transition hover:border-zinc-700">
-                        <div class="text-white font-medium text-[11px]">Personal</div>
-                        <div class="text-[8px] text-zinc-500 uppercase tracking-wider mt-0.5">Open DM</div>
-                    </a>
-                    <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" class="rounded-lg p-2.5 bg-white/[0.01] border border-white/5 text-center transition hover:border-zinc-700">
-                        <div class="text-white font-medium text-[11px]">Channel</div>
-                        <div class="text-[8px] text-zinc-500 uppercase tracking-wider mt-0.5">Explore</div>
-                    </a>
+                <div class="flex items-center justify-between gap-3 w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl">
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-white truncate">twitch.tv/${escapeHTML(CONFIG.twitch_user)}</div>
+                        <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Streams Profile</div>
+                    </div>
+                    <a href="https://twitch.tv/${escapeHTML(CONFIG.twitch_user)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Follow</a>
                 </div>`;
         }
 
+        // Логика копирования
         function initDonationCopy() {
-            document.querySelectorAll('[data-copy]').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const val = btn.dataset.copy;
-                    if (!val) return;
+            document.querySelectorAll('[data-copy]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const value = button.dataset.copy;
+                    if (!value) return;
                     try {
-                        await navigator.clipboard.writeText(val);
-                        const base = btn.innerHTML;
-                        btn.textContent = 'OK';
-                        setTimeout(() => { btn.innerHTML = base; }, 1200);
-                    } catch {}
+                        await navigator.clipboard.writeText(value);
+                        const original = button.innerHTML;
+                        button.textContent = 'OK';
+                        setTimeout(() => { button.innerHTML = original; }, 1200);
+                    } catch (e) {
+                        console.warn('Copy failed:', e);
+                    }
                 });
             });
         }
 
+        // Функция инициализации приложения
         function init() {
             renderSocialLinks();
             renderTelegram();
-            updateBirthdayWidget();
             initDonationCopy();
-            fetchMusic();
-            fetchGitHub();
-            fetchDiscordServer();
-            fetchTwitch();
+            updateBirthdayWidget();
+
+            Promise.all([
+                fetchMusic(),
+                fetchGitHub(),
+                fetchDiscordServer(),
+                fetchTwitch()
+            ]);
         }
 
+        // Запуск
         init();
-        setInterval(fetchMusic, 15000); // Опрашиваем апи чуть реже, так как таймлайн идет сам
+
+        // Интервалы
+        setInterval(fetchMusic, 1000);
+        setInterval(fetchGitHub, 60000);
+        setInterval(fetchDiscordServer, 10000);
         setInterval(updateBirthdayWidget, 1000);
     </script>
 </body>
