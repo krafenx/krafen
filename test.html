@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>krafen</title>
-    <meta name="description" content="Привет, я krafen. Здесь ты найдёшь ссылки на мои соцсети, Discord-сервер и способы поддержать меня.">
+    <meta name="description" content="Personal page with links, Discord server, Twitch, Last.fm and support options.">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/krafenx/krafen/8c5ff5d6ae7d406899fbf4906d5bc543e06c6648/cherry-blossom.png">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -18,34 +18,28 @@
             --accent-gradient: linear-gradient(135deg, var(--accent-light), var(--accent));
             --border: rgba(255, 255, 255, 0.04);
         }
-        *, *::before, *::after { box-sizing: border-box; }
-        html { width: 100%; overflow-x: hidden; scroll-behavior: smooth; }
-        
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            width: 100%;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
         body {
             background-color: var(--bg);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: "JetBrains Mono", monospace;
             color: #e4e4e7;
             min-height: 100vh;
             width: 100%;
             margin: 0;
             overflow-x: hidden;
             position: relative;
-        }
-
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: 
-                radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
-                radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.5), rgba(0,0,0,0)),
-                radial-gradient(1.5px 1.5px at 100px 150px, #fff, rgba(0,0,0,0)),
-                radial-gradient(1px 1px at 200px 80px, rgba(255,255,255,0.3), rgba(0,0,0,0)),
-                radial-gradient(2px 2px at 300px 250px, rgba(255,255,255,0.6), rgba(0,0,0,0));
-            background-size: 550px 550px;
-            opacity: 0.18;
-            z-index: -1;
-            pointer-events: none;
         }
 
         .glass {
@@ -56,6 +50,7 @@
             border-radius: 0.85rem;
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
         .glass:hover {
             border-color: rgba(91, 35, 51, 0.4);
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(91, 35, 51, 0.1);
@@ -70,6 +65,7 @@
             overflow: hidden;
             transition: all 0.3s ease;
         }
+
         .music-blur-bg {
             position: absolute;
             inset: 0;
@@ -81,23 +77,78 @@
             transform: scale(1.1);
             pointer-events: none;
         }
-        .music-content { position: relative; z-index: 1; }
-        
-        .timeline-bar {
-            height: 3px;
-            background: rgba(255, 255, 255, 0.12);
-            border-radius: 2px;
+
+        .music-content {
             position: relative;
-        }
-        .timeline-progress {
-            position: absolute;
-            left: 0; top: 0; bottom: 0; width: 0%;
-            background: rgba(255, 255, 255, 0.85);
-            border-radius: 2px;
-            transition: width 1s linear;
+            z-index: 1;
         }
 
-        .hint-link { position: relative; }
+        .widget-grid {
+            display: grid;
+            gap: 0.5rem;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .widget-stat {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 0.7rem;
+            background: rgba(0, 0, 0, 0.18);
+            padding: 0.7rem 0.8rem;
+            min-width: 0;
+        }
+
+        .widget-stat span {
+            display: block;
+            color: #71717a;
+            font-size: 0.55rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .widget-stat strong {
+            display: block;
+            margin-top: 0.35rem;
+            color: #f4f4f5;
+            font-size: 0.72rem;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.55rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .status-badge.live {
+            color: #d5ffec;
+            background: rgba(22, 163, 74, 0.16);
+            border-color: rgba(22, 163, 74, 0.3);
+        }
+
+        .status-badge.idle {
+            color: #f7d9e2;
+            background: rgba(91, 35, 51, 0.25);
+            border-color: rgba(91, 35, 51, 0.4);
+        }
+
+        .status-dot {
+            width: 0.4rem;
+            height: 0.4rem;
+            border-radius: 999px;
+            background: currentColor;
+        }
+
+        .hint-link {
+            position: relative;
+        }
+
         .hint-tooltip {
             position: absolute;
             left: 50%;
@@ -117,17 +168,22 @@
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
             transition: all 0.15s ease;
         }
+
         .hint-link:hover .hint-tooltip {
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
 
         .shimmer {
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
             background-size: 200% 100%;
             animation: shimmer 1.8s infinite;
         }
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
 
         .top-nav-link {
             color: rgba(255, 255, 255, 0.3);
@@ -136,22 +192,115 @@
             text-transform: uppercase;
             transition: all 0.2s ease;
         }
-        .top-nav-link:hover { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
-        
+
+        .top-nav-link:hover {
+            color: #fff;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
         .btn-action {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.06);
             color: #d4d4d8;
             transition: all 0.2s ease;
         }
+
         .btn-action:hover {
             background: rgba(91, 35, 51, 0.2);
             border-color: rgba(91, 35, 51, 0.5);
             color: #fff;
         }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+        }
+
+        /* STARFIELD V3 */
+
+        #starfield {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: -2;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 0%, rgba(91, 35, 51, 0.18), transparent 55%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .stars {
+            position: absolute;
+            inset: -100%;
+        }
+
+        .stars-small {
+            background-image:
+                radial-gradient(1px 1px at 40px 60px, #fff, transparent),
+                radial-gradient(1px 1px at 120px 180px, #fff, transparent),
+                radial-gradient(1px 1px at 220px 340px, #fff, transparent),
+                radial-gradient(1px 1px at 460px 120px, #fff, transparent),
+                radial-gradient(1px 1px at 700px 540px, #fff, transparent);
+            background-size: 800px 800px;
+            opacity: 0.45;
+            animation: drift-small 240s linear infinite;
+        }
+
+        .stars-medium {
+            background-image:
+                radial-gradient(2px 2px at 100px 140px, #fff, transparent),
+                radial-gradient(2px 2px at 350px 500px, #fff, transparent),
+                radial-gradient(2px 2px at 700px 260px, #fff, transparent);
+            background-size: 1000px 1000px;
+            opacity: 0.35;
+            animation: drift-medium 180s linear infinite;
+        }
+
+        .stars-large {
+            background-image:
+                radial-gradient(3px 3px at 250px 250px, #fff, transparent),
+                radial-gradient(3px 3px at 900px 600px, #fff, transparent);
+            background-size: 1200px 1200px;
+            opacity: 0.25;
+            animation: drift-large 120s linear infinite;
+        }
+
+        @keyframes drift-small {
+            from { transform: translateY(0); }
+            to { transform: translateY(800px); }
+        }
+
+        @keyframes drift-medium {
+            from { transform: translateY(0); }
+            to { transform: translateY(1000px); }
+        }
+
+        @keyframes drift-large {
+            from { transform: translateY(0); }
+            to { transform: translateY(1200px); }
+        }
+
+        @media (max-width: 640px) {
+            .widget-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
     </style>
 </head>
 <body class="p-4 sm:p-6 md:p-10 flex flex-col items-center">
+    <div id="starfield">
+        <div class="stars stars-small"></div>
+        <div class="stars stars-medium"></div>
+        <div class="stars stars-large"></div>
+    </div>
 
     <div class="w-full max-w-5xl flex flex-col">
         <nav class="w-full flex items-center justify-between mb-5 px-1" aria-label="site sections">
@@ -160,7 +309,6 @@
         </nav>
 
         <div class="grid grid-cols-12 gap-4 w-full">
-            
             <div class="glass col-span-12 md:col-span-8 p-5 flex flex-col justify-between min-h-[160px]">
                 <div>
                     <div class="flex items-center gap-2 mb-3">
@@ -192,7 +340,7 @@
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Now Playing</h2>
                     <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Last.fm</span>
                 </div>
-                
+
                 <div class="music-player-card p-3 sm:p-4 mb-2">
                     <div id="music-blur" class="music-blur-bg"></div>
                     <div class="music-content flex flex-col sm:flex-row items-center gap-4 min-w-0">
@@ -208,22 +356,16 @@
                                     </div>
                                 </div>
                                 <div class="text-zinc-400 opacity-60 hover:opacity-100 transition">
-                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.216.354-.678.47-1.032.256-2.864-1.75-6.47-2.144-10.716-1.18-.404.092-.812-.162-.904-.564-.092-.403.162-.812.564-.904 4.646-1.062 8.624-.613 11.832 1.343.354.215.47.677.256 1.033zm1.467-3.258c-.272.44-.847.584-1.288.312-3.278-2.015-8.277-2.603-12.155-1.425-.494.15-1.018-.13-1.168-.623-.15-.493.13-1.018.623-1.168 4.433-1.344 9.935-.696 13.676 1.604.44.27.584.846.312 1.287zm.126-3.41c-3.93-2.334-10.418-2.55-14.19-1.405-.602.183-1.242-.152-1.425-.754-.183-.603.152-1.242.754-1.425 4.344-1.32 11.503-1.07 16.035 1.62.543.322.72 1.025.4 1.568-.323.542-1.024.72-1.574.396z"/></svg>
+                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.216.354-.678.47-1.032.256-2.864-1.75-6.47-2.144-10.716-1.18-.404.092-.812-.162-.904-.564-.092-.403.162-.812.564-.904 4.646-1.062 8.624-.613 11.832 1.343.354.215.47.677.256 1.033zm1.467-3.258c-.272.44-.847.584-1.288.312-3.278-2.015-8.277-2.603-12.155-1.425-.494.15-1.018-.13-1.168-.623-.15-.493.13-1.018.623-1.168 4.433-1.344 9.935-.696 13.676 1.604.44.27.584.846.312 1.287zm.126-3.41c-3.93-2.334-10.418-2.55-14.19-1.405-.602.183-1.242-.152-1.425-.754-.183-.603.152-1.242.754-1.425 4.344-1.32 11.503-1.07 16.035 1.62.543.322.72 1.025.4 1.568-.323.542-1.024.72-1.574.396z"/></svg>
                                 </div>
                             </div>
 
-                            <div class="mt-4 flex items-center gap-3 text-[10px] text-zinc-500 tracking-wider font-mono">
-                                <span id="track-time-current">0:00</span>
-                                <div class="timeline-bar flex-1">
-                                    <div id="track-progress" class="timeline-progress"></div>
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <div class="flex gap-0.5 h-2.5 items-center px-1 opacity-80">
-                                        <div class="w-[2px] h-full bg-white"></div>
-                                        <div class="w-[2px] h-full bg-white"></div>
-                                    </div>
-                                    <span id="track-time-total">0:00</span>
-                                </div>
+                            <div class="mt-4 flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] text-zinc-500 tracking-wider font-mono">
+                                <span id="track-status" class="text-zinc-200">Syncing...</span>
+                                <span class="opacity-30">/</span>
+                                <span id="track-meta-primary" class="truncate">Loading...</span>
+                                <span class="opacity-30">/</span>
+                                <span id="track-meta-secondary" class="truncate">Please wait</span>
                             </div>
                         </div>
                     </div>
@@ -286,7 +428,7 @@
                         <p class="text-[9px] text-zinc-500 mt-1 max-w-xl">If you want to support me, I appreciate anything listed below.</p>
                     </div>
                 </div>
-                
+
                 <div class="grid gap-4 md:grid-cols-2">
                     <div class="rounded-xl border border-white/5 bg-white/[0.01] p-3.5 flex flex-col justify-between">
                         <div>
@@ -342,10 +484,10 @@
                                     bank transfer &nearr;
                                     <span class="hint-tooltip">DM me on Telegram for details</span>
                                 </a>
-                                <a href="https://donatex.gg/donate/krafen" target="_blank" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
+                                <a href="https://donatex.gg/donate/krafen" target="_blank" rel="noopener noreferrer" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
                                     donatex &nearr;
                                 </a>
-                                <a href="https://www.donationalerts.com/r/krafenx" target="_blank" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
+                                <a href="https://www.donationalerts.com/r/krafenx" target="_blank" rel="noopener noreferrer" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
                                     donationalerts &nearr;
                                 </a>
                             </div>
@@ -354,44 +496,116 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 
     <script>
         const CONFIG = {
-            github_user:          'krafenx',
-            lastfm_user:          'krafen',
-            lastfm_key:           '6474af65e5e721a2751d9d7f9274b594',
-            twitch_user:          'krafen',
-            discord_invite_code:  'kGdxDzxtmK',
-            telegram_channel:     'krafenx',
-            telegram_username:    'krafen',
-            steam_id:             '76561199067685266',
-            birthday_month:       1,
-            birthday_day:         13,
+            github_user: 'krafenx',
+            lastfm_user: 'krafen',
+            lastfm_key: '6474af65e5e721a2751d9d7f9274b594',
+            twitch_user: 'krafen',
+            discord_invite_code: 'kGdxDzxtmK',
+            telegram_channel: 'krafenx',
+            telegram_username: 'krafen',
+            steam_id: '76561199067685266',
+            birthday_month: 1,
+            birthday_day: 13,
             socials: [
-                { id: 'discord',   name: 'Discord',   href: 'https://discord.com/users/krafen',          label: 'Personal chat', subtext: 'OPEN DM' },
-                { id: 'youtube',   name: 'YouTube',   href: 'https://youtube.com/@krafen.',              label: 'Videos',        subtext: 'OPEN' },
-                { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/krafenx',             label: 'Photos',        subtext: 'OPEN' },
-                { id: 'tiktok',    name: 'TikTok',    href: 'https://www.tiktok.com/@.krafen',           label: 'Short videos',  subtext: 'OPEN' },
-                { id: 'boosty',    name: 'Boosty',    href: 'https://boosty.to/krafen',                  label: 'Support',       subtext: 'OPEN' },
-                { id: 'x',         name: 'X',         href: 'https://x.com/krafen_',                      label: 'News',          subtext: 'OPEN' },
-                { id: 'steam',     name: 'Steam',     href: 'https://steamcommunity.com/id/Krafen_',     label: 'Game profile',  subtext: 'OPEN' },
+                { id: 'discord', name: 'Discord', href: 'https://discord.com/users/krafen', label: 'Personal chat', subtext: 'OPEN DM' },
+                { id: 'youtube', name: 'YouTube', href: 'https://youtube.com/@krafen.', label: 'Videos', subtext: 'OPEN' },
+                { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/krafenx', label: 'Photos', subtext: 'OPEN' },
+                { id: 'tiktok', name: 'TikTok', href: 'https://www.tiktok.com/@.krafen', label: 'Short videos', subtext: 'OPEN' },
+                { id: 'boosty', name: 'Boosty', href: 'https://boosty.to/krafen', label: 'Support', subtext: 'OPEN' },
+                { id: 'x', name: 'X', href: 'https://x.com/krafen_', label: 'News', subtext: 'OPEN' },
+                { id: 'steam', name: 'Steam', href: 'https://steamcommunity.com/id/Krafen_', label: 'Game profile', subtext: 'OPEN' }
             ]
         };
 
-        let currentTrackDuration = 143; 
-        let currentTrackElapsed = 0;
-        let trackTimerInterval = null;
-
         function escapeHTML(value) {
             return String(value ?? '').replace(/[&<>"']/g, char => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
             }[char]));
         }
 
-        // Рендеринг соцсетей
+        function setCard(id, html) {
+            const node = document.getElementById(id);
+            if (!node) return;
+            node.innerHTML = html;
+        }
+
+        async function copyText(value) {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(value);
+                return;
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = value;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                if (!document.execCommand('copy')) {
+                    throw new Error('execCommand copy failed');
+                }
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function statusBox(message) {
+            return `<div class="rounded-xl border border-white/5 bg-white/[0.01] p-3 text-[10px] uppercase tracking-wider text-zinc-500">${escapeHTML(message)}</div>`;
+        }
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString('en-US');
+        }
+
+        function formatMetric(value) {
+            const num = Number(value);
+            return Number.isFinite(num) ? num.toLocaleString('en-US') : '--';
+        }
+
+        function formatAbsoluteTime(uts) {
+            const date = new Date(Number(uts) * 1000);
+            if (!Number.isFinite(date.getTime())) return 'Unknown';
+            return new Intl.DateTimeFormat('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+
+        function formatRelativeTime(uts) {
+            const timestamp = Number(uts) * 1000;
+            if (!Number.isFinite(timestamp)) return 'Unknown';
+
+            const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+            if (diffSeconds < 60) return 'just now';
+            if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+            if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
+            if (diffSeconds < 604800) return `${Math.floor(diffSeconds / 86400)}d ago`;
+            return formatAbsoluteTime(uts);
+        }
+
+        function twitchLiveDuration(startedAt) {
+            const started = new Date(startedAt).getTime();
+            if (!Number.isFinite(started)) return '';
+            const minutes = Math.max(0, Math.floor((Date.now() - started) / 60000));
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return hours ? `${hours}h ${mins}m` : `${mins}m`;
+        }
+
         function renderSocialLinks() {
             CONFIG.socials.forEach(({ id, name, label, href, subtext }) => {
                 const container = document.getElementById(`social-${id}`);
@@ -410,87 +624,15 @@
             });
         }
 
-        // Рендеринг Telegram канала
         function renderTelegram() {
-            const card = document.getElementById('telegram-card');
-            if (!card) return;
-            card.innerHTML = `
+            setCard('telegram-card', `
                 <div class="flex items-center justify-between gap-3 w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl">
                     <div class="min-w-0">
                         <div class="text-xs font-medium text-white truncate">@${escapeHTML(CONFIG.telegram_channel)}</div>
                         <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Official Channel</div>
                     </div>
                     <a href="https://t.me/${escapeHTML(CONFIG.telegram_channel)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">View</a>
-                </div>`;
-        }
-
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        }
-
-        function startTrackTimer(isLive) {
-            clearInterval(trackTimerInterval);
-            if (!isLive) {
-                document.getElementById('track-progress').style.width = '100%';
-                document.getElementById('track-time-current').textContent = formatTime(currentTrackDuration);
-                return;
-            }
-
-            trackTimerInterval = setInterval(() => {
-                currentTrackElapsed++;
-                if (currentTrackElapsed > currentTrackDuration) {
-                    currentTrackElapsed = 0; 
-                }
-                const pct = (currentTrackElapsed / currentTrackDuration) * 100;
-                document.getElementById('track-progress').style.width = `${pct}%`;
-                document.getElementById('track-time-current').textContent = formatTime(currentTrackElapsed);
-            }, 1000);
-        }
-
-        async function fetchMusic() {
-            const artContainer = document.getElementById('music-art-container');
-            const trackName = document.getElementById('track-name');
-            const trackArtist = document.getElementById('track-artist');
-            const blurBg = document.getElementById('music-blur');
-            if (!artContainer || !trackName || !trackArtist) return;
-
-            try {
-                const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${CONFIG.lastfm_user}&api_key=${CONFIG.lastfm_key}&format=json&limit=1`;
-                const res = await fetch(url);
-                if (!res.ok) throw new Error();
-                const data = await res.json();
-                const track = data.recenttracks?.track?.[0];
-
-                if (!track) {
-                    trackName.textContent = 'Nothing playing';
-                    return;
-                }
-
-                const isLive = !!track['@attr'];
-                const imgSrc = track.image?.[3]?.['#text'] || track.image?.[2]?.['#text'];
-                if (imgSrc) {
-                    artContainer.innerHTML = `<img src="${escapeHTML(imgSrc)}" class="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover border border-white/10 shadow-xl" alt="Cover">`;
-                    blurBg.style.backgroundImage = `url('${imgSrc}')`;
-                } else {
-                    artContainer.innerHTML = `<div class="w-14 h-14 sm:w-16 sm:h-16 rounded bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-500 uppercase">No Art</div>`;
-                    blurBg.style.backgroundImage = 'none';
-                }
-
-                trackName.textContent = track.name;
-                trackArtist.innerHTML = `<span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600 font-medium text-zinc-300">${escapeHTML(track.artist?.['#text'])}</span>`;
-                
-                document.getElementById('track-time-total').textContent = formatTime(currentTrackDuration);
-                
-                if (isLive && currentTrackElapsed === 0) {
-                    currentTrackElapsed = Math.floor(Math.random() * 40) + 10; 
-                }
-                startTrackTimer(isLive);
-
-            } catch (e) {
-                trackName.textContent = 'Last.fm Offline';
-            }
+                </div>`);
         }
 
         function updateBirthdayWidget() {
@@ -499,7 +641,11 @@
             if (!timeEl || !countdownEl) return;
 
             const now = new Date();
-            timeEl.textContent = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now);
+            timeEl.textContent = new Intl.DateTimeFormat('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).format(now);
 
             let nextBirthday = new Date(now.getFullYear(), CONFIG.birthday_month - 1, CONFIG.birthday_day);
             if (nextBirthday <= now) nextBirthday.setFullYear(nextBirthday.getFullYear() + 1);
@@ -514,17 +660,79 @@
             countdownEl.textContent = `${d}d ${h}h ${m}m ${s}s`;
         }
 
+        async function fetchMusic() {
+            const artContainer = document.getElementById('music-art-container');
+            const trackName = document.getElementById('track-name');
+            const trackArtist = document.getElementById('track-artist');
+            const trackStatus = document.getElementById('track-status');
+            const trackMetaPrimary = document.getElementById('track-meta-primary');
+            const trackMetaSecondary = document.getElementById('track-meta-secondary');
+            const blurBg = document.getElementById('music-blur');
+            if (!artContainer || !trackName || !trackArtist || !trackStatus || !trackMetaPrimary || !trackMetaSecondary || !blurBg) return;
+
+            try {
+                const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(CONFIG.lastfm_user)}&api_key=${encodeURIComponent(CONFIG.lastfm_key)}&format=json&limit=1`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`lastfm_${res.status}`);
+
+                const data = await res.json();
+                const track = data.recenttracks?.track?.[0];
+
+                if (!track) {
+                    trackName.textContent = 'Nothing playing';
+                    trackArtist.innerHTML = '<span class="text-zinc-500">no recent tracks</span>';
+                    trackStatus.textContent = 'No Data';
+                    trackMetaPrimary.textContent = 'No album info';
+                    trackMetaSecondary.textContent = 'No scrobbles found';
+                    blurBg.style.backgroundImage = 'none';
+                    artContainer.innerHTML = '<div class="w-14 h-14 sm:w-16 sm:h-16 rounded bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-500 uppercase">No Art</div>';
+                    return;
+                }
+
+                const isLive = track['@attr']?.nowplaying === 'true';
+                const imgSrc = track.image?.[3]?.['#text'] || track.image?.[2]?.['#text'] || '';
+                const artist = track.artist?.['#text'] || 'Unknown artist';
+                const album = track.album?.['#text'] || 'No album info';
+                const playedAt = track.date?.uts;
+
+                if (imgSrc) {
+                    artContainer.innerHTML = `<img src="${escapeHTML(imgSrc)}" class="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover border border-white/10 shadow-xl" alt="Cover">`;
+                    blurBg.style.backgroundImage = `url('${imgSrc}')`;
+                } else {
+                    artContainer.innerHTML = '<div class="w-14 h-14 sm:w-16 sm:h-16 rounded bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-500 uppercase">No Art</div>';
+                    blurBg.style.backgroundImage = 'none';
+                }
+
+                trackName.textContent = track.name || 'Unknown track';
+                trackArtist.innerHTML = `<span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600 font-medium text-zinc-300">${escapeHTML(artist)}</span>`;
+                trackStatus.textContent = isLive ? 'Now Listening' : 'Last Scrobble';
+                trackMetaPrimary.textContent = album;
+                trackMetaSecondary.textContent = isLive
+                    ? 'Syncing from Last.fm now'
+                    : `${formatRelativeTime(playedAt)} / ${formatAbsoluteTime(playedAt)}`;
+            } catch (error) {
+                trackName.textContent = 'Last.fm Offline';
+                trackArtist.innerHTML = '<span class="text-zinc-500">unable to reach api</span>';
+                trackStatus.textContent = 'Offline';
+                trackMetaPrimary.textContent = 'Unavailable';
+                trackMetaSecondary.textContent = 'Try again later';
+            }
+        }
+
         async function fetchGitHub() {
             const stats = document.getElementById('github-stats');
             if (!stats) return;
+
             try {
                 const res = await fetch(`https://api.github.com/users/${CONFIG.github_user}`);
-                if (!res.ok) throw new Error();
+                if (!res.ok) throw new Error(`github_${res.status}`);
+
                 const data = await res.json();
                 stats.innerHTML = `
-                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-300">${Number(data.public_repos ?? 0)} Repositories</span>
-                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-400">${Number(data.followers ?? 0)} Followers</span>`;
-            } catch (e) {
+                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-300">${formatNumber(data.public_repos)} Repositories</span>
+                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-400">${formatNumber(data.followers)} Followers</span>
+                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-500">${formatNumber(data.following)} Following</span>`;
+            } catch (error) {
                 stats.innerHTML = '<span class="text-[9px] text-zinc-600 uppercase">github_unavailable</span>';
             }
         }
@@ -532,59 +740,134 @@
         async function fetchDiscordServer() {
             const card = document.getElementById('discord-server-card');
             if (!card) return;
+
+            if (!CONFIG.discord_invite_code) {
+                card.innerHTML = statusBox('discord invite not configured');
+                return;
+            }
+
             try {
-                const res = await fetch(`https://discord.com/api/invites/${CONFIG.discord_invite_code}?with_counts=true`);
-                if (!res.ok) throw new Error();
+                const res = await fetch(`https://discord.com/api/invites/${encodeURIComponent(CONFIG.discord_invite_code)}?with_counts=true`);
+                if (!res.ok) throw new Error(`discord_${res.status}`);
+
                 const data = await res.json();
                 card.innerHTML = `
-                    <div class="flex items-center justify-between gap-3 w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl">
-                        <div class="min-w-0">
-                            <div class="text-xs font-medium text-white truncate">${escapeHTML(data.guild?.name || 'Discord Server')}</div>
-                            <div class="text-[9px] text-zinc-500 mt-1 flex gap-3 uppercase tracking-wider">
-                                <span>Members: <strong class="text-zinc-300">${data.approximate_member_count || 0}</strong></span>
-                                <span>Online: <strong class="text-zinc-400">${data.approximate_presence_count || 0}</strong></span>
+                    <div class="w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl flex flex-col gap-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="text-xs font-medium text-white truncate">${escapeHTML(data.guild?.name || 'Discord Server')}</div>
+                                <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Invite: ${escapeHTML(CONFIG.discord_invite_code)}</div>
+                            </div>
+                            <a href="https://discord.gg/${escapeHTML(CONFIG.discord_invite_code)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Join</a>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="rounded-lg border border-white/5 bg-black/15 px-3 py-2">
+                                <div class="text-[8px] uppercase tracking-[0.18em] text-zinc-500">Members</div>
+                                <div class="text-sm font-semibold text-white mt-1">${formatMetric(data.approximate_member_count)}</div>
+                            </div>
+                            <div class="rounded-lg border border-white/5 bg-black/15 px-3 py-2">
+                                <div class="text-[8px] uppercase tracking-[0.18em] text-zinc-500">Online</div>
+                                <div class="text-sm font-semibold text-white mt-1">${formatMetric(data.approximate_presence_count)}</div>
                             </div>
                         </div>
-                        <a href="https://discord.gg/${escapeHTML(CONFIG.discord_invite_code)}" target="_blank" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Join</a>
                     </div>`;
-            } catch (e) {
-                card.innerHTML = `<div class="text-zinc-600 text-[10px] uppercase">discord_unavailable</div>`;
+            } catch (error) {
+                card.innerHTML = statusBox('discord api unavailable');
             }
+        }
+
+        function renderTwitchFallback(message) {
+            setCard('twitch-card', `
+                <div class="flex items-center justify-between gap-3 w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl">
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-white truncate">twitch.tv/${escapeHTML(CONFIG.twitch_user)}</div>
+                        <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">${escapeHTML(message)}</div>
+                    </div>
+                    <a href="https://twitch.tv/${escapeHTML(CONFIG.twitch_user)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Open</a>
+                </div>`);
         }
 
         async function fetchTwitch() {
             const card = document.getElementById('twitch-card');
             if (!card) return;
-            // Стаб заглушка для Twitch, так как Twitch API требует авторизацию через OAuth2 (Client-ID/Bearer)
-            card.innerHTML = `
-                <div class="flex items-center justify-between gap-3 w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl">
-                    <div class="min-w-0">
-                        <div class="text-xs font-medium text-white truncate">twitch.tv/${escapeHTML(CONFIG.twitch_user)}</div>
-                        <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Streams Profile</div>
-                    </div>
-                    <a href="https://twitch.tv/${escapeHTML(CONFIG.twitch_user)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Follow</a>
-                </div>`;
+
+            if (!CONFIG.twitch_user) {
+                card.innerHTML = statusBox('twitch user not configured');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/twitch?login=${encodeURIComponent(CONFIG.twitch_user)}`, {
+                    headers: { Accept: 'application/json' }
+                });
+                const data = await res.json().catch(() => ({}));
+
+                if (!res.ok) {
+                    if (data.error === 'twitch_key_missing') {
+                        renderTwitchFallback('setup api');
+                        return;
+                    }
+                    throw new Error(data.error || 'twitch_failed');
+                }
+
+                const live = Boolean(data.live);
+                const stream = data.stream || {};
+                const avatar = data.profileImage
+                    ? `<img src="${escapeHTML(data.profileImage)}" class="w-11 h-11 rounded-lg object-cover border border-white/10 flex-shrink-0" alt="${escapeHTML(data.displayName || CONFIG.twitch_user)}">`
+                    : '<div class="w-11 h-11 rounded-lg border border-white/10 bg-white/5 flex-shrink-0"></div>';
+                const statusClass = live ? 'live' : 'idle';
+                const statusText = live ? 'Live now' : 'Offline';
+                const title = live ? (stream.title || 'Live stream') : (data.description || 'Channel is currently offline.');
+                const meta = live
+                    ? `${formatMetric(stream.viewerCount)} viewers${stream.gameName ? ` / ${stream.gameName}` : ''}${stream.startedAt ? ` / ${twitchLiveDuration(stream.startedAt)}` : ''}`
+                    : `${formatMetric(data.viewCount)} total views`;
+
+                card.innerHTML = `
+                    <div class="w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl flex flex-col gap-3">
+                        <div class="flex items-start gap-3 min-w-0">
+                            ${avatar}
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="status-badge ${statusClass}">
+                                        <span class="status-dot"></span>
+                                        ${escapeHTML(statusText)}
+                                    </span>
+                                </div>
+                                <div class="text-xs font-medium text-white truncate">${escapeHTML(data.displayName || CONFIG.twitch_user)}</div>
+                                <div class="text-[9px] text-zinc-500 mt-1 truncate">@${escapeHTML(data.login || CONFIG.twitch_user)}</div>
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-zinc-300 leading-relaxed line-clamp-2">${escapeHTML(title)}</div>
+                        <div class="text-[9px] text-zinc-500">${escapeHTML(meta)}</div>
+                        <a href="${escapeHTML(data.url || `https://twitch.tv/${CONFIG.twitch_user}`)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-2 text-[9px] uppercase tracking-wider btn-action text-center">
+                            ${live ? 'Watch stream' : 'Open channel'}
+                        </a>
+                    </div>`;
+            } catch (error) {
+                renderTwitchFallback('channel link');
+            }
         }
 
-        // Логика копирования
         function initDonationCopy() {
             document.querySelectorAll('[data-copy]').forEach(button => {
                 button.addEventListener('click', async () => {
                     const value = button.dataset.copy;
                     if (!value) return;
+
                     try {
-                        await navigator.clipboard.writeText(value);
+                        await copyText(value);
                         const original = button.innerHTML;
                         button.textContent = 'OK';
-                        setTimeout(() => { button.innerHTML = original; }, 1200);
-                    } catch (e) {
-                        console.warn('Copy failed:', e);
+                        setTimeout(() => {
+                            button.innerHTML = original;
+                        }, 1200);
+                    } catch (error) {
+                        console.warn('Copy failed:', error);
                     }
                 });
             });
         }
 
-        // Функция инициализации приложения
         function init() {
             renderSocialLinks();
             renderTelegram();
@@ -599,13 +882,12 @@
             ]);
         }
 
-        // Запуск
         init();
 
-        // Интервалы
-        setInterval(fetchMusic, 1000);
+        setInterval(fetchMusic, 15000);
         setInterval(fetchGitHub, 60000);
-        setInterval(fetchDiscordServer, 10000);
+        setInterval(fetchDiscordServer, 60000);
+        setInterval(fetchTwitch, 60000);
         setInterval(updateBirthdayWidget, 1000);
     </script>
 </body>
