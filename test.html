@@ -63,6 +63,7 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 0.75rem;
             overflow: hidden;
+            min-height: 5rem;
             transition: all 0.3s ease;
         }
 
@@ -81,6 +82,77 @@
         .music-content {
             position: relative;
             z-index: 1;
+        }
+
+        .music-status-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 19.25rem;
+            gap: 0.75rem;
+            align-items: stretch;
+        }
+
+        .time-panel {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 0.75rem;
+            background:
+                linear-gradient(135deg, rgba(91, 35, 51, 0.18), rgba(255, 255, 255, 0.025)),
+                rgba(0, 0, 0, 0.18);
+            min-height: 5rem;
+            padding: 0.6rem 0.7rem;
+        }
+
+        .time-panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(247, 244, 243, 0.08), transparent 38%);
+            pointer-events: none;
+        }
+
+        .time-panel > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .time-value {
+            color: #fff;
+            font-size: 1.35rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.03em;
+        }
+
+        .birthday-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .birthday-chip {
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            padding: 0.25rem 0 0;
+            min-width: 0;
+        }
+
+        .birthday-chip span {
+            display: block;
+            color: #71717a;
+            font-size: 0.5rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .birthday-chip strong {
+            display: block;
+            margin-top: 0.25rem;
+            color: #f4f4f5;
+            font-size: 0.62rem;
+            line-height: 1.35;
+            word-break: break-word;
         }
 
         .timeline-bar {
@@ -236,6 +308,62 @@
             overflow: hidden;
         }
 
+        .discord-widget {
+            position: relative;
+            overflow: hidden;
+            min-height: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 0.75rem;
+            background:
+                linear-gradient(135deg, rgba(88, 101, 242, 0.14), rgba(91, 35, 51, 0.12) 44%, rgba(0, 0, 0, 0.1)),
+                rgba(0, 0, 0, 0.18);
+        }
+
+        .discord-widget::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(90deg, rgba(255, 255, 255, 0.035), transparent 28%),
+                radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.08), transparent 32%);
+            pointer-events: none;
+        }
+
+        .discord-widget > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .discord-icon {
+            width: 3.2rem;
+            height: 3.2rem;
+            border-radius: 0.85rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.05);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .discord-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .presence-bar {
+            height: 4px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .presence-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, rgba(213, 255, 236, 0.9), rgba(88, 101, 242, 0.9));
+        }
+
         /* STARFIELD V3 */
 
         #starfield {
@@ -307,7 +435,19 @@
         }
 
         @media (max-width: 640px) {
+            .music-status-grid,
+            .birthday-grid,
+            .discord-stat-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
             .widget-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .music-status-grid {
                 grid-template-columns: minmax(0, 1fr);
             }
         }
@@ -349,68 +489,70 @@
                 </div>
             </div>
 
-            <div class="glass col-span-12 md:col-span-8 p-4 flex flex-col justify-between">
-                <div class="flex justify-between items-center mb-3">
+            <div class="glass col-span-12 md:col-span-7 p-2 flex flex-col justify-between">
+                <div class="sr-only">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Now Playing</h2>
-                    <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Last.fm</span>
+                    <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Last.fm + MSK</span>
                 </div>
 
-                <div class="music-player-card p-3 sm:p-4 mb-2">
-                    <div id="music-blur" class="music-blur-bg"></div>
-                    <div class="music-content flex flex-col sm:flex-row items-center gap-4 min-w-0">
-                        <div id="music-art-container" class="flex-shrink-0">
-                            <div class="w-14 h-14 sm:w-16 sm:h-16 bg-white/5 rounded-md shimmer"></div>
-                        </div>
-                        <div class="flex-1 min-w-0 w-full">
-                            <div class="flex justify-between items-start gap-2 mb-1">
-                                <div class="min-w-0">
-                                    <div id="track-name" class="text-white font-medium truncate text-sm sm:text-base">Loading track...</div>
-                                    <div id="track-artist" class="text-zinc-400 text-xs mt-0.5">
-                                        <span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600">Please wait</span>
+                <div class="music-status-grid">
+                    <div class="music-player-card p-2 sm:p-2.5">
+                        <div id="music-blur" class="music-blur-bg"></div>
+                        <div class="music-content flex flex-col sm:flex-row items-center gap-2.5 min-w-0">
+                            <div id="music-art-container" class="flex-shrink-0">
+                                <div class="w-12 h-12 sm:w-14 sm:h-14 bg-white/5 rounded-md shimmer"></div>
+                            </div>
+                            <div class="flex-1 min-w-0 w-full">
+                                <div class="flex justify-between items-start gap-2 mb-1">
+                                    <div class="min-w-0">
+                                        <div id="track-name" class="text-white font-medium truncate text-sm sm:text-base">Loading track...</div>
+                                        <div id="track-artist" class="text-zinc-400 text-xs mt-0.5">
+                                            <span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600">Please wait</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-zinc-400 opacity-60 hover:opacity-100 transition">
+                                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.216.354-.678.47-1.032.256-2.864-1.75-6.47-2.144-10.716-1.18-.404.092-.812-.162-.904-.564-.092-.403.162-.812.564-.904 4.646-1.062 8.624-.613 11.832 1.343.354.215.47.677.256 1.033zm1.467-3.258c-.272.44-.847.584-1.288.312-3.278-2.015-8.277-2.603-12.155-1.425-.494.15-1.018-.13-1.168-.623-.15-.493.13-1.018.623-1.168 4.433-1.344 9.935-.696 13.676 1.604.44.27.584.846.312 1.287zm.126-3.41c-3.93-2.334-10.418-2.55-14.19-1.405-.602.183-1.242-.152-1.425-.754-.183-.603.152-1.242.754-1.425 4.344-1.32 11.503-1.07 16.035 1.62.543.322.72 1.025.4 1.568-.323.542-1.024.72-1.574.396z"/></svg>
                                     </div>
                                 </div>
-                                <div class="text-zinc-400 opacity-60 hover:opacity-100 transition">
-                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.216.354-.678.47-1.032.256-2.864-1.75-6.47-2.144-10.716-1.18-.404.092-.812-.162-.904-.564-.092-.403.162-.812.564-.904 4.646-1.062 8.624-.613 11.832 1.343.354.215.47.677.256 1.033zm1.467-3.258c-.272.44-.847.584-1.288.312-3.278-2.015-8.277-2.603-12.155-1.425-.494.15-1.018-.13-1.168-.623-.15-.493.13-1.018.623-1.168 4.433-1.344 9.935-.696 13.676 1.604.44.27.584.846.312 1.287zm.126-3.41c-3.93-2.334-10.418-2.55-14.19-1.405-.602.183-1.242-.152-1.425-.754-.183-.603.152-1.242.754-1.425 4.344-1.32 11.503-1.07 16.035 1.62.543.322.72 1.025.4 1.568-.323.542-1.024.72-1.574.396z"/></svg>
+
+                                <div class="mt-2.5 flex items-center gap-3 text-[10px] text-zinc-500 tracking-wider">
+                                    <span id="track-time-current">0:00</span>
+                                    <div class="timeline-bar flex-1">
+                                        <div id="track-progress" class="timeline-progress"></div>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="flex gap-0.5 h-2.5 items-center px-1 opacity-80">
+                                            <div class="w-[2px] h-full bg-white"></div>
+                                            <div class="w-[2px] h-full bg-white"></div>
+                                        </div>
+                                        <span id="track-time-total">0:00</span>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
 
-                            <div class="mt-4 flex items-center gap-3 text-[10px] text-zinc-500 tracking-wider font-mono">
-                                <span id="track-time-current">0:00</span>
-                                <div class="timeline-bar flex-1">
-                                    <div id="track-progress" class="timeline-progress"></div>
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <div class="flex gap-0.5 h-2.5 items-center px-1 opacity-80">
-                                        <div class="w-[2px] h-full bg-white"></div>
-                                        <div class="w-[2px] h-full bg-white"></div>
-                                    </div>
-                                    <span id="track-time-total">0:00</span>
-                                </div>
+                    <div class="time-panel flex flex-col justify-between gap-3">
+                        <div>
+                            <div id="local-time" class="time-value font-bold">00:00:00</div>
+                            <div id="local-date" class="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-400">Loading date</div>
+                        </div>
+                        <div class="birthday-grid">
+                            <div class="birthday-chip">
+                                <span>Birthday</span>
+                                <strong id="birthday-date">13 January</strong>
+                            </div>
+                            <div class="birthday-chip">
+                                <span>Remaining</span>
+                                <strong id="birthday-countdown">--d --h --m --s</strong>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between min-h-[140px]">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Status info</h2>
-                    <span id="local-time" class="text-[10px] font-medium text-white tracking-wider font-mono">00:00:00</span>
-                </div>
-                <div class="space-y-2.5 text-[10px] uppercase tracking-wider text-zinc-400 mt-auto">
-                    <div class="flex justify-between border-t border-white/5 pt-2.5">
-                        <span class="opacity-50">Birthday</span>
-                        <span id="birthday-date" class="text-zinc-200">13 January</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="opacity-50">Remaining</span>
-                        <span id="birthday-countdown" class="text-white font-medium font-mono">--d --h --m --s</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass col-span-12 md:col-span-8 p-4 flex flex-col justify-between">
-                <div class="flex justify-between items-center mb-3">
+            <div class="glass col-span-12 md:col-span-5 p-2 flex flex-col justify-between">
+                <div class="sr-only">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Discord Server</h2>
                     <span class="text-[9px] text-zinc-500">Community</span>
                 </div>
@@ -423,7 +565,7 @@
                 <div class="h-24 bg-white/5 rounded-lg shimmer"></div>
             </div>
 
-            <div id="social-links-card" class="glass col-span-12 p-4 flex flex-col justify-between">
+            <div id="social-links-card" class="glass col-span-12 md:col-span-8 p-4 flex flex-col justify-between">
                 <div class="h-24 bg-white/5 rounded-lg shimmer"></div>
             </div>
 
@@ -443,28 +585,28 @@
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
                                         <span class="font-bold text-zinc-500 text-[10px] flex-shrink-0 w-7">TON</span>
-                                        <span class="text-zinc-200 truncate font-mono font-semibold">angelkrafen.ton</span>
+                                        <span class="text-zinc-200 truncate font-semibold">angelkrafen.ton</span>
                                     </div>
                                     <button type="button" data-copy="angelkrafen.ton" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy TON address">&#128203;</button>
                                 </div>
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
                                         <span class="font-bold text-zinc-500 text-[10px] flex-shrink-0 w-7">BTC</span>
-                                        <span class="text-zinc-200 truncate font-mono font-semibold">12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu</span>
+                                        <span class="text-zinc-200 truncate font-semibold">12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu</span>
                                     </div>
                                     <button type="button" data-copy="12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy BTC address">&#128203;</button>
                                 </div>
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
                                         <span class="font-bold text-zinc-500 text-[10px] flex-shrink-0 w-7">ETH</span>
-                                        <span class="text-zinc-200 truncate font-mono font-semibold">0xc99b815e2b8988e4479298bbdc4235a685aa6445</span>
+                                        <span class="text-zinc-200 truncate font-semibold">0xc99b815e2b8988e4479298bbdc4235a685aa6445</span>
                                     </div>
                                     <button type="button" data-copy="0xc99b815e2b8988e4479298bbdc4235a685aa6445" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy ETH address">&#128203;</button>
                                 </div>
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
                                         <span class="font-bold text-zinc-500 text-[10px] flex-shrink-0 w-7">TRX</span>
-                                        <span class="text-zinc-200 truncate font-mono font-semibold">T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH</span>
+                                        <span class="text-zinc-200 truncate font-semibold">T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH</span>
                                     </div>
                                     <button type="button" data-copy="T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy TRX address">&#128203;</button>
                                 </div>
@@ -498,7 +640,7 @@
                                 </a>
                             </div>
                         </div>
-                        <p class="text-[9px] leading-relaxed text-zinc-500 font-mono">Please use native/stable networks for transfers.</p>
+                        <p class="text-[9px] leading-relaxed text-zinc-500">Please use native/stable networks for transfers.</p>
                     </div>
                 </div>
             </div>
@@ -683,10 +825,10 @@
             const linkItems = CONFIG.socials
                 .filter(({ id }) => id !== 'discord')
                 .map(({ name, label, href, subtext }) => `
-                    <a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-white/5 bg-white/[0.01] px-3 py-3 flex items-center justify-between gap-3 transition hover:border-zinc-700">
+                    <a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-white/5 bg-white/[0.01] px-4 py-4 min-h-[88px] flex items-center justify-between gap-4 transition hover:border-zinc-700">
                         <div class="min-w-0">
-                            <div class="text-white font-medium text-[11px] truncate">${escapeHTML(name)}</div>
-                            <div class="text-[8px] text-zinc-500 uppercase tracking-wider mt-0.5 truncate">${escapeHTML(label)}</div>
+                            <div class="text-white font-medium text-[12px] truncate">${escapeHTML(name)}</div>
+                            <div class="text-[8px] text-zinc-500 uppercase tracking-[0.18em] mt-1 truncate">${escapeHTML(label)}</div>
                         </div>
                         <span class="text-[8px] text-zinc-500 uppercase tracking-wider flex-shrink-0">${escapeHTML(subtext)}</span>
                     </a>
@@ -698,7 +840,7 @@
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Links</h2>
                     <span class="text-[9px] text-zinc-500">Profiles</span>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     ${linkItems}
                 </div>`;
         }
@@ -732,20 +874,78 @@
 
         function updateBirthdayWidget() {
             const timeEl = document.getElementById('local-time');
+            const dateEl = document.getElementById('local-date');
             const countdownEl = document.getElementById('birthday-countdown');
-            if (!timeEl || !countdownEl) return;
+            const birthdayDateEl = document.getElementById('birthday-date');
+            if (!timeEl || !dateEl || !countdownEl || !birthdayDateEl) return;
 
             const now = new Date();
+            const timeZone = 'Europe/Moscow';
+
             timeEl.textContent = new Intl.DateTimeFormat('en-GB', {
+                timeZone,
                 hour: '2-digit',
                 minute: '2-digit',
-                second: '2-digit'
+                second: '2-digit',
+                hourCycle: 'h23'
             }).format(now);
 
-            let nextBirthday = new Date(now.getFullYear(), CONFIG.birthday_month - 1, CONFIG.birthday_day);
-            if (nextBirthday <= now) nextBirthday.setFullYear(nextBirthday.getFullYear() + 1);
+            dateEl.textContent = new Intl.DateTimeFormat('en-GB', {
+                timeZone,
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            }).format(now);
 
-            const diff = nextBirthday - now;
+            birthdayDateEl.textContent = new Intl.DateTimeFormat('en-GB', {
+                timeZone,
+                day: '2-digit',
+                month: 'long'
+            }).format(new Date(Date.UTC(2000, CONFIG.birthday_month - 1, CONFIG.birthday_day)));
+
+            const moscowParts = Object.fromEntries(
+                new Intl.DateTimeFormat('en-CA', {
+                    timeZone,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hourCycle: 'h23'
+                }).formatToParts(now)
+                    .filter(part => part.type !== 'literal')
+                    .map(part => [part.type, part.value])
+            );
+
+            const currentMoscowTime = Date.UTC(
+                Number(moscowParts.year),
+                Number(moscowParts.month) - 1,
+                Number(moscowParts.day),
+                Number(moscowParts.hour),
+                Number(moscowParts.minute),
+                Number(moscowParts.second)
+            );
+            let nextBirthday = Date.UTC(
+                Number(moscowParts.year),
+                CONFIG.birthday_month - 1,
+                CONFIG.birthday_day,
+                0,
+                0,
+                0
+            );
+            if (nextBirthday <= currentMoscowTime) {
+                nextBirthday = Date.UTC(
+                    Number(moscowParts.year) + 1,
+                    CONFIG.birthday_month - 1,
+                    CONFIG.birthday_day,
+                    0,
+                    0,
+                    0
+                );
+            }
+
+            const diff = nextBirthday - currentMoscowTime;
             const totalSecs = Math.floor(diff / 1000);
             const d = Math.floor(totalSecs / 86400);
             const h = Math.floor((totalSecs % 86400) / 3600);
@@ -853,23 +1053,26 @@
                 if (!res.ok) throw new Error(`discord_${res.status}`);
 
                 const data = await res.json();
+                const memberCount = Number(data.approximate_member_count || 0);
+                const onlineCount = Number(data.approximate_presence_count || 0);
+
                 card.innerHTML = `
-                    <div class="w-full bg-white/[0.01] border border-white/5 p-3 rounded-xl flex flex-col gap-3">
+                    <div class="w-full min-h-20 bg-white/[0.01] border border-white/5 p-2 rounded-xl flex flex-col gap-2">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <div class="text-xs font-medium text-white truncate">${escapeHTML(data.guild?.name || 'Discord Server')}</div>
-                                <div class="text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">Invite: ${escapeHTML(CONFIG.discord_invite_code)}</div>
+                                <div class="text-[8px] text-zinc-500 mt-0.5 uppercase tracking-wider truncate">Invite: ${escapeHTML(CONFIG.discord_invite_code)}</div>
                             </div>
                             <a href="https://discord.gg/${escapeHTML(CONFIG.discord_invite_code)}" target="_blank" rel="noopener noreferrer" class="rounded px-3 py-1 text-[9px] uppercase tracking-wider btn-action flex-shrink-0">Join</a>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
-                            <div class="rounded-lg border border-white/5 bg-black/15 px-3 py-2">
+                            <div class="rounded-lg border border-white/5 bg-black/15 px-3 py-1">
                                 <div class="text-[8px] uppercase tracking-[0.18em] text-zinc-500">Members</div>
-                                <div class="text-sm font-semibold text-white mt-1">${formatMetric(data.approximate_member_count)}</div>
+                                <div class="text-xs font-semibold text-white mt-0.5">${formatMetric(memberCount)}</div>
                             </div>
-                            <div class="rounded-lg border border-white/5 bg-black/15 px-3 py-2">
+                            <div class="rounded-lg border border-white/5 bg-black/15 px-3 py-1">
                                 <div class="text-[8px] uppercase tracking-[0.18em] text-zinc-500">Online</div>
-                                <div class="text-sm font-semibold text-white mt-1">${formatMetric(data.approximate_presence_count)}</div>
+                                <div class="text-xs font-semibold text-white mt-0.5">${formatMetric(onlineCount)}</div>
                             </div>
                         </div>
                     </div>`;
@@ -986,10 +1189,10 @@
 
         init();
 
-        setInterval(fetchMusic, 15000);
+        setInterval(fetchMusic, 1000);
         setInterval(fetchGitHub, 60000);
-        setInterval(fetchDiscordServer, 60000);
-        setInterval(fetchTwitch, 60000);
+        setInterval(fetchDiscordServer, 15000);
+        setInterval(fetchTwitch, 1000);
         setInterval(updateBirthdayWidget, 1000);
     </script>
 </body>
