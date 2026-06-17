@@ -516,7 +516,6 @@
 
     <div id="toast" class="toast"></div>
 
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script>
         const API = {
             stream: '/api/stream',
@@ -562,6 +561,7 @@
         let playerReady = false;
         let activeVideoId = '';
         let toastTimer = null;
+        let durationSaveTimer = null;
         let lastFetchAt = 0;
 
         function escapeHTML(value) {
@@ -579,7 +579,7 @@
         }
 
         function activeNow() {
-            return state.pausedAt || serverNow();
+            return state.pausedAt !== null ? state.pausedAt : serverNow();
         }
 
         function formatTime(seconds) {
@@ -674,10 +674,15 @@
         }
 
         function applyServerState(data) {
+            const parsedPausedAt = Number(data.pausedAt);
             state = {
                 queue: Array.isArray(data.queue) ? data.queue : [],
                 startedAt: Number(data.startedAt) || Date.now(),
-                pausedAt: Number.isFinite(Number(data.pausedAt)) ? Number(data.pausedAt) : null,
+                pausedAt: data.pausedAt === null || data.pausedAt === undefined || data.pausedAt === ''
+                    ? null
+                    : Number.isFinite(parsedPausedAt) && parsedPausedAt > 0
+                        ? parsedPausedAt
+                        : null,
                 updatedAt: Number(data.updatedAt) || Date.now(),
             };
 
@@ -829,6 +834,7 @@
                 activeVideoId = pos.item.videoId;
                 player.loadVideoById({ videoId: pos.item.videoId, startSeconds: Math.max(0, pos.offset) });
                 try { player.mute(); } catch {}
+                setTimeout(() => refreshActiveDuration(true), 1200);
             } else {
                 const current = Number(player.getCurrentTime?.() || 0);
                 if (force || Math.abs(current - pos.offset) > 3) {
@@ -840,6 +846,30 @@
                 if (state.pausedAt) player.pauseVideo();
                 else player.playVideo();
             } catch {}
+        }
+
+        function refreshActiveDuration(allowSave = false) {
+            if (!playerReady || !player) return false;
+
+            const pos = getPosition();
+            if (!pos) return false;
+
+            const duration = Math.round(Number(player.getDuration?.() || 0));
+            if (!Number.isFinite(duration) || duration < 10 || duration > 21_600) return false;
+            if (Math.abs(duration - Number(pos.item.durationSeconds || 0)) <= 1) return false;
+
+            state.queue[pos.index] = {
+                ...pos.item,
+                durationSeconds: duration,
+            };
+            render();
+
+            if (allowSave && document.body.classList.contains('is-admin')) {
+                clearTimeout(durationSaveTimer);
+                durationSaveTimer = setTimeout(saveState, 1200);
+            }
+
+            return true;
         }
 
         function shiftToIndex(index) {
@@ -929,7 +959,9 @@
             }
         }
 
-        window.onYouTubeIframeAPIReady = function onYouTubeIframeAPIReady() {
+        function createYouTubePlayer() {
+            if (player || !window.YT || !window.YT.Player) return;
+
             player = new YT.Player('player', {
                 playerVars: {
                     autoplay: 1,
@@ -945,11 +977,32 @@
                         syncPlayer(true);
                     },
                     onStateChange: event => {
-                        if (event.data === YT.PlayerState.ENDED) syncPlayer(true);
+                        if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
+                            setTimeout(() => refreshActiveDuration(true), 600);
+                        }
+
+                        if (event.data === YT.PlayerState.ENDED) {
+                            refreshActiveDuration(true);
+                            syncPlayer(true);
+                        }
                     },
                 },
             });
-        };
+        }
+
+        window.onYouTubeIframeAPIReady = createYouTubePlayer;
+
+        function loadYouTubeApi() {
+            if (window.YT && window.YT.Player) {
+                createYouTubePlayer();
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://www.youtube.com/iframe_api';
+            script.async = true;
+            document.head.appendChild(script);
+        }
 
         els.lockBtn.addEventListener('click', () => {
             if (document.body.classList.contains('is-admin')) return;
@@ -987,6 +1040,7 @@
 
         checkAdmin();
         loadState();
+        loadYouTubeApi();
     </script>
 </body>
 </html>
