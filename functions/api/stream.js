@@ -153,7 +153,12 @@ function normalizeStreamState(body) {
         .slice(0, 120);
 
     const startedAt = Number.isFinite(Number(body.startedAt)) ? Number(body.startedAt) : Date.now();
-    const pausedAt = Number.isFinite(Number(body.pausedAt)) ? Number(body.pausedAt) : null;
+    const parsedPausedAt = Number(body.pausedAt);
+    const pausedAt = body.pausedAt === null || body.pausedAt === undefined || body.pausedAt === ''
+        ? null
+        : Number.isFinite(parsedPausedAt) && parsedPausedAt > 0
+            ? parsedPausedAt
+            : null;
 
     return {
         queue,
