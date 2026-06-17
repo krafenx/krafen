@@ -98,11 +98,30 @@
             align-items: start;
         }
 
+        .player-card {
+            overflow: hidden;
+        }
+
+        .stream-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem 1rem 0.8rem;
+        }
+
+        .admin-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.45rem;
+        }
+
         .player-shell {
             position: relative;
             overflow: hidden;
-            border-radius: 0.75rem;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
             background: #050505;
             aspect-ratio: 16 / 9;
         }
@@ -171,6 +190,29 @@
             border-radius: inherit;
             background: rgba(255, 255, 255, 0.85);
             transition: width 1s linear;
+        }
+
+        .stream-meta-panel {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 1rem;
+            align-items: end;
+            padding: 0.9rem 1rem 1rem;
+        }
+
+        .now-label,
+        .next-label {
+            color: rgba(255, 255, 255, 0.32);
+            font-size: 0.55rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .next-line {
+            margin-top: 0.55rem;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.68rem;
+            line-height: 1.4;
         }
 
         .queue-list {
@@ -275,6 +317,25 @@
         .kf-input:focus {
             border-color: rgba(91, 35, 51, 0.65);
             background: rgba(255, 255, 255, 0.045);
+        }
+
+        .add-status {
+            min-height: 1rem;
+            color: rgba(255, 255, 255, 0.28);
+            font-size: 0.58rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .probe-shell {
+            position: fixed;
+            left: -4px;
+            bottom: -4px;
+            width: 2px;
+            height: 2px;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
         }
 
         .admin-only {
@@ -421,6 +482,16 @@
         }
 
         @media (max-width: 640px) {
+            .stream-head,
+            .stream-meta-panel {
+                grid-template-columns: minmax(0, 1fr);
+                display: grid;
+            }
+
+            .admin-controls {
+                justify-content: flex-start;
+            }
+
             .queue-item {
                 grid-template-columns: 5rem minmax(0, 1fr);
             }
@@ -445,16 +516,17 @@
         </nav>
 
         <main class="stream-layout">
-            <section class="glass p-3 sm:p-4">
-                <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+            <section class="glass player-card">
+                <div class="stream-head">
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 mb-2">
                             <span id="live-badge" class="live-badge"><span class="live-dot"></span><span id="live-label">offline</span></span>
                             <span id="sync-label" class="text-[9px] uppercase tracking-[0.18em] text-white/25">syncing</span>
                         </div>
-                        <h1 id="current-title" class="text-2xl sm:text-3xl font-bold tracking-tight text-white truncate">youtube stream</h1>
+                        <div class="now-label">now playing</div>
+                        <h1 id="current-title" class="text-2xl sm:text-3xl font-bold tracking-tight text-white truncate mt-1">youtube stream</h1>
                     </div>
-                    <div class="admin-only flex-wrap gap-2">
+                    <div class="admin-only admin-controls">
                         <button id="prev-btn" class="btn-action px-3 py-2 text-[9px] uppercase tracking-wider" type="button">prev</button>
                         <button id="play-btn" class="btn-action px-3 py-2 text-[9px] uppercase tracking-wider" type="button">pause</button>
                         <button id="restart-btn" class="btn-action px-3 py-2 text-[9px] uppercase tracking-wider" type="button">restart</button>
@@ -467,13 +539,16 @@
                     <div id="empty-overlay" class="empty-overlay">no queue</div>
                 </div>
 
-                <div class="mt-3">
-                    <div class="flex items-center justify-between gap-3 mb-2">
-                        <span id="time-current" class="text-[10px] text-white/35">00:00</span>
-                        <span id="cycle-time" class="text-[10px] uppercase tracking-[0.16em] text-white/25">cycle 00:00</span>
-                        <span id="time-total" class="text-[10px] text-white/35">00:00</span>
+                <div class="stream-meta-panel">
+                    <div class="min-w-0">
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <span id="time-current" class="text-[10px] text-white/35">00:00</span>
+                            <span id="cycle-time" class="text-[10px] uppercase tracking-[0.16em] text-white/25">queue 00:00</span>
+                            <span id="time-total" class="text-[10px] text-white/35">00:00</span>
+                        </div>
+                        <div class="timeline-bar"><div id="timeline-progress" class="timeline-progress"></div></div>
+                        <div class="next-line"><span class="next-label">up next</span> <span id="up-next-title">nothing</span></div>
                     </div>
-                    <div class="timeline-bar"><div id="timeline-progress" class="timeline-progress"></div></div>
                 </div>
             </section>
 
@@ -489,14 +564,17 @@
             </aside>
 
             <section class="glass admin-only admin-grid p-3 sm:p-4" style="display:none;">
-                <form id="add-form" class="grid grid-cols-1 md:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_8rem_auto] gap-2 w-full">
+                <form id="add-form" class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 w-full">
                     <input id="video-url-input" class="kf-input" type="text" placeholder="youtube url or id" autocomplete="off">
-                    <input id="video-title-input" class="kf-input" type="text" placeholder="title" autocomplete="off">
-                    <input id="video-duration-input" class="kf-input" type="number" min="1" max="360" step="1" value="10" aria-label="duration minutes">
-                    <button class="btn-action px-4 py-2 text-[10px] uppercase tracking-[0.18em]" type="submit">add</button>
+                    <button id="add-submit-btn" class="btn-action px-4 py-2 text-[10px] uppercase tracking-[0.18em]" type="submit">add</button>
+                    <div id="add-status" class="add-status md:col-span-2"></div>
                 </form>
             </section>
         </main>
+    </div>
+
+    <div class="probe-shell" aria-hidden="true">
+        <div id="duration-probe"></div>
     </div>
 
     <div class="modal-overlay" id="modal-admin">
@@ -531,6 +609,7 @@
             timeCurrent: document.getElementById('time-current'),
             timeTotal: document.getElementById('time-total'),
             cycleTime: document.getElementById('cycle-time'),
+            upNextTitle: document.getElementById('up-next-title'),
             progress: document.getElementById('timeline-progress'),
             queueList: document.getElementById('queue-list'),
             lockBtn: document.getElementById('lock-btn'),
@@ -540,8 +619,8 @@
             loginBtn: document.getElementById('login-btn'),
             addForm: document.getElementById('add-form'),
             videoUrl: document.getElementById('video-url-input'),
-            videoTitle: document.getElementById('video-title-input'),
-            videoDuration: document.getElementById('video-duration-input'),
+            addSubmit: document.getElementById('add-submit-btn'),
+            addStatus: document.getElementById('add-status'),
             addOpenBtn: document.getElementById('add-open-btn'),
             prevBtn: document.getElementById('prev-btn'),
             playBtn: document.getElementById('play-btn'),
@@ -558,7 +637,11 @@
         };
         let serverOffset = 0;
         let player = null;
+        let probePlayer = null;
         let playerReady = false;
+        let probeReady = false;
+        let probeReadyResolve = null;
+        let probeJob = Promise.resolve();
         let activeVideoId = '';
         let toastTimer = null;
         let durationSaveTimer = null;
@@ -664,6 +747,98 @@
             }
 
             return '';
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function fetchVideoTitle(videoId) {
+            const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+            const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`;
+            const res = await fetch(url, { cache: 'no-store' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.title) return '';
+            return String(data.title).trim().slice(0, 160);
+        }
+
+        function waitForProbeReady() {
+            if (probeReady && probePlayer) return Promise.resolve();
+            return new Promise(resolve => {
+                const previousResolve = probeReadyResolve;
+                probeReadyResolve = () => {
+                    previousResolve?.();
+                    resolve();
+                };
+                setTimeout(resolve, 5000);
+            });
+        }
+
+        function probeVideoDuration(videoId) {
+            probeJob = probeJob.then(() => probeVideoDurationNow(videoId)).catch(() => 600);
+            return probeJob;
+        }
+
+        async function probeVideoDurationNow(videoId) {
+            await waitForProbeReady();
+            if (!probePlayer) return 600;
+
+            return new Promise(resolve => {
+                let attempts = 0;
+                let finished = false;
+                let timer = null;
+
+                function finish(value) {
+                    if (finished) return;
+                    finished = true;
+                    if (timer) clearInterval(timer);
+                    try { probePlayer.pauseVideo(); } catch {}
+                    resolve(value);
+                }
+
+                try {
+                    probePlayer.mute();
+                    probePlayer.cueVideoById({ videoId });
+                } catch {
+                    finish(600);
+                    return;
+                }
+
+                timer = setInterval(() => {
+                    attempts += 1;
+                    const duration = Math.round(Number(probePlayer.getDuration?.() || 0));
+                    if (Number.isFinite(duration) && duration >= 10 && duration <= 21_600) {
+                        finish(duration);
+                        return;
+                    }
+
+                    if (attempts === 10) {
+                        try {
+                            probePlayer.loadVideoById({ videoId, startSeconds: 0 });
+                            probePlayer.mute();
+                        } catch {}
+                    }
+
+                    if (attempts >= 28) finish(600);
+                }, 250);
+            });
+        }
+
+        async function getVideoDetails(videoId) {
+            els.addStatus.textContent = 'loading metadata';
+            const [titleResult, durationResult] = await Promise.allSettled([
+                fetchVideoTitle(videoId),
+                probeVideoDuration(videoId),
+            ]);
+
+            const title = titleResult.status === 'fulfilled' && titleResult.value
+                ? titleResult.value
+                : `youtube:${videoId}`;
+            const durationSeconds = durationResult.status === 'fulfilled' && Number(durationResult.value) >= 10
+                ? Number(durationResult.value)
+                : 600;
+
+            return { title, durationSeconds };
         }
 
         function showToast(message) {
@@ -785,10 +960,17 @@
             els.currentTitle.textContent = pos ? pos.item.title : 'youtube stream';
             els.timeCurrent.textContent = pos ? formatTime(pos.offset) : '00:00';
             els.timeTotal.textContent = pos ? formatTime(pos.duration) : '00:00';
-            els.cycleTime.textContent = `cycle ${formatTime(pos ? pos.total : 0)}`;
+            els.cycleTime.textContent = `queue ${formatTime(pos ? pos.total : 0)}`;
             els.progress.style.width = pos ? `${Math.min(100, (pos.offset / Math.max(1, pos.duration)) * 100)}%` : '0%';
+            els.upNextTitle.textContent = getUpNextTitle(pos);
             els.playBtn.textContent = state.pausedAt ? 'resume' : 'pause';
             renderQueue(pos);
+        }
+
+        function getUpNextTitle(pos) {
+            if (!pos || state.queue.length < 2) return 'nothing';
+            const next = state.queue[(pos.index + 1) % state.queue.length];
+            return next?.title || 'nothing';
         }
 
         function renderQueue(pos) {
@@ -834,7 +1016,7 @@
                 activeVideoId = pos.item.videoId;
                 player.loadVideoById({ videoId: pos.item.videoId, startSeconds: Math.max(0, pos.offset) });
                 try { player.mute(); } catch {}
-                setTimeout(() => refreshActiveDuration(true), 1200);
+                setTimeout(() => refreshActiveMetadata(true), 1200);
             } else {
                 const current = Number(player.getCurrentTime?.() || 0);
                 if (force || Math.abs(current - pos.offset) > 3) {
@@ -848,20 +1030,34 @@
             } catch {}
         }
 
-        function refreshActiveDuration(allowSave = false) {
+        function refreshActiveMetadata(allowSave = false) {
             if (!playerReady || !player) return false;
 
             const pos = getPosition();
             if (!pos) return false;
 
+            let changed = false;
+            const videoData = player.getVideoData?.() || {};
+            const title = String(videoData.title || '').trim().slice(0, 160);
             const duration = Math.round(Number(player.getDuration?.() || 0));
-            if (!Number.isFinite(duration) || duration < 10 || duration > 21_600) return false;
-            if (Math.abs(duration - Number(pos.item.durationSeconds || 0)) <= 1) return false;
+            const nextItem = { ...pos.item };
 
-            state.queue[pos.index] = {
-                ...pos.item,
-                durationSeconds: duration,
-            };
+            if (title && title !== nextItem.title) {
+                nextItem.title = title;
+                changed = true;
+            }
+
+            if (Number.isFinite(duration)
+                && duration >= 10
+                && duration <= 21_600
+                && Math.abs(duration - Number(nextItem.durationSeconds || 0)) > 1) {
+                nextItem.durationSeconds = duration;
+                changed = true;
+            }
+
+            if (!changed) return false;
+
+            state.queue[pos.index] = nextItem;
             render();
 
             if (allowSave && document.body.classList.contains('is-admin')) {
@@ -898,7 +1094,7 @@
             saveState();
         }
 
-        function addVideo(event) {
+        async function addVideo(event) {
             event.preventDefault();
             const videoId = parseYouTubeId(els.videoUrl.value);
             if (!videoId) {
@@ -906,13 +1102,22 @@
                 return;
             }
 
+            els.addSubmit.disabled = true;
+            els.addSubmit.textContent = 'loading';
+
+            let details;
+            try {
+                details = await getVideoDetails(videoId);
+            } catch {
+                details = { title: `youtube:${videoId}`, durationSeconds: 600 };
+            }
+
             const wasEmpty = state.queue.length === 0;
-            const minutes = Math.max(1, Math.min(360, Number(els.videoDuration.value) || 10));
             state.queue.push({
                 id: `${videoId}_${Date.now()}`,
                 videoId,
-                title: els.videoTitle.value.trim() || `youtube:${videoId}`,
-                durationSeconds: Math.round(minutes * 60),
+                title: details.title,
+                durationSeconds: details.durationSeconds,
                 addedAt: Date.now(),
             });
 
@@ -922,8 +1127,10 @@
             }
 
             els.addForm.reset();
-            els.videoDuration.value = '10';
-            saveState();
+            els.addStatus.textContent = '';
+            els.addSubmit.disabled = false;
+            els.addSubmit.textContent = 'add';
+            await saveState();
         }
 
         function handleQueueAction(event) {
@@ -960,34 +1167,58 @@
         }
 
         function createYouTubePlayer() {
-            if (player || !window.YT || !window.YT.Player) return;
+            if (!window.YT || !window.YT.Player) return;
 
-            player = new YT.Player('player', {
-                playerVars: {
-                    autoplay: 1,
-                    controls: 1,
-                    rel: 0,
-                    modestbranding: 1,
-                    playsinline: 1,
-                },
-                events: {
-                    onReady: () => {
-                        playerReady = true;
-                        try { player.mute(); } catch {}
-                        syncPlayer(true);
+            if (!player) {
+                player = new YT.Player('player', {
+                    playerVars: {
+                        autoplay: 1,
+                        controls: 1,
+                        rel: 0,
+                        modestbranding: 1,
+                        playsinline: 1,
                     },
-                    onStateChange: event => {
-                        if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
-                            setTimeout(() => refreshActiveDuration(true), 600);
-                        }
-
-                        if (event.data === YT.PlayerState.ENDED) {
-                            refreshActiveDuration(true);
+                    events: {
+                        onReady: () => {
+                            playerReady = true;
+                            try { player.mute(); } catch {}
                             syncPlayer(true);
-                        }
+                        },
+                        onStateChange: event => {
+                            if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
+                                setTimeout(() => refreshActiveMetadata(true), 600);
+                            }
+
+                            if (event.data === YT.PlayerState.ENDED) {
+                                refreshActiveMetadata(true);
+                                syncPlayer(true);
+                            }
+                        },
                     },
-                },
-            });
+                });
+            }
+
+            if (!probePlayer) {
+                probePlayer = new YT.Player('duration-probe', {
+                    width: '2',
+                    height: '2',
+                    playerVars: {
+                        autoplay: 0,
+                        controls: 0,
+                        disablekb: 1,
+                        playsinline: 1,
+                        rel: 0,
+                    },
+                    events: {
+                        onReady: () => {
+                            probeReady = true;
+                            probeReadyResolve?.();
+                            probeReadyResolve = null;
+                            try { probePlayer.mute(); } catch {}
+                        },
+                    },
+                });
+            }
         }
 
         window.onYouTubeIframeAPIReady = createYouTubePlayer;
