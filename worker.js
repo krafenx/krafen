@@ -1,5 +1,6 @@
 const KV_KEY = 'items';
 const GAME_KV_KEY = 'games';
+const STREAM_KV_KEY = 'youtube_stream';
 const IGDB_TOKEN_KEY = 'igdb:token';
 const TWITCH_TOKEN_KEY = 'twitch:token';
 const SHIKIMORI_BASE = 'https://shikimori.one';
@@ -13,10 +14,12 @@ const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MAX_LOGIN_BODY = 2_048;
 const MAX_WATCHLIST_BODY = 100_000;
 const MAX_GAMELIST_BODY = 1_500_000;
+const MAX_STREAM_BODY = 120_000;
 const VALID_TYPES = new Set(['anime', 'movie', 'series']);
 const VALID_STATUSES = new Set(['watched', 'planned', 'dropped']);
 const VALID_GAME_STATUSES = new Set(['completed', 'playing', 'dropped', 'wishlist', 'paused']);
 const ITEM_ID_PATTERN = /^[A-Za-z0-9:_-]{1,120}$/;
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 const SECURITY_HEADERS = {
     'X-Content-Type-Options': 'nosniff',
@@ -29,10 +32,11 @@ const SECURITY_HEADERS = {
         "object-src 'none'",
         "frame-ancestors 'none'",
         "form-action 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://www.youtube.com https://s.ytimg.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         'font-src https://fonts.gstatic.com',
         "img-src 'self' data: https:",
+        "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
         "connect-src 'self' https://api.github.com https://ws.audioscrobbler.com https://discord.com https://shikimori.one https://api.themoviedb.org",
     ].join('; '),
 };
@@ -278,6 +282,47 @@ function normalizeGameItem(item) {
     };
 }
 
+function normalizeStreamItem(item) {
+    const videoId = text(item.videoId, 20);
+    if (!YOUTUBE_ID_PATTERN.test(videoId)) return null;
+
+    const durationSeconds = Math.round(Math.max(10, Math.min(21_600, Number(item.durationSeconds) || 600)));
+
+    return {
+        id: text(item.id, 80) || `${videoId}_${Date.now()}`,
+        videoId,
+        title: text(item.title, 160) || `youtube:${videoId}`,
+        durationSeconds,
+        addedAt: Number.isFinite(Number(item.addedAt)) ? Number(item.addedAt) : Date.now(),
+    };
+}
+
+function normalizeStreamState(body) {
+    const queue = (Array.isArray(body.queue) ? body.queue : [])
+        .map(normalizeStreamItem)
+        .filter(Boolean)
+        .slice(0, 120);
+
+    const startedAt = Number.isFinite(Number(body.startedAt)) ? Number(body.startedAt) : Date.now();
+    const pausedAt = Number.isFinite(Number(body.pausedAt)) ? Number(body.pausedAt) : null;
+
+    return {
+        queue,
+        startedAt,
+        pausedAt,
+        updatedAt: Date.now(),
+    };
+}
+
+function emptyStreamState() {
+    return {
+        queue: [],
+        startedAt: Date.now(),
+        pausedAt: null,
+        updatedAt: Date.now(),
+    };
+}
+
 async function handleAdmin(request, env) {
     if (request.method === 'GET') {
         return json({ ok: await verifySession(request, env) });
@@ -370,6 +415,41 @@ async function handleGamelist(request, env) {
             const items = rawItems.map(normalizeGameItem).filter(Boolean).slice(0, 500);
             await env.WATCHLIST.put(GAME_KV_KEY, JSON.stringify(items));
             return json({ ok: true, items });
+        } catch (error) {
+            return json({ error: error.message || 'save_failed' }, 500);
+        }
+    }
+
+    return json({ error: 'method_not_allowed' }, 405);
+}
+
+async function handleStream(request, env) {
+    if (request.method === 'GET') {
+        try {
+            requireStorage(env);
+            const state = await env.WATCHLIST.get(STREAM_KV_KEY, { type: 'json' });
+            return json({ ...(state || emptyStreamState()), serverTime: Date.now() });
+        } catch (error) {
+            return json({ error: error.message || 'storage_error', ...emptyStreamState(), serverTime: Date.now() }, 500);
+        }
+    }
+
+    if (request.method === 'PUT') {
+        const tooLarge = rejectLargeBody(request, MAX_STREAM_BODY);
+        if (tooLarge) return tooLarge;
+
+        const limited = await rateLimit(request, env, 'stream-write', 45, 60);
+        if (limited) return limited;
+
+        const authError = await requireAdmin(request, env);
+        if (authError) return authError;
+
+        try {
+            requireStorage(env);
+            const body = await request.json().catch(() => ({}));
+            const state = normalizeStreamState(body);
+            await env.WATCHLIST.put(STREAM_KV_KEY, JSON.stringify(state));
+            return json({ ok: true, ...state, serverTime: Date.now() });
         } catch (error) {
             return json({ error: error.message || 'save_failed' }, 500);
         }
@@ -678,6 +758,7 @@ export default {
         if (url.pathname === '/api/admin') return handleAdmin(request, env);
         if (url.pathname === '/api/watchlist') return handleWatchlist(request, env);
         if (url.pathname === '/api/gamelist') return handleGamelist(request, env);
+        if (url.pathname === '/api/stream') return handleStream(request, env);
         if (url.pathname === '/api/search') return handleSearch(request, env);
         if (url.pathname === '/api/game-search') return handleGameSearch(request, env);
         if (url.pathname === '/api/twitch') return handleTwitch(request, env);
