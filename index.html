@@ -493,7 +493,7 @@
             <div class="glass col-span-12 md:col-span-7 p-2 flex flex-col justify-between">
                 <div class="sr-only">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Now Playing</h2>
-                    <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Last.fm + MSK</span>
+                    <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Last.fm</span>
                 </div>
 
                 <div class="music-status-grid">
@@ -1007,8 +1007,8 @@
                     : currentTrackDuration;
                 startTrackTimer(isLive);
             } catch (error) {
-                trackName.textContent = 'Last.fm Offline';
-                trackArtist.innerHTML = '<span class="text-zinc-500">unable to reach api</span>';
+                trackName.textContent = 'Last.fm is unavailable right now';
+                trackArtist.innerHTML = '<span class="text-zinc-500">unable to reach api try turning on the vpn</span>';
                 currentTrackDuration = 0;
                 currentTrackElapsed = 0;
                 clearInterval(trackTimerInterval);
