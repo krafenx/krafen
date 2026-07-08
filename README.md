@@ -44,7 +44,6 @@ The architecture is built to support extreme interface customization—blending 
    ```bash
    npm install
    
-   ```
  3. **Launch Engine**
    ```bash
    npm run dev
