@@ -1,5 +1,4 @@
 ```markdown
-<div align="center">
 
 # 🌌 Krafen
 
@@ -14,7 +13,6 @@
 [🌐 Live Demo](https://krafen.online/) • [🇬🇧 English Documentation](#-english) • [🇷🇺 Русская документация](#-русский)
 
 ---
-</div>
 
 ## 🇬🇧 English
 
