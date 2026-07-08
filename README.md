@@ -1,4 +1,4 @@
-# Krafen 🚀
+# Krafen
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/krafenx/krafen)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
