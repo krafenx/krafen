@@ -22,8 +22,8 @@
       "name": "ADMIN_LOGIN_RATE_LIMIT",
       "namespace_id": "1001",
       "simple": {
-        "limit": 8,
-        "period": 300
+        "limit": 5,
+        "period": 60
       }
     },
     {

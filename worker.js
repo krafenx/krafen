@@ -391,7 +391,7 @@ async function handleAdmin(request, env) {
 
     if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
-    const limited = await rateLimit(request, env, 'ADMIN_LOGIN_RATE_LIMIT', 300);
+    const limited = await rateLimit(request, env, 'ADMIN_LOGIN_RATE_LIMIT', 60);
     if (limited) return limited;
 
     let body;
