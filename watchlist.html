@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>krafen / watchlist</title>
     <meta name="description" content="Список аниме, фильмов и сериалов krafen">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/styles/tailwind-lite.css">
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/krafenx/krafen/8c5ff5d6ae7d406899fbf4906d5bc543e06c6648/cherry-blossom.png">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <style>
+    <style nonce="__CSP_NONCE__">
         :root {
             --bg: #050505;
             --card: rgba(20, 20, 20, 0.6);
@@ -83,6 +83,9 @@
             letter-spacing: 0.18em;
         }
         body.is-admin #admin-bar { display: flex; }
+        .admin-label { color: var(--accent-light); opacity: 0.7; }
+        .stat-pill-watched { color: #22c55e; border-color: rgba(34,197,94,0.3); }
+        .stat-pill-dropped { color: #ef4444; border-color: rgba(239,68,68,0.3); }
 
         .filter-btn {
             font-family: 'JetBrains Mono', monospace;
@@ -458,7 +461,7 @@
         </div>
 
         <div id="admin-bar">
-            <span style="color:var(--accent-light);opacity:0.7;">admin mode</span>
+            <span class="admin-label">admin mode</span>
             <button id="admin-logout-btn" class="text-[9px] uppercase tracking-[0.15em] opacity-40 hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer font-['JetBrains_Mono'] text-white">
                 выйти
             </button>
@@ -559,7 +562,7 @@
 
     <div class="toast" id="toast"></div>
 
-    <script>
+    <script nonce="__CSP_NONCE__">
         const API = {
             list: '/api/watchlist',
             admin: '/api/admin',
@@ -576,8 +579,20 @@
         let searchTimeout = null;
         let searchCache = [];
         let adminSessionActive = false;
+        let listRevision = 0;
+        let saveInFlight = false;
+        let saveQueued = false;
 
         function isAdmin() { return adminSessionActive; }
+
+        function safeRevision(value) {
+            const revision = Number(value);
+            return Number.isSafeInteger(revision) && revision >= 0 ? revision : 0;
+        }
+
+        function cloneList() {
+            return JSON.parse(JSON.stringify(list));
+        }
 
         async function checkAdminSession() {
             try {
@@ -599,8 +614,10 @@
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || 'fetch_failed');
                 list = Array.isArray(data.items) ? data.items : [];
+                listRevision = safeRevision(data.revision);
             } catch (e) {
                 list = [];
+                listRevision = 0;
                 document.getElementById('setup-warn').classList.remove('hidden');
                 showToast('не удалось загрузить список', '#ef4444');
             }
@@ -611,29 +628,58 @@
 
         async function saveToCloud() {
             if (!isAdmin()) return;
-            setSaveIndicator('saving', 'сохранение...');
+            saveQueued = true;
+            if (saveInFlight) return;
+
+            saveInFlight = true;
             try {
-                const res = await fetch(API.list, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ items: list }),
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    if (res.status === 401) {
-                        adminSessionActive = false;
-                        setAdminMode(false);
+                while (saveQueued && isAdmin()) {
+                    saveQueued = false;
+                    const snapshot = cloneList();
+                    const revision = listRevision;
+                    setSaveIndicator('saving', 'сохранение...');
+
+                    const res = await fetch(API.list, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ items: snapshot, revision }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+
+                    if (!res.ok) {
+                        if (res.status === 401) {
+                            adminSessionActive = false;
+                            setAdminMode(false);
+                            saveQueued = false;
+                            return;
+                        }
+
+                        if (res.status === 409 && Array.isArray(data.items)) {
+                            list = data.items;
+                            listRevision = safeRevision(data.revision);
+                            saveQueued = false;
+                            render();
+                            setSaveIndicator('error', 'список обновлён в другой вкладке');
+                            showToast('список обновлён в другой вкладке', '#ef4444');
+                            setTimeout(() => setSaveIndicator('', ''), 3000);
+                            return;
+                        }
+
+                        throw new Error(data.error || 'save_failed');
                     }
-                    throw new Error(data.error || 'save_failed');
+
+                    listRevision = safeRevision(data.revision);
+                    setSaveIndicator('saved', 'сохранено');
+                    setTimeout(() => setSaveIndicator('', ''), 1800);
                 }
-                setSaveIndicator('saved', 'сохранено');
-                setTimeout(() => setSaveIndicator('', ''), 1800);
             } catch {
                 setSaveIndicator('error', 'ошибка сохранения');
                 setTimeout(() => setSaveIndicator('', ''), 3000);
+            } finally {
+                saveInFlight = false;
             }
         }
 
@@ -825,9 +871,9 @@
             const dropped = list.filter(i => i.status === 'dropped').length;
             document.getElementById('stats-row').innerHTML = `
                 <span class="text-[10px] border border-white/10 px-3 py-1 rounded-full opacity-40">${total} всего</span>
-                <span class="text-[10px] border px-3 py-1 rounded-full" style="color:#22c55e;border-color:rgba(34,197,94,0.3)">${watched} просмотрено</span>
+                <span class="text-[10px] border px-3 py-1 rounded-full stat-pill-watched">${watched} просмотрено</span>
                 <span class="text-[10px] border border-white/10 px-3 py-1 rounded-full opacity-40">${planned} планирую</span>
-                <span class="text-[10px] border px-3 py-1 rounded-full" style="color:#ef4444;border-color:rgba(239,68,68,0.3)">${dropped} брошено</span>
+                <span class="text-[10px] border px-3 py-1 rounded-full stat-pill-dropped">${dropped} брошено</span>
             `;
         }
 

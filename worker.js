@@ -1,6 +1,5 @@
 const KV_KEY = 'items';
 const GAME_KV_KEY = 'games';
-const STREAM_KV_KEY = 'youtube_stream';
 const IGDB_TOKEN_KEY = 'igdb:token';
 const TWITCH_TOKEN_KEY = 'twitch:token';
 const SHIKIMORI_BASE = 'https://shikimori.one';
@@ -14,36 +13,62 @@ const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MAX_LOGIN_BODY = 2_048;
 const MAX_WATCHLIST_BODY = 100_000;
 const MAX_GAMELIST_BODY = 1_500_000;
-const MAX_STREAM_BODY = 120_000;
 const VALID_TYPES = new Set(['anime', 'movie', 'series']);
 const VALID_STATUSES = new Set(['watched', 'planned', 'dropped']);
 const VALID_GAME_STATUSES = new Set(['completed', 'playing', 'dropped', 'wishlist', 'paused']);
 const ITEM_ID_PATTERN = /^[A-Za-z0-9:_-]{1,120}$/;
-const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const CSP_NONCE_PLACEHOLDER = '__CSP_NONCE__';
 
-const SECURITY_HEADERS = {
+const BASE_SECURITY_HEADERS = {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
     'Cross-Origin-Opener-Policy': 'same-origin',
-    'Content-Security-Policy': [
+};
+
+function contentSecurityPolicy(nonce = '') {
+    const scriptSrc = nonce ? `script-src 'self' 'nonce-${nonce}'` : "script-src 'self'";
+    const styleSrc = nonce ? `'self' 'nonce-${nonce}' https://fonts.googleapis.com` : "'self' https://fonts.googleapis.com";
+
+    return [
         "default-src 'self'",
         "base-uri 'self'",
         "object-src 'none'",
         "frame-ancestors 'none'",
         "form-action 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://www.youtube.com https://s.ytimg.com",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        scriptSrc,
+        `style-src ${styleSrc}`,
+        `style-src-elem ${styleSrc}`,
+        "style-src-attr 'unsafe-inline'",
         'font-src https://fonts.gstatic.com',
         "img-src 'self' data: https:",
-        "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
-        "connect-src 'self' https://api.github.com https://ws.audioscrobbler.com https://discord.com https://shikimori.one https://api.themoviedb.org https://www.youtube.com https://www.youtube-nocookie.com",
-    ].join('; '),
-};
+        "connect-src 'self' https://api.github.com https://ws.audioscrobbler.com https://discord.com https://shikimori.one https://api.themoviedb.org",
+    ].join('; ');
+}
 
-function withSecurityHeaders(response) {
+function securityHeaders(nonce = '') {
+    return {
+        ...BASE_SECURITY_HEADERS,
+        'Content-Security-Policy': contentSecurityPolicy(nonce),
+    };
+}
+
+async function withSecurityHeaders(response) {
     const headers = new Headers(response.headers);
-    Object.entries(SECURITY_HEADERS).forEach(([key, value]) => headers.set(key, value));
+    const isHtml = (headers.get('Content-Type') || '').includes('text/html');
+
+    if (isHtml) {
+        const nonce = createNonce();
+        const body = (await response.text()).replaceAll(CSP_NONCE_PLACEHOLDER, nonce);
+        Object.entries(securityHeaders(nonce)).forEach(([key, value]) => headers.set(key, value));
+        return new Response(body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers,
+        });
+    }
+
+    Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
     return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
@@ -55,7 +80,7 @@ function json(body, status = 200, extraHeaders = {}) {
     return new Response(JSON.stringify(body), {
         status,
         headers: {
-            ...SECURITY_HEADERS,
+            ...securityHeaders(),
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': 'no-store',
             ...extraHeaders,
@@ -103,16 +128,67 @@ function escapeIgdbString(value) {
     return text(value, 80).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function rejectLargeBody(request, maxBytes) {
-    const length = Number(request.headers.get('Content-Length') || 0);
-    if (Number.isFinite(length) && length > maxBytes) {
-        return json({ error: 'payload_too_large' }, 413);
-    }
-    return null;
+function createNonce() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return base64UrlEncode(bytes);
 }
 
-function requireStorage(env) {
-    if (!env.WATCHLIST || typeof env.WATCHLIST.get !== 'function') {
+class RequestBodyError extends Error {
+    constructor(code) {
+        super(code);
+        this.code = code;
+    }
+}
+
+async function readJsonLimited(request, maxBytes) {
+    const length = Number(request.headers.get('Content-Length') || 0);
+    if (Number.isFinite(length) && length > maxBytes) {
+        throw new RequestBodyError('payload_too_large');
+    }
+
+    if (!request.body) throw new RequestBodyError('invalid_json');
+
+    const reader = request.body.getReader();
+    const chunks = [];
+    let total = 0;
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        total += value.byteLength;
+        if (total > maxBytes) {
+            await reader.cancel().catch(() => {});
+            throw new RequestBodyError('payload_too_large');
+        }
+        chunks.push(value);
+    }
+
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    chunks.forEach(chunk => {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+    });
+
+    const raw = new TextDecoder().decode(bytes);
+    if (!raw.trim()) throw new RequestBodyError('invalid_json');
+
+    try {
+        return JSON.parse(raw);
+    } catch {
+        throw new RequestBodyError('invalid_json');
+    }
+}
+
+function bodyErrorResponse(error) {
+    if (!(error instanceof RequestBodyError)) return null;
+    return json({ error: error.code }, error.code === 'payload_too_large' ? 413 : 400);
+}
+
+function requireStorage(env, writable = false) {
+    if (!env.WATCHLIST || typeof env.WATCHLIST.get !== 'function' || (writable && typeof env.WATCHLIST.put !== 'function')) {
         throw new Error('watchlist_kv_missing');
     }
 }
@@ -208,21 +284,16 @@ function clearSessionCookie() {
     return `${SESSION_COOKIE}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict`;
 }
 
-async function rateLimit(request, env, name, limit, windowSeconds) {
-    if (!env.WATCHLIST || typeof env.WATCHLIST.get !== 'function' || typeof env.WATCHLIST.put !== 'function') {
-        return null;
+async function rateLimit(request, env, bindingName, windowSeconds) {
+    const limiter = env[bindingName];
+    if (!limiter || typeof limiter.limit !== 'function') {
+        return json({ error: 'rate_limiter_missing' }, 503);
     }
 
-    const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
-    const bucket = Math.floor(Date.now() / 1000 / windowSeconds);
-    const key = `rate:${name}:${ip}:${bucket}`;
-    const current = Number(await env.WATCHLIST.get(key) || 0);
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const result = await limiter.limit({ key: ip });
+    if (!result.success) return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(windowSeconds) });
 
-    if (current >= limit) {
-        return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(windowSeconds) });
-    }
-
-    await env.WATCHLIST.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
     return null;
 }
 
@@ -282,50 +353,31 @@ function normalizeGameItem(item) {
     };
 }
 
-function normalizeStreamItem(item) {
-    const videoId = text(item.videoId, 20);
-    if (!YOUTUBE_ID_PATTERN.test(videoId)) return null;
+function normalizeStoredList(value) {
+    if (Array.isArray(value)) return { revision: 0, items: value };
 
-    const durationSeconds = Math.round(Math.max(10, Math.min(21_600, Number(item.durationSeconds) || 600)));
+    if (value && typeof value === 'object' && Array.isArray(value.items)) {
+        const revision = Number(value.revision);
+        return {
+            revision: Number.isSafeInteger(revision) && revision >= 0 ? revision : 0,
+            items: value.items,
+        };
+    }
 
-    return {
-        id: text(item.id, 80) || `${videoId}_${Date.now()}`,
-        videoId,
-        title: text(item.title, 160) || `youtube:${videoId}`,
-        durationSeconds,
-        addedAt: Number.isFinite(Number(item.addedAt)) ? Number(item.addedAt) : Date.now(),
-    };
+    return { revision: 0, items: [] };
 }
 
-function normalizeStreamState(body) {
-    const queue = (Array.isArray(body.queue) ? body.queue : [])
-        .map(normalizeStreamItem)
-        .filter(Boolean)
-        .slice(0, 120);
-
-    const startedAt = Number.isFinite(Number(body.startedAt)) ? Number(body.startedAt) : Date.now();
-    const parsedPausedAt = Number(body.pausedAt);
-    const pausedAt = body.pausedAt === null || body.pausedAt === undefined || body.pausedAt === ''
-        ? null
-        : Number.isFinite(parsedPausedAt) && parsedPausedAt > 0
-            ? parsedPausedAt
-            : null;
-
-    return {
-        queue,
-        startedAt,
-        pausedAt,
-        updatedAt: Date.now(),
-    };
+function expectedRevision(value) {
+    const revision = Number(value);
+    return Number.isSafeInteger(revision) && revision >= 0 ? revision : null;
 }
 
-function emptyStreamState() {
-    return {
-        queue: [],
-        startedAt: Date.now(),
-        pausedAt: null,
-        updatedAt: Date.now(),
-    };
+function revisionConflict(state, error = 'revision_conflict') {
+    return json({
+        error,
+        items: state.items,
+        revision: state.revision,
+    }, 409);
 }
 
 async function handleAdmin(request, env) {
@@ -339,13 +391,16 @@ async function handleAdmin(request, env) {
 
     if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
-    const tooLarge = rejectLargeBody(request, MAX_LOGIN_BODY);
-    if (tooLarge) return tooLarge;
-
-    const limited = await rateLimit(request, env, 'admin-login', 8, 300);
+    const limited = await rateLimit(request, env, 'ADMIN_LOGIN_RATE_LIMIT', 300);
     if (limited) return limited;
 
-    const body = await request.json().catch(() => ({}));
+    let body;
+    try {
+        body = await readJsonLimited(request, MAX_LOGIN_BODY);
+    } catch (error) {
+        return bodyErrorResponse(error) || json({ error: error.message || 'invalid_request' }, 400);
+    }
+
     const adminPassword = await getSecret(env, 'ADMIN_PASSWORD');
     if (!adminPassword) return json({ error: 'admin_password_missing' }, 500);
 
@@ -360,31 +415,36 @@ async function handleWatchlist(request, env) {
     if (request.method === 'GET') {
         try {
             requireStorage(env);
-            const items = await env.WATCHLIST.get(KV_KEY, { type: 'json' });
-            return json({ items: Array.isArray(items) ? items : [] });
+            const state = normalizeStoredList(await env.WATCHLIST.get(KV_KEY, { type: 'json' }));
+            return json({ items: state.items, revision: state.revision });
         } catch (error) {
-            return json({ error: error.message || 'storage_error', items: [] }, 500);
+            return json({ error: error.message || 'storage_error', items: [], revision: 0 }, 500);
         }
     }
 
     if (request.method === 'PUT') {
-        const tooLarge = rejectLargeBody(request, MAX_WATCHLIST_BODY);
-        if (tooLarge) return tooLarge;
-
-        const limited = await rateLimit(request, env, 'watchlist-write', 30, 60);
+        const limited = await rateLimit(request, env, 'WRITE_RATE_LIMIT', 60);
         if (limited) return limited;
 
         const authError = await requireAdmin(request, env);
         if (authError) return authError;
 
         try {
-            requireStorage(env);
-            const body = await request.json().catch(() => ({}));
+            requireStorage(env, true);
+            const body = await readJsonLimited(request, MAX_WATCHLIST_BODY);
+            const state = normalizeStoredList(await env.WATCHLIST.get(KV_KEY, { type: 'json' }));
+            const revision = expectedRevision(body.revision);
+            if (revision === null) return revisionConflict(state, 'revision_required');
+            if (revision !== state.revision) return revisionConflict(state);
+
             const rawItems = Array.isArray(body.items) ? body.items : [];
             const items = rawItems.map(normalizeItem).filter(Boolean).slice(0, 500);
-            await env.WATCHLIST.put(KV_KEY, JSON.stringify(items));
-            return json({ ok: true, items });
+            const nextRevision = state.revision + 1;
+            await env.WATCHLIST.put(KV_KEY, JSON.stringify({ revision: nextRevision, items }));
+            return json({ ok: true, items, revision: nextRevision });
         } catch (error) {
+            const bodyError = bodyErrorResponse(error);
+            if (bodyError) return bodyError;
             return json({ error: error.message || 'save_failed' }, 500);
         }
     }
@@ -396,66 +456,36 @@ async function handleGamelist(request, env) {
     if (request.method === 'GET') {
         try {
             requireStorage(env);
-            const items = await env.WATCHLIST.get(GAME_KV_KEY, { type: 'json' });
-            return json({ items: Array.isArray(items) ? items : [] });
+            const state = normalizeStoredList(await env.WATCHLIST.get(GAME_KV_KEY, { type: 'json' }));
+            return json({ items: state.items, revision: state.revision });
         } catch (error) {
-            return json({ error: error.message || 'storage_error', items: [] }, 500);
+            return json({ error: error.message || 'storage_error', items: [], revision: 0 }, 500);
         }
     }
 
     if (request.method === 'PUT') {
-        const tooLarge = rejectLargeBody(request, MAX_GAMELIST_BODY);
-        if (tooLarge) return tooLarge;
-
-        const limited = await rateLimit(request, env, 'gamelist-write', 30, 60);
+        const limited = await rateLimit(request, env, 'WRITE_RATE_LIMIT', 60);
         if (limited) return limited;
 
         const authError = await requireAdmin(request, env);
         if (authError) return authError;
 
         try {
-            requireStorage(env);
-            const body = await request.json().catch(() => ({}));
+            requireStorage(env, true);
+            const body = await readJsonLimited(request, MAX_GAMELIST_BODY);
+            const state = normalizeStoredList(await env.WATCHLIST.get(GAME_KV_KEY, { type: 'json' }));
+            const revision = expectedRevision(body.revision);
+            if (revision === null) return revisionConflict(state, 'revision_required');
+            if (revision !== state.revision) return revisionConflict(state);
+
             const rawItems = Array.isArray(body.items) ? body.items : [];
             const items = rawItems.map(normalizeGameItem).filter(Boolean).slice(0, 500);
-            await env.WATCHLIST.put(GAME_KV_KEY, JSON.stringify(items));
-            return json({ ok: true, items });
+            const nextRevision = state.revision + 1;
+            await env.WATCHLIST.put(GAME_KV_KEY, JSON.stringify({ revision: nextRevision, items }));
+            return json({ ok: true, items, revision: nextRevision });
         } catch (error) {
-            return json({ error: error.message || 'save_failed' }, 500);
-        }
-    }
-
-    return json({ error: 'method_not_allowed' }, 405);
-}
-
-async function handleStream(request, env) {
-    if (request.method === 'GET') {
-        try {
-            requireStorage(env);
-            const state = await env.WATCHLIST.get(STREAM_KV_KEY, { type: 'json' });
-            return json({ ...(state || emptyStreamState()), serverTime: Date.now() });
-        } catch (error) {
-            return json({ error: error.message || 'storage_error', ...emptyStreamState(), serverTime: Date.now() }, 500);
-        }
-    }
-
-    if (request.method === 'PUT') {
-        const tooLarge = rejectLargeBody(request, MAX_STREAM_BODY);
-        if (tooLarge) return tooLarge;
-
-        const limited = await rateLimit(request, env, 'stream-write', 45, 60);
-        if (limited) return limited;
-
-        const authError = await requireAdmin(request, env);
-        if (authError) return authError;
-
-        try {
-            requireStorage(env);
-            const body = await request.json().catch(() => ({}));
-            const state = normalizeStreamState(body);
-            await env.WATCHLIST.put(STREAM_KV_KEY, JSON.stringify(state));
-            return json({ ok: true, ...state, serverTime: Date.now() });
-        } catch (error) {
+            const bodyError = bodyErrorResponse(error);
+            if (bodyError) return bodyError;
             return json({ error: error.message || 'save_failed' }, 500);
         }
     }
@@ -626,7 +656,7 @@ async function handleGameSearch(request, env) {
     if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
     if (query.length < 2) return json({ results: [] });
 
-    const limited = await rateLimit(request, env, 'game-search', 45, 60);
+    const limited = await rateLimit(request, env, 'GAME_SEARCH_RATE_LIMIT', 60);
     if (limited) return limited;
 
     try {
@@ -644,7 +674,7 @@ async function handleSearch(request, env) {
     if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
     if (query.length < 2) return json({ results: [] });
 
-    const limited = await rateLimit(request, env, 'search', 60, 60);
+    const limited = await rateLimit(request, env, 'PUBLIC_API_RATE_LIMIT', 60);
     if (limited) return limited;
 
     try {
@@ -715,7 +745,7 @@ async function handleTwitch(request, env) {
     if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
     if (!/^[a-z0-9_]{3,25}$/.test(login)) return json({ error: 'invalid_login' }, 400);
 
-    const limited = await rateLimit(request, env, 'twitch', 60, 60);
+    const limited = await rateLimit(request, env, 'PUBLIC_API_RATE_LIMIT', 60);
     if (limited) return limited;
 
     const clientId = await getSecret(env, 'TWITCH_CLIENT_ID');
@@ -763,12 +793,11 @@ export default {
         if (url.pathname === '/api/admin') return handleAdmin(request, env);
         if (url.pathname === '/api/watchlist') return handleWatchlist(request, env);
         if (url.pathname === '/api/gamelist') return handleGamelist(request, env);
-        if (url.pathname === '/api/stream') return handleStream(request, env);
         if (url.pathname === '/api/search') return handleSearch(request, env);
         if (url.pathname === '/api/game-search') return handleGameSearch(request, env);
         if (url.pathname === '/api/twitch') return handleTwitch(request, env);
 
-        if (env.ASSETS) return withSecurityHeaders(await env.ASSETS.fetch(request));
-        return withSecurityHeaders(new Response('Not found', { status: 404 }));
+        if (env.ASSETS) return await withSecurityHeaders(await env.ASSETS.fetch(request));
+        return await withSecurityHeaders(new Response('Not found', { status: 404 }));
     },
 };
