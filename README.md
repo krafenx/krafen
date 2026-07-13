@@ -9,7 +9,6 @@ Static personal site served by a single Cloudflare Worker with static assets.
 - `gamelist.html` - public game list with admin-only editing and IGDB search.
 - `tasks.html` - local task/progress calculator.
 - `worker.js` - API backend and static asset security headers.
-- `styles/tailwind-lite.css` - local utility CSS used instead of the Tailwind CDN runtime.
 - `wrangler.jsonc` - Cloudflare Worker config, KV binding, secrets and rate limiting bindings.
 
 Removed pages: `stream.html`, `test.html`, `wall.html`.

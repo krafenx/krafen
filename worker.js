@@ -27,8 +27,12 @@ const BASE_SECURITY_HEADERS = {
 };
 
 function contentSecurityPolicy(nonce = '') {
-    const scriptSrc = nonce ? `script-src 'self' 'nonce-${nonce}'` : "script-src 'self'";
-    const styleSrc = nonce ? `'self' 'nonce-${nonce}' https://fonts.googleapis.com` : "'self' https://fonts.googleapis.com";
+    const scriptSrc = nonce
+        ? `script-src 'self' 'nonce-${nonce}' 'unsafe-eval' https://cdn.tailwindcss.com`
+        : "script-src 'self' https://cdn.tailwindcss.com";
+    const styleSrc = nonce
+        ? `'self' 'nonce-${nonce}' 'unsafe-inline' https://fonts.googleapis.com`
+        : "'self' 'unsafe-inline' https://fonts.googleapis.com";
 
     return [
         "default-src 'self'",

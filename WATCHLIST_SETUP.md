@@ -12,7 +12,6 @@ This project is deployed as one Cloudflare Worker with static assets. The backen
 - `watchlist.html`
 - `gamelist.html`
 - `tasks.html`
-- `styles/tailwind-lite.css`
 - image/static assets such as `favicon.png`, `1illustration.png`, `CNAME`, `sitemap.xml`
 
 The old `stream.html`, `test.html`, `wall.html`, and Pages Functions files were removed.
@@ -79,6 +78,4 @@ Existing KV data stored as a plain array is still supported. After the next admi
 
 ## Security notes
 
-The site no longer loads Tailwind from `cdn.tailwindcss.com`. Utility styles are served locally from `styles/tailwind-lite.css`.
-
-HTML responses get a per-request CSP nonce from `worker.js`, so inline page scripts and style blocks can run without script `unsafe-inline` or `unsafe-eval` in the Worker CSP. Style attributes remain allowed because the UI updates dynamic widths, colors and backgrounds from JavaScript. `_headers` keeps a static fallback for non-Worker static serving, but the Worker response headers are the production path.
+HTML responses get a per-request CSP nonce from `worker.js`, so the site's own inline scripts are still nonce-protected. Tailwind is loaded through `cdn.tailwindcss.com` to preserve the existing design, so the CSP allows Tailwind's runtime requirements. `_headers` keeps a static fallback for non-Worker static serving, but the Worker response headers are the production path.
