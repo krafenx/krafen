@@ -8,6 +8,7 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
 const IGDB_BASE = 'https://api.igdb.com/v4';
 const TWITCH_API_BASE = 'https://api.twitch.tv/helix';
 const TWITCH_TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
+const TWITCH_STATUS_CACHE_TTL_SECONDS = 5 * 60;
 const SESSION_COOKIE = 'kf_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MAX_LOGIN_BODY = 2_048;
@@ -690,11 +691,11 @@ async function handleSearch(request, env) {
     }
 }
 
-async function getTwitchToken(env, clientId) {
+async function getTwitchToken(env, clientId, forceRefresh = false) {
     const staticToken = await getSecret(env, 'TWITCH_ACCESS_TOKEN');
     if (staticToken) return staticToken.replace(/^Bearer\s+/i, '');
 
-    if (env.WATCHLIST && typeof env.WATCHLIST.get === 'function') {
+    if (!forceRefresh && env.WATCHLIST && typeof env.WATCHLIST.get === 'function') {
         const cached = await env.WATCHLIST.get(TWITCH_TOKEN_KEY, { type: 'json' }).catch(() => null);
         if (cached?.accessToken && Number(cached.expiresAt) > Date.now() + 60_000) {
             return cached.accessToken;
@@ -739,8 +740,55 @@ async function twitchGet(path, params, clientId, accessToken) {
         },
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error('twitch_unavailable');
+    if (!res.ok) throw new Error(res.status === 401 ? 'twitch_unauthorized' : 'twitch_unavailable');
     return data;
+}
+
+function twitchCacheKey(request, login) {
+    const url = new URL(request.url);
+    url.search = '';
+    url.searchParams.set('login', login);
+    return new Request(url.toString(), { method: 'GET' });
+}
+
+async function readTwitchStatusCache(cacheKey) {
+    if (!globalThis.caches?.default) return null;
+    return await globalThis.caches.default.match(cacheKey).catch(() => null);
+}
+
+async function writeTwitchStatusCache(cacheKey, response) {
+    if (!globalThis.caches?.default) return;
+    await globalThis.caches.default.put(cacheKey, response.clone()).catch(() => null);
+}
+
+async function fetchTwitchStatus(login, clientId, accessToken) {
+    const [users, streams] = await Promise.all([
+        twitchGet('/users', { login }, clientId, accessToken),
+        twitchGet('/streams', { user_login: login, first: '1' }, clientId, accessToken),
+    ]);
+
+    const user = users.data?.[0] || {};
+    const stream = streams.data?.[0] || null;
+
+    return {
+        login,
+        displayName: text(user.display_name || login, 80),
+        profileImage: cleanUrl(user.profile_image_url),
+        description: text(user.description, 220),
+        viewCount: Number(user.view_count) || 0,
+        url: `https://twitch.tv/${login}`,
+        live: Boolean(stream),
+        stream: stream ? {
+            title: text(stream.title, 180),
+            gameName: text(stream.game_name, 120),
+            viewerCount: Number(stream.viewer_count) || 0,
+            startedAt: text(stream.started_at, 80),
+            language: text(stream.language, 12),
+            thumbnail: cleanUrl(stream.thumbnail_url
+                ?.replace('{width}', '640')
+                ?.replace('{height}', '360')),
+        } : null,
+    };
 }
 
 async function handleTwitch(request, env) {
@@ -752,38 +800,31 @@ async function handleTwitch(request, env) {
     const limited = await rateLimit(request, env, 'PUBLIC_API_RATE_LIMIT', 60);
     if (limited) return limited;
 
+    const cacheKey = twitchCacheKey(request, login);
+    const cachedResponse = await readTwitchStatusCache(cacheKey);
+    if (cachedResponse) return cachedResponse;
+
     const clientId = await getSecret(env, 'TWITCH_CLIENT_ID');
-    const accessToken = await getTwitchToken(env, clientId);
+    let accessToken = await getTwitchToken(env, clientId);
     if (!clientId || !accessToken) return json({ error: 'twitch_key_missing' }, 500);
 
     try {
-        const [users, streams] = await Promise.all([
-            twitchGet('/users', { login }, clientId, accessToken),
-            twitchGet('/streams', { user_login: login, first: '1' }, clientId, accessToken),
-        ]);
+        let status;
+        try {
+            status = await fetchTwitchStatus(login, clientId, accessToken);
+        } catch (error) {
+            if (error.message !== 'twitch_unauthorized') throw error;
 
-        const user = users.data?.[0] || {};
-        const stream = streams.data?.[0] || null;
+            accessToken = await getTwitchToken(env, clientId, true);
+            if (!accessToken) throw error;
+            status = await fetchTwitchStatus(login, clientId, accessToken);
+        }
 
-        return json({
-            login,
-            displayName: text(user.display_name || login, 80),
-            profileImage: cleanUrl(user.profile_image_url),
-            description: text(user.description, 220),
-            viewCount: Number(user.view_count) || 0,
-            url: `https://twitch.tv/${login}`,
-            live: Boolean(stream),
-            stream: stream ? {
-                title: text(stream.title, 180),
-                gameName: text(stream.game_name, 120),
-                viewerCount: Number(stream.viewer_count) || 0,
-                startedAt: text(stream.started_at, 80),
-                language: text(stream.language, 12),
-                thumbnail: cleanUrl(stream.thumbnail_url
-                    ?.replace('{width}', '640')
-                    ?.replace('{height}', '360')),
-            } : null,
+        const response = json(status, 200, {
+            'Cache-Control': `public, max-age=${TWITCH_STATUS_CACHE_TTL_SECONDS}`,
         });
+        await writeTwitchStatusCache(cacheKey, response);
+        return response;
     } catch (error) {
         return json({ error: error.message || 'twitch_unavailable' }, 502);
     }

@@ -52,7 +52,9 @@ KV is still used for:
 
 - watchlist data
 - gamelist data
-- cached temporary IGDB/Twitch access tokens
+- cached temporary IGDB/Twitch access tokens (read first; written only when a token is issued or renewed)
+
+The homepage checks Twitch at most once every five minutes per open tab. The Worker additionally keeps a five-minute Twitch status cache in the Workers Cache API, so cache hits do not make the two Helix API requests and do not write to KV. If Twitch rejects a cached access token with `401`, the Worker requests and stores one replacement token, then retries the status request once.
 
 ## Data saves
 
