@@ -650,8 +650,6 @@
     <script nonce="__CSP_NONCE__">
         const CONFIG = {
             github_user: 'krafenx',
-            lastfm_user: 'krafen',
-            lastfm_key: '6474af65e5e721a2751d9d7f9274b594',
             twitch_user: 'krafen',
             discord_invite_code: 'kGdxDzxtmK',
             telegram_channel: 'krafenx',
@@ -962,12 +960,11 @@
             if (!artContainer || !trackName || !trackArtist || !blurBg || !trackProgress || !trackTimeCurrent || !trackTimeTotal) return;
 
             try {
-                const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(CONFIG.lastfm_user)}&api_key=${encodeURIComponent(CONFIG.lastfm_key)}&format=json&limit=1`;
-                const res = await fetch(url);
+                const res = await fetch('/api/lastfm', { headers: { Accept: 'application/json' } });
                 if (!res.ok) throw new Error(`lastfm_${res.status}`);
 
                 const data = await res.json();
-                const track = data.recenttracks?.track?.[0];
+                const track = data.track;
 
                 if (!track) {
                     trackName.textContent = 'Nothing playing';
@@ -983,15 +980,15 @@
                     return;
                 }
 
-                const isLive = track['@attr']?.nowplaying === 'true';
-                const imgSrc = track.image?.[3]?.['#text'] || track.image?.[2]?.['#text'] || '';
-                const artist = track.artist?.['#text'] || 'Unknown artist';
-                const album = track.album?.['#text'] || 'No album info';
+                const isLive = Boolean(track.nowPlaying);
+                const imgSrc = track.image || '';
+                const artist = track.artist || 'Unknown artist';
+                const album = track.album || 'No album info';
                 const signature = `${track.name}|${artist}|${album}`;
 
                 if (imgSrc) {
                     artContainer.innerHTML = `<img src="${escapeHTML(imgSrc)}" class="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover border border-white/10 shadow-xl" alt="Cover">`;
-                    blurBg.style.backgroundImage = `url('${imgSrc}')`;
+                    blurBg.style.backgroundImage = `url(${JSON.stringify(imgSrc)})`;
                 } else {
                     artContainer.innerHTML = '<div class="w-14 h-14 sm:w-16 sm:h-16 rounded bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-500 uppercase">No Art</div>';
                     blurBg.style.backgroundImage = 'none';
@@ -1185,9 +1182,9 @@
 
         init();
 
-        setInterval(fetchMusic, 1000);
-        setInterval(fetchGitHub, 30000);
-        setInterval(fetchDiscordServer, 10000);
+        setInterval(fetchMusic, 5 * 60 * 1000);
+        setInterval(fetchGitHub, 30 * 60 * 1000);
+        setInterval(fetchDiscordServer, 5 * 60 * 1000);
         setInterval(fetchTwitch, 5 * 60 * 1000);
         setInterval(updateBirthdayWidget, 1000);
     </script>

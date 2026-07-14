@@ -26,6 +26,7 @@ Add these secrets:
 
 - `ADMIN_PASSWORD`
 - `TMDB_ACCESS_TOKEN`
+- `LASTFM_API_KEY`
 - `TWITCH_CLIENT_ID`
 - `TWITCH_CLIENT_SECRET`
 
@@ -55,6 +56,8 @@ KV is still used for:
 - cached temporary IGDB/Twitch access tokens (read first; written only when a token is issued or renewed)
 
 The homepage checks Twitch at most once every five minutes per open tab. The Worker additionally keeps a five-minute Twitch status cache in the Workers Cache API, so cache hits do not make the two Helix API requests and do not write to KV. If Twitch rejects a cached access token with `401`, the Worker requests and stores one replacement token, then retries the status request once.
+
+The Last.fm API key is kept in the `LASTFM_API_KEY` secret and never sent to browsers. Set the non-secret `LASTFM_USER` variable in `wrangler.jsonc` if the profile changes. The Worker caches recent-track data for five minutes. Public watchlist and gamelist responses are cached for five minutes and the local Workers Cache entry is cleared after an admin save.
 
 ## Data saves
 

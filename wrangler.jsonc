@@ -17,6 +17,9 @@
       "id": "8edcbef9e12143629b7274fbddfdc726"
     }
   ],
+  "vars": {
+    "LASTFM_USER": "krafen"
+  },
   "ratelimits": [
     {
       "name": "ADMIN_LOGIN_RATE_LIMIT",
@@ -61,6 +64,11 @@
       "binding": "TMDB_ACCESS_TOKEN",
       "store_id": "dbaa438c8dd84df6b699fe1de942e717",
       "secret_name": "TMDB_ACCESS_TOKEN"
+    },
+    {
+      "binding": "LASTFM_API_KEY",
+      "store_id": "dbaa438c8dd84df6b699fe1de942e717",
+      "secret_name": "LASTFM_API_KEY"
     },
     {
       "binding": "TWITCH_CLIENT_ID",

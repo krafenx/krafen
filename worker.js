@@ -8,7 +8,10 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
 const IGDB_BASE = 'https://api.igdb.com/v4';
 const TWITCH_API_BASE = 'https://api.twitch.tv/helix';
 const TWITCH_TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
+const LASTFM_API_BASE = 'https://ws.audioscrobbler.com/2.0/';
 const TWITCH_STATUS_CACHE_TTL_SECONDS = 5 * 60;
+const LASTFM_CACHE_TTL_SECONDS = 5 * 60;
+const PUBLIC_LIST_CACHE_TTL_SECONDS = 5 * 60;
 const SESSION_COOKIE = 'kf_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MAX_LOGIN_BODY = 2_048;
@@ -47,7 +50,7 @@ function contentSecurityPolicy(nonce = '') {
         "style-src-attr 'unsafe-inline'",
         'font-src https://fonts.gstatic.com',
         "img-src 'self' data: https:",
-        "connect-src 'self' https://api.github.com https://ws.audioscrobbler.com https://discord.com https://shikimori.one https://api.themoviedb.org",
+        "connect-src 'self' https://api.github.com https://discord.com https://shikimori.one https://api.themoviedb.org",
     ].join('; ');
 }
 
@@ -419,9 +422,17 @@ async function handleAdmin(request, env) {
 async function handleWatchlist(request, env) {
     if (request.method === 'GET') {
         try {
+            const cacheKey = publicListCacheKey(request, '/api/watchlist');
+            const cachedResponse = await readWorkerCache(cacheKey);
+            if (cachedResponse) return cachedResponse;
+
             requireStorage(env);
             const state = normalizeStoredList(await env.WATCHLIST.get(KV_KEY, { type: 'json' }));
-            return json({ items: state.items, revision: state.revision });
+            const response = json({ items: state.items, revision: state.revision }, 200, {
+                'Cache-Control': `public, max-age=${PUBLIC_LIST_CACHE_TTL_SECONDS}`,
+            });
+            await writeWorkerCache(cacheKey, response);
+            return response;
         } catch (error) {
             return json({ error: error.message || 'storage_error', items: [], revision: 0 }, 500);
         }
@@ -446,6 +457,7 @@ async function handleWatchlist(request, env) {
             const items = rawItems.map(normalizeItem).filter(Boolean).slice(0, 500);
             const nextRevision = state.revision + 1;
             await env.WATCHLIST.put(KV_KEY, JSON.stringify({ revision: nextRevision, items }));
+            await deleteWorkerCache(publicListCacheKey(request, '/api/watchlist'));
             return json({ ok: true, items, revision: nextRevision });
         } catch (error) {
             const bodyError = bodyErrorResponse(error);
@@ -460,9 +472,17 @@ async function handleWatchlist(request, env) {
 async function handleGamelist(request, env) {
     if (request.method === 'GET') {
         try {
+            const cacheKey = publicListCacheKey(request, '/api/gamelist');
+            const cachedResponse = await readWorkerCache(cacheKey);
+            if (cachedResponse) return cachedResponse;
+
             requireStorage(env);
             const state = normalizeStoredList(await env.WATCHLIST.get(GAME_KV_KEY, { type: 'json' }));
-            return json({ items: state.items, revision: state.revision });
+            const response = json({ items: state.items, revision: state.revision }, 200, {
+                'Cache-Control': `public, max-age=${PUBLIC_LIST_CACHE_TTL_SECONDS}`,
+            });
+            await writeWorkerCache(cacheKey, response);
+            return response;
         } catch (error) {
             return json({ error: error.message || 'storage_error', items: [], revision: 0 }, 500);
         }
@@ -487,6 +507,7 @@ async function handleGamelist(request, env) {
             const items = rawItems.map(normalizeGameItem).filter(Boolean).slice(0, 500);
             const nextRevision = state.revision + 1;
             await env.WATCHLIST.put(GAME_KV_KEY, JSON.stringify({ revision: nextRevision, items }));
+            await deleteWorkerCache(publicListCacheKey(request, '/api/gamelist'));
             return json({ ok: true, items, revision: nextRevision });
         } catch (error) {
             const bodyError = bodyErrorResponse(error);
@@ -691,6 +712,73 @@ async function handleSearch(request, env) {
     }
 }
 
+function publicListCacheKey(request, pathname) {
+    const url = new URL(request.url);
+    url.pathname = pathname;
+    url.search = '';
+    return new Request(url.toString(), { method: 'GET' });
+}
+
+async function readWorkerCache(cacheKey) {
+    if (!globalThis.caches?.default) return null;
+    return await globalThis.caches.default.match(cacheKey).catch(() => null);
+}
+
+async function writeWorkerCache(cacheKey, response) {
+    if (!globalThis.caches?.default) return;
+    await globalThis.caches.default.put(cacheKey, response.clone()).catch(() => null);
+}
+
+async function deleteWorkerCache(cacheKey) {
+    if (!globalThis.caches?.default) return;
+    await globalThis.caches.default.delete(cacheKey).catch(() => null);
+}
+
+async function handleLastfm(request, env) {
+    if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+
+    const cacheKey = publicListCacheKey(request, '/api/lastfm');
+    const cachedResponse = await readWorkerCache(cacheKey);
+    if (cachedResponse) return cachedResponse;
+
+    const limited = await rateLimit(request, env, 'PUBLIC_API_RATE_LIMIT', 60);
+    if (limited) return limited;
+
+    const apiKey = await getSecret(env, 'LASTFM_API_KEY');
+    const user = text(env.LASTFM_USER || 'krafen', 80);
+    if (!apiKey || !user) return json({ error: 'lastfm_key_missing' }, 500);
+
+    try {
+        const url = new URL(LASTFM_API_BASE);
+        url.searchParams.set('method', 'user.getrecenttracks');
+        url.searchParams.set('user', user);
+        url.searchParams.set('api_key', apiKey);
+        url.searchParams.set('format', 'json');
+        url.searchParams.set('limit', '1');
+
+        const res = await fetch(url);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) return json({ error: 'lastfm_unavailable' }, 502);
+
+        const rawTrack = data.recenttracks?.track?.[0] || null;
+        const track = rawTrack ? {
+            name: text(rawTrack.name, 200),
+            artist: text(rawTrack.artist?.['#text'], 200),
+            album: text(rawTrack.album?.['#text'], 200),
+            image: cleanUrl(rawTrack.image?.[3]?.['#text'] || rawTrack.image?.[2]?.['#text']),
+            nowPlaying: rawTrack['@attr']?.nowplaying === 'true',
+        } : null;
+
+        const response = json({ track }, 200, {
+            'Cache-Control': `public, max-age=${LASTFM_CACHE_TTL_SECONDS}`,
+        });
+        await writeWorkerCache(cacheKey, response);
+        return response;
+    } catch {
+        return json({ error: 'lastfm_unavailable' }, 502);
+    }
+}
+
 async function getTwitchToken(env, clientId, forceRefresh = false) {
     const staticToken = await getSecret(env, 'TWITCH_ACCESS_TOKEN');
     if (staticToken) return staticToken.replace(/^Bearer\s+/i, '');
@@ -751,16 +839,6 @@ function twitchCacheKey(request, login) {
     return new Request(url.toString(), { method: 'GET' });
 }
 
-async function readTwitchStatusCache(cacheKey) {
-    if (!globalThis.caches?.default) return null;
-    return await globalThis.caches.default.match(cacheKey).catch(() => null);
-}
-
-async function writeTwitchStatusCache(cacheKey, response) {
-    if (!globalThis.caches?.default) return;
-    await globalThis.caches.default.put(cacheKey, response.clone()).catch(() => null);
-}
-
 async function fetchTwitchStatus(login, clientId, accessToken) {
     const [users, streams] = await Promise.all([
         twitchGet('/users', { login }, clientId, accessToken),
@@ -797,12 +875,12 @@ async function handleTwitch(request, env) {
     if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
     if (!/^[a-z0-9_]{3,25}$/.test(login)) return json({ error: 'invalid_login' }, 400);
 
+    const cacheKey = twitchCacheKey(request, login);
+    const cachedResponse = await readWorkerCache(cacheKey);
+    if (cachedResponse) return cachedResponse;
+
     const limited = await rateLimit(request, env, 'PUBLIC_API_RATE_LIMIT', 60);
     if (limited) return limited;
-
-    const cacheKey = twitchCacheKey(request, login);
-    const cachedResponse = await readTwitchStatusCache(cacheKey);
-    if (cachedResponse) return cachedResponse;
 
     const clientId = await getSecret(env, 'TWITCH_CLIENT_ID');
     let accessToken = await getTwitchToken(env, clientId);
@@ -823,7 +901,7 @@ async function handleTwitch(request, env) {
         const response = json(status, 200, {
             'Cache-Control': `public, max-age=${TWITCH_STATUS_CACHE_TTL_SECONDS}`,
         });
-        await writeTwitchStatusCache(cacheKey, response);
+        await writeWorkerCache(cacheKey, response);
         return response;
     } catch (error) {
         return json({ error: error.message || 'twitch_unavailable' }, 502);
@@ -840,6 +918,7 @@ export default {
         if (url.pathname === '/api/gamelist') return handleGamelist(request, env);
         if (url.pathname === '/api/search') return handleSearch(request, env);
         if (url.pathname === '/api/game-search') return handleGameSearch(request, env);
+        if (url.pathname === '/api/lastfm') return handleLastfm(request, env);
         if (url.pathname === '/api/twitch') return handleTwitch(request, env);
 
         if (env.ASSETS) return await withSecurityHeaders(await env.ASSETS.fetch(request));
