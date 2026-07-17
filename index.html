@@ -452,6 +452,8 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="/styles/themes.css">
+    <script nonce="__CSP_NONCE__" src="/styles/themes.js"></script>
 </head>
 <body class="p-4 sm:p-6 md:p-10 flex flex-col items-center">
     <div id="starfield">
@@ -1182,10 +1184,10 @@
 
         init();
 
-        setInterval(fetchMusic, 30 * 1000);
+        setInterval(fetchMusic, 5 * 60 * 1000);
         setInterval(fetchGitHub, 30 * 60 * 1000);
         setInterval(fetchDiscordServer, 5 * 60 * 1000);
-        setInterval(fetchTwitch, 20 * 60 * 1000);
+        setInterval(fetchTwitch, 5 * 60 * 1000);
         setInterval(updateBirthdayWidget, 1000);
     </script>
 </body>
