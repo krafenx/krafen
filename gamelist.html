@@ -386,7 +386,9 @@
         <div id="empty-state" class="empty hidden">ничего не найдено</div>
     </main>
 
-    <button id="lock-btn" class="icon-btn" type="button" title="admin">lock</button>
+    <button id="lock-btn" class="icon-btn" type="button" title="Войти в режим администратора" aria-label="Войти в режим администратора">
+        <svg class="admin-lock__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10V7.75a4.5 4.5 0 0 1 9 0V10"/><rect x="5.25" y="10" width="13.5" height="10" rx="2.25"/><path d="M12 14.25v2.25"/></svg>
+    </button>
     <div id="toast" class="toast"></div>
 
     <div id="modal-game" class="modal">
@@ -705,7 +707,10 @@
 
         function setAdminMode(on) {
             document.body.classList.toggle('is-admin', on);
-            document.getElementById('lock-btn').textContent = on ? 'open' : 'lock';
+            const lockButton = document.getElementById('lock-btn');
+            lockButton.classList.toggle('is-admin-active', on);
+            lockButton.title = on ? 'Выйти из режима администратора' : 'Войти в режим администратора';
+            lockButton.setAttribute('aria-label', lockButton.title);
         }
 
         function resetEditor() {

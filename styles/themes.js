@@ -89,6 +89,10 @@
     function mountControl() {
         if (document.querySelector('[data-theme-switcher]')) return;
 
+        // Some sections keep the admin lock in the lower-right corner.
+        // Reserve its space so the theme launcher never covers that control.
+        document.body.classList.toggle('has-admin-toggle', Boolean(document.querySelector('#lock-btn')));
+
         document.body.insertAdjacentHTML('beforeend', `<div class="theme-switcher" data-theme-switcher>
             <button class="theme-switcher__trigger" type="button" aria-expanded="false" aria-controls="theme-switcher-panel" title="Выбрать тему">
                 <span class="theme-switcher__glyph" aria-hidden="true">◐</span><span class="theme-switcher__label">Тема</span>
