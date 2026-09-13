@@ -1,3 +1,9 @@
+# Редирект доменов на krafen.me
+https://krafen.ru/*       https://krafen.me/:splat   301!
+http://krafen.ru/*        https://krafen.me/:splat   301!
+https://krafen.online/*   https://krafen.me/:splat   301!
+http://krafen.online/*    https://krafen.me/:splat   301!
+
 # Telegram & Связь
 /tg          https://t.me/krafen                                                    302
 /telegram    https://t.me/krafen                                                    302
