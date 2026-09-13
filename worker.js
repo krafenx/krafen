@@ -23,6 +23,16 @@ const VALID_GAME_STATUSES = new Set(['completed', 'playing', 'dropped', 'wishlis
 const ITEM_ID_PATTERN = /^[A-Za-z0-9:_-]{1,120}$/;
 const CSP_NONCE_PLACEHOLDER = '__CSP_NONCE__';
 
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    // Редирект сторонних доменов на krafen.me с сохранением пути и параметров
+    const redirectHosts = ['krafen.ru', 'www.krafen.ru', 'krafen.online', 'www.krafen.online'];
+    if (redirectHosts.includes(url.hostname)) {
+      url.hostname = 'krafen.me';
+      return Response.redirect(url.toString(), 301);
+
 const BASE_SECURITY_HEADERS = {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
