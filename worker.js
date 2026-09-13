@@ -912,18 +912,6 @@ export default {
     async fetch(request, env) {
         const url = new URL(request.url);
 
-        // 301 редирект с krafen.ru и krafen.online на krafen.me
-        const redirectHosts = [
-            'krafen.ru',
-            'www.krafen.ru',
-            'krafen.online',
-            'www.krafen.online',
-        ];
-        if (redirectHosts.includes(url.hostname)) {
-            url.hostname = 'krafen.me';
-            return Response.redirect(url.toString(), 301);
-        }
-
         if (request.method === 'OPTIONS') return json({ ok: true });
         if (url.pathname === '/api/admin') return handleAdmin(request, env);
         if (url.pathname === '/api/watchlist') return handleWatchlist(request, env);
