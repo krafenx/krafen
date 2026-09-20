@@ -1,5 +1,7 @@
 const KV_KEY = 'items';
 const GAME_KV_KEY = 'games';
+const SETUP_KV_KEY = 'setup';
+const WISHLIST_KV_KEY = 'wishlist';
 const IGDB_TOKEN_KEY = 'igdb:token';
 const TWITCH_TOKEN_KEY = 'twitch:token';
 const SHIKIMORI_BASE = 'https://shikimori.one';
@@ -17,9 +19,20 @@ const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MAX_LOGIN_BODY = 2_048;
 const MAX_WATCHLIST_BODY = 100_000;
 const MAX_GAMELIST_BODY = 1_500_000;
+const MAX_SETUP_BODY = 250_000;
+const MAX_WISHLIST_BODY = 600_000;
 const VALID_TYPES = new Set(['anime', 'movie', 'series']);
 const VALID_STATUSES = new Set(['watched', 'planned', 'dropped']);
 const VALID_GAME_STATUSES = new Set(['completed', 'playing', 'dropped', 'wishlist', 'paused']);
+const VALID_SETUP_SECTIONS = new Set(['pc', 'gear']);
+const VALID_SETUP_ICONS = new Set([
+    'cpu', 'gpu', 'ram', 'board', 'ssd', 'hdd', 'cooler', 'psu', 'case',
+    'audio', 'monitor', 'keyboard', 'mouse', 'mic', 'other',
+]);
+const VALID_WISH_CATEGORIES = new Set(['hardware', 'peripheral', 'other']);
+const VALID_WISH_STATUSES = new Set(['want', 'saving', 'bought']);
+const VALID_CURRENCIES = new Set(['RUB', 'USD', 'EUR']);
+const VALID_WISH_PRIORITIES = new Set([1, 2, 3]);
 const ITEM_ID_PATTERN = /^[A-Za-z0-9:_-]{1,120}$/;
 const CSP_NONCE_PLACEHOLDER = '__CSP_NONCE__';
 
@@ -361,6 +374,65 @@ function normalizeGameItem(item) {
     };
 }
 
+function normalizeSetupItem(item) {
+    const id = text(item.id, 120);
+    const section = text(item.section, 20);
+    const slot = text(item.slot, 80);
+    const title = text(item.title, 180);
+
+    if (!ITEM_ID_PATTERN.test(id) || !VALID_SETUP_SECTIONS.has(section) || !slot || !title) {
+        return null;
+    }
+
+    const icon = text(item.icon, 20);
+    const order = Number(item.order);
+
+    return {
+        id,
+        section,
+        slot,
+        title,
+        icon: VALID_SETUP_ICONS.has(icon) ? icon : 'other',
+        note: text(item.note, 300) || null,
+        link: cleanUrl(item.link),
+        order: Number.isFinite(order) ? Math.max(0, Math.min(999, Math.round(order))) : 0,
+        updatedAt: Number.isFinite(Number(item.updatedAt)) ? Number(item.updatedAt) : Date.now(),
+    };
+}
+
+function normalizeWishItem(item) {
+    const id = text(item.id, 120);
+    const title = text(item.title, 180);
+    const category = text(item.category, 20);
+    const status = text(item.status, 20);
+
+    if (!ITEM_ID_PATTERN.test(id) || !title
+        || !VALID_WISH_CATEGORIES.has(category) || !VALID_WISH_STATUSES.has(status)) {
+        return null;
+    }
+
+    const currency = text(item.currency, 8).toUpperCase();
+    const rawPrice = Number(item.price);
+    const priority = Number(item.priority);
+
+    return {
+        id,
+        title,
+        category,
+        status,
+        priority: VALID_WISH_PRIORITIES.has(priority) ? priority : 2,
+        price: Number.isFinite(rawPrice) && rawPrice > 0
+            ? Math.min(1_000_000_000, Math.round(rawPrice * 100) / 100)
+            : null,
+        currency: VALID_CURRENCIES.has(currency) ? currency : 'RUB',
+        note: text(item.note, 600) || null,
+        link: cleanUrl(item.link),
+        image: cleanUrl(item.image),
+        addedAt: Number.isFinite(Number(item.addedAt)) ? Number(item.addedAt) : Date.now(),
+        updatedAt: Number.isFinite(Number(item.updatedAt)) ? Number(item.updatedAt) : Date.now(),
+    };
+}
+
 function normalizeStoredList(value) {
     if (Array.isArray(value)) return { revision: 0, items: value };
 
@@ -518,6 +590,80 @@ async function handleGamelist(request, env) {
 
     return json({ error: 'method_not_allowed' }, 405);
 }
+
+/**
+ * Shared GET/PUT pipeline for the simple `{ revision, items }` KV collections
+ * (setup and wishlist). It mirrors handleWatchlist/handleGamelist: public reads
+ * are cached in the Workers Cache API, admin writes are rate limited, session
+ * checked and guarded by optimistic revision locking.
+ */
+function createListRoute({ kvKey, apiPath, normalizeItem, maxBody, maxItems }) {
+    return async function handleStoredList(request, env) {
+        if (request.method === 'GET') {
+            try {
+                const cacheKey = publicListCacheKey(request, apiPath);
+                const cachedResponse = await readWorkerCache(cacheKey);
+                if (cachedResponse) return cachedResponse;
+
+                requireStorage(env);
+                const state = normalizeStoredList(await env.WATCHLIST.get(kvKey, { type: 'json' }));
+                const response = json({ items: state.items, revision: state.revision }, 200, {
+                    'Cache-Control': `public, max-age=${PUBLIC_LIST_CACHE_TTL_SECONDS}`,
+                });
+                await writeWorkerCache(cacheKey, response);
+                return response;
+            } catch (error) {
+                return json({ error: error.message || 'storage_error', items: [], revision: 0 }, 500);
+            }
+        }
+
+        if (request.method === 'PUT') {
+            const limited = await rateLimit(request, env, 'WRITE_RATE_LIMIT', 60);
+            if (limited) return limited;
+
+            const authError = await requireAdmin(request, env);
+            if (authError) return authError;
+
+            try {
+                requireStorage(env, true);
+                const body = await readJsonLimited(request, maxBody);
+                const state = normalizeStoredList(await env.WATCHLIST.get(kvKey, { type: 'json' }));
+                const revision = expectedRevision(body.revision);
+                if (revision === null) return revisionConflict(state, 'revision_required');
+                if (revision !== state.revision) return revisionConflict(state);
+
+                const rawItems = Array.isArray(body.items) ? body.items : [];
+                const items = rawItems.map(normalizeItem).filter(Boolean).slice(0, maxItems);
+                const nextRevision = state.revision + 1;
+                await env.WATCHLIST.put(kvKey, JSON.stringify({ revision: nextRevision, items }));
+                await deleteWorkerCache(publicListCacheKey(request, apiPath));
+                return json({ ok: true, items, revision: nextRevision });
+            } catch (error) {
+                const bodyError = bodyErrorResponse(error);
+                if (bodyError) return bodyError;
+                return json({ error: error.message || 'save_failed' }, 500);
+            }
+        }
+
+        return json({ error: 'method_not_allowed' }, 405);
+    };
+}
+
+const handleSetup = createListRoute({
+    kvKey: SETUP_KV_KEY,
+    apiPath: '/api/setup',
+    normalizeItem: normalizeSetupItem,
+    maxBody: MAX_SETUP_BODY,
+    maxItems: 120,
+});
+
+const handleWishlist = createListRoute({
+    kvKey: WISHLIST_KV_KEY,
+    apiPath: '/api/wishlist',
+    normalizeItem: normalizeWishItem,
+    maxBody: MAX_WISHLIST_BODY,
+    maxItems: 500,
+});
 
 async function searchTmdb(query, type, env) {
     const tmdbAccessToken = await getSecret(env, 'TMDB_ACCESS_TOKEN');
@@ -916,6 +1062,8 @@ export default {
         if (url.pathname === '/api/admin') return handleAdmin(request, env);
         if (url.pathname === '/api/watchlist') return handleWatchlist(request, env);
         if (url.pathname === '/api/gamelist') return handleGamelist(request, env);
+        if (url.pathname === '/api/setup') return handleSetup(request, env);
+        if (url.pathname === '/api/wishlist') return handleWishlist(request, env);
         if (url.pathname === '/api/search') return handleSearch(request, env);
         if (url.pathname === '/api/game-search') return handleGameSearch(request, env);
         if (url.pathname === '/api/lastfm') return handleLastfm(request, env);

@@ -12,6 +12,8 @@ This project is deployed as one Cloudflare Worker with static assets. The backen
 - `watchlist.html`
 - `gamelist.html`
 - `tasks.html`
+- `setup.html`
+- `wishlist.html`
 - image/static assets such as `favicon.png`, `1illustration.png`, `CNAME`, `sitemap.xml`
 
 The old `stream.html`, `test.html`, `wall.html`, and Pages Functions files were removed.
@@ -21,6 +23,16 @@ The old `stream.html`, `test.html`, `wall.html`, and Pages Functions files were 
 Create or keep one Workers KV namespace and bind it as:
 
 - `WATCHLIST`
+
+One namespace holds every collection; they are separated by key:
+
+| Key | Contents | Endpoint | Page |
+| --- | --- | --- | --- |
+| `items` | watchlist (anime/movies/series) | `/api/watchlist` | `watchlist.html` |
+| `games` | gamelist | `/api/gamelist` | `gamelist.html` |
+| `setup` | PC build + other gear | `/api/setup` | `setup.html` |
+| `wishlist` | shopping wishlist | `/api/wishlist` | `wishlist.html` |
+| `igdb:token`, `twitch:token` | short-lived OAuth tokens (TTL) | internal | - |
 
 Add these secrets:
 
@@ -53,7 +65,13 @@ KV is still used for:
 
 - watchlist data
 - gamelist data
+- setup data (`setup.html`)
+- wishlist data (`wishlist.html`)
 - cached temporary IGDB/Twitch access tokens (read first; written only when a token is issued or renewed)
+
+`/api/setup` and `/api/wishlist` follow the same caching rules as the other lists: public reads are
+served from the Workers Cache API for five minutes and the cache entry is dropped after an admin save,
+so a busy page still costs one KV read per five minutes rather than one per visitor.
 
 The homepage checks Twitch at most once every five minutes per open tab. The Worker additionally keeps a five-minute Twitch status cache in the Workers Cache API, so cache hits do not make the two Helix API requests and do not write to KV. If Twitch rejects a cached access token with `401`, the Worker requests and stores one replacement token, then retries the status request once.
 
@@ -61,7 +79,7 @@ The Last.fm API key is kept in the `LASTFM_API_KEY` secret and never sent to bro
 
 ## Data saves
 
-`/api/watchlist` and `/api/gamelist` return:
+`/api/watchlist`, `/api/gamelist`, `/api/setup` and `/api/wishlist` return:
 
 ```json
 {
@@ -80,6 +98,55 @@ Existing KV data stored as a plain array is still supported. After the next admi
   "items": []
 }
 ```
+
+### setup item shape (`setup` key)
+
+```json
+{
+  "id": "gpu",
+  "section": "pc",
+  "slot": "Видеокарта",
+  "title": "Gigabyte NVIDIA GeForce GTX 650",
+  "icon": "gpu",
+  "note": "затычка, коплю на новую",
+  "link": null,
+  "order": 2,
+  "updatedAt": 1789936000000
+}
+```
+
+`section` is `pc` or `gear`; `icon` must be one of `cpu, gpu, ram, board, ssd, hdd, cooler, psu, case,
+audio, monitor, keyboard, mouse, mic, other` (anything else is stored as `other`); `link` accepts
+`https:` URLs only. `setup.html` ships with `DEFAULT_ITEMS`, so a fresh or unbound KV still renders the
+full build instead of an empty page - the first admin save writes those defaults into KV.
+
+### wishlist item shape (`wishlist` key)
+
+```json
+{
+  "id": "wish_rtx",
+  "title": "NVIDIA GeForce RTX 5070 12GB",
+  "category": "hardware",
+  "status": "saving",
+  "priority": 3,
+  "price": 68000,
+  "currency": "RUB",
+  "note": "главная цель",
+  "link": "https://example.com/gpu",
+  "image": null,
+  "addedAt": 1789936000000,
+  "updatedAt": 1789936000000
+}
+```
+
+`category` is `hardware | peripheral | other`, `status` is `want | saving | bought`, `priority` is
+`1..3` (out-of-range values fall back to `2`), `currency` is `RUB | USD | EUR` (anything else falls back
+to `RUB`). `price` must be positive and is clamped to 1e9 and rounded to cents; otherwise it is stored as
+`null` and the UI shows "цена -". `link` and `image` accept `https:` URLs only.
+
+Both collections are write-protected by the same `ADMIN_PASSWORD` session cookie as the other lists, and
+both PUTs are throttled by the existing `WRITE_RATE_LIMIT` binding - no new secrets, bindings or
+rate limiters are required.
 
 ## Security notes
 

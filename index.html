@@ -288,6 +288,18 @@
             text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
         }
 
+        .top-nav-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 480px) {
+            .top-nav-group { gap: 0.55rem; }
+            .top-nav-link { font-size: 9px; letter-spacing: 0.14em; }
+        }
+
         .btn-action {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.06);
@@ -463,9 +475,15 @@
     </div>
 
     <div class="w-full max-w-[1440px] flex flex-col">
-        <nav class="w-full flex items-center justify-between mb-5 px-1" aria-label="site sections">
-            <a class="top-nav-link" href="/watchlist">&larr; watchlist</a>
-            <a class="top-nav-link" href="/gamelist">gamelist &rarr;</a>
+        <nav class="w-full flex items-center justify-between gap-3 flex-wrap mb-5 px-1" aria-label="site sections">
+            <div class="top-nav-group">
+                <a class="top-nav-link" href="/watchlist">&larr; watchlist</a>
+                <a class="top-nav-link" href="/gamelist">&larr; gamelist</a>
+            </div>
+            <div class="top-nav-group">
+                <a class="top-nav-link" href="/setup">setup &rarr;</a>
+                <a class="top-nav-link" href="/wishlist">wishlist &rarr;</a>
+            </div>
         </nav>
 
         <div class="grid grid-cols-12 gap-4 w-full">
