@@ -6,7 +6,6 @@
 
 [![Version](https://img.shields.io/badge/version-2.0.0-black?style=for-the-badge&labelColor=111)](https://github.com/krafenx/krafen)
 [![License: MIT](https://img.shields.io/badge/License-MIT-black?style=for-the-badge&labelColor=111)](https://opensource.org/licenses/MIT)
-[![Framework](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=nextdotjs&labelColor=111)](https://nextjs.org/)
 
 ---
 
