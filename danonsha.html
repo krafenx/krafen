@@ -929,9 +929,8 @@ Follow me</p>
         }
 
         init();
-
-        setInterval(fetchDiscordServer, 5 * 60 * 1000);
-        setInterval(fetchTwitch, 5 * 60 * 1000);
+        
+        setInterval(fetchTwitch, 60 * 1000);
         setInterval(updateBirthdayWidget, 1000);
     </script>
 </body>
