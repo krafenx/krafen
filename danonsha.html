@@ -57,41 +57,7 @@
             transform: translateY(-1px);
         }
 
-        .music-player-card {
-            position: relative;
-            background: rgba(28, 28, 30, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 0.75rem;
-            overflow: hidden;
-            min-height: 5rem;
-            transition: all 0.3s ease;
-        }
 
-        .music-blur-bg {
-            position: absolute;
-            inset: 0;
-            background-size: cover;
-            background-position: center;
-            filter: blur(32px) brightness(0.5) saturate(1.4);
-            opacity: 0.45;
-            z-index: 0;
-            transform: scale(1.1);
-            pointer-events: none;
-        }
-
-        .music-content {
-            position: relative;
-            z-index: 1;
-        }
-
-        .music-status-grid {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 19.25rem;
-            gap: 0.75rem;
-            align-items: stretch;
-        }
-
-        .time-panel {
             position: relative;
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.06);
@@ -447,7 +413,6 @@
         }
 
         @media (max-width: 640px) {
-            .music-status-grid,
             .birthday-grid,
             .discord-stat-grid {
                 grid-template-columns: minmax(0, 1fr);
@@ -459,9 +424,6 @@
         }
 
         @media (max-width: 900px) {
-            .music-status-grid {
-                grid-template-columns: minmax(0, 1fr);
-            }
         }
     </style>
     <link rel="stylesheet" href="/styles/themes.css">
@@ -494,9 +456,7 @@
                         my name's danaya, my nickname is danonsha and i'm 32 years old. i don't have much to say about myself honestly sooo...
                     </p>
                 </div>
-                <div class="flex flex-wrap gap-2 mt-4" id="github-stats">
-                    <span class="text-[9px] uppercase tracking-wider bg-white/5 border border-white/5 px-2.5 py-1 rounded-md text-zinc-500">fetching_github...</span>
-                </div>
+
             </div>
 
             <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
@@ -509,67 +469,7 @@
                 </div>
             </div>
 
-            <div class="glass col-span-12 md:col-span-7 p-2 flex flex-col justify-between">
-                <div class="sr-only">
-                    <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Now Playing</h2>
-                    <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Last.fm</span>
-                </div>
 
-                <div class="music-status-grid">
-                    <div class="music-player-card p-2 sm:p-2.5">
-                        <div id="music-blur" class="music-blur-bg"></div>
-                        <div class="music-content flex flex-col sm:flex-row items-center gap-2.5 min-w-0">
-                            <div id="music-art-container" class="flex-shrink-0">
-                                <div class="w-12 h-12 sm:w-14 sm:h-14 bg-white/5 rounded-md shimmer"></div>
-                            </div>
-                            <div class="flex-1 min-w-0 w-full">
-                                <div class="flex justify-between items-start gap-2 mb-1">
-                                    <div class="min-w-0">
-                                        <div id="track-name" class="text-white font-medium truncate text-sm sm:text-base">Loading track...</div>
-                                        <div id="track-artist" class="text-zinc-400 text-xs mt-0.5">
-                                            <span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600">Please wait</span>
-                                        </div>
-                                    </div>
-                                    <div class="text-zinc-400 opacity-60 hover:opacity-100 transition">
-                                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.494 17.306c-.216.354-.678.47-1.032.256-2.864-1.75-6.47-2.144-10.716-1.18-.404.092-.812-.162-.904-.564-.092-.403.162-.812.564-.904 4.646-1.062 8.624-.613 11.832 1.343.354.215.47.677.256 1.033zm1.467-3.258c-.272.44-.847.584-1.288.312-3.278-2.015-8.277-2.603-12.155-1.425-.494.15-1.018-.13-1.168-.623-.15-.493.13-1.018.623-1.168 4.433-1.344 9.935-.696 13.676 1.604.44.27.584.846.312 1.287zm.126-3.41c-3.93-2.334-10.418-2.55-14.19-1.405-.602.183-1.242-.152-1.425-.754-.183-.603.152-1.242.754-1.425 4.344-1.32 11.503-1.07 16.035 1.62.543.322.72 1.025.4 1.568-.323.542-1.024.72-1.574.396z"/></svg>
-                                    </div>
-                                </div>
-
-                                <div class="mt-2.5 flex items-center gap-3 text-[10px] text-zinc-500 tracking-wider">
-                                    <span id="track-time-current">0:00</span>
-                                    <div class="timeline-bar flex-1">
-                                        <div id="track-progress" class="timeline-progress"></div>
-                                    </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <div class="flex gap-0.5 h-2.5 items-center px-1 opacity-80">
-                                            <div class="w-[2px] h-full bg-white"></div>
-                                            <div class="w-[2px] h-full bg-white"></div>
-                                        </div>
-                                        <span id="track-time-total">0:00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="time-panel flex flex-col justify-between gap-3">
-                        <div>
-                            <div id="local-time" class="time-value font-bold">00:00:00</div>
-                            <div id="local-date" class="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-400">Loading date</div>
-                        </div>
-                        <div class="birthday-grid">
-                            <div class="birthday-chip">
-                                <span>Birthday</span>
-                                <strong id="birthday-date">13 January</strong>
-                            </div>
-                            <div class="birthday-chip">
-                                <span>Remaining</span>
-                                <strong id="birthday-countdown">--d --h --m --s</strong>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <div class="glass col-span-12 md:col-span-5 p-2 flex flex-col justify-between">
                 <div class="sr-only">
@@ -605,16 +505,16 @@
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
                                         <span class="font-bold text-zinc-500 text-[10px] flex-shrink-0 w-7">TON</span>
-                                        <span class="text-zinc-200 truncate font-semibold">.ton</span>
+                                        <span class="text-zinc-200 truncate font-semibold"></span>
                                     </div>
-                                    <button type="button" data-copy=".ton" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy TON address">&#128203;</button>
+                                    <button type="button" data-copy="" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy TON address">&#128203;</button>
                                 </div>
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
                                         <span class="font-bold text-zinc-500 text-[10px] flex-shrink-0 w-7">BTC</span>
                                         <span class="text-zinc-200 truncate font-semibold"></span>
                                     </div>
-                                    <button type="button" data-copy="12nCyTz9i6FaTyGnBUpLmrpTTodQCKEbiu" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy BTC address">&#128203;</button>
+                                    <button type="button" data-copy="" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy BTC address">&#128203;</button>
                                 </div>
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
@@ -632,16 +532,13 @@
                                 </div>
                             </div>
                         </div>
-                        <a href="" class="inline-flex w-full items-center justify-center rounded-md btn-action py-1.5 text-[9px] uppercase tracking-wider">
-                            CryptoBot Open &nearr;
-                        </a>
                     </div>
 
                     <div class="rounded-xl border border-white/5 bg-white/[0.01] p-3.5 flex flex-col justify-between">
                         <div>
                             <div class="text-[9px] uppercase tracking-widest text-zinc-500 mb-2.5">Fiat / Cards</div>
                             <div class="flex flex-wrap gap-1.5 mb-4">
-                                <a href="" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
+                                <a href="https://www.tinkoff.ru/" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
                                     tinkoff &nearr;
                                 </a>
                                 <a href="https://t.me/danonsha" class="hint-link rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
@@ -678,155 +575,16 @@
             birthday_day: 29,
             socials: [
                 { id: 'discord', name: 'Discord', href: 'https://discord.com/users/danonsha', label: 'Personal chat', subtext: 'OPEN DM' },
-                { id: 'youtube', name: 'YouTube', href: 'https://youtube.com/@danonsha', label: 'Videos', subtext: 'OPEN' },
-                { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/plaksadanonsha', label: 'Photos', subtext: 'OPEN' },
-                { id: 'tiktok', name: 'TikTok', href: 'https://www.tiktok.com/@danonshaa', label: 'Short videos', subtext: 'OPEN' },
+                { id: 'youtube', name: 'YouTube', href: 'https://youtube.com/@danonsha.', label: 'Videos', subtext: 'OPEN' },
+                { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/danonshax', label: 'Photos', subtext: 'OPEN' },
+                { id: 'tiktok', name: 'TikTok', href: 'https://www.tiktok.com/@.danonsha', label: 'Short videos', subtext: 'OPEN' },
                 { id: 'boosty', name: 'Boosty', href: 'https://boosty.to/danonsha', label: 'Support', subtext: 'OPEN' },
-                { id: 'x', name: 'X', href: 'https://x.com/', label: 'News', subtext: 'OPEN' },
-                { id: 'steam', name: 'Steam', href: 'https://steamcommunity.com/id/Krafen_', label: 'Game profile', subtext: 'OPEN' }
+                { id: 'x', name: 'X', href: 'https://x.com/danonsha_', label: 'News', subtext: 'OPEN' },
+                { id: 'steam', name: 'Steam', href: 'https://steamcommunity.com/id/danonsha_', label: 'Game profile', subtext: 'OPEN' }
             ]
         };
 
-        let currentTrackDuration = 0;
-        let currentTrackElapsed = 0;
-        let trackTimerInterval = null;
-
-        function escapeHTML(value) {
-            return String(value ?? '').replace(/[&<>"']/g, char => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            }[char]));
-        }
-
-        function setCard(id, html) {
-            const node = document.getElementById(id);
-            if (!node) return;
-            node.innerHTML = html;
-        }
-
-        async function copyText(value) {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(value);
-                return;
-            }
-
-            const textarea = document.createElement('textarea');
-            textarea.value = value;
-            textarea.setAttribute('readonly', '');
-            textarea.style.position = 'fixed';
-            textarea.style.left = '-9999px';
-            document.body.appendChild(textarea);
-            textarea.select();
-
-            try {
-                if (!document.execCommand('copy')) {
-                    throw new Error('execCommand copy failed');
-                }
-            } finally {
-                document.body.removeChild(textarea);
-            }
-        }
-
-        function statusBox(message) {
-            return `<div class="rounded-xl border border-white/5 bg-white/[0.01] p-3 text-[10px] uppercase tracking-wider text-zinc-500">${escapeHTML(message)}</div>`;
-        }
-
-        function formatNumber(value) {
-            return Number(value || 0).toLocaleString('en-US');
-        }
-
-        function formatMetric(value) {
-            const num = Number(value);
-            return Number.isFinite(num) ? num.toLocaleString('en-US') : '--';
-        }
-
-        function formatAbsoluteTime(uts) {
-            const date = new Date(Number(uts) * 1000);
-            if (!Number.isFinite(date.getTime())) return 'Unknown';
-            return new Intl.DateTimeFormat('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit'
-            }).format(date);
-        }
-
-        function formatRelativeTime(uts) {
-            const timestamp = Number(uts) * 1000;
-            if (!Number.isFinite(timestamp)) return 'Unknown';
-
-            const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-            if (diffSeconds < 60) return 'just now';
-            if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
-            if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
-            if (diffSeconds < 604800) return `${Math.floor(diffSeconds / 86400)}d ago`;
-            return formatAbsoluteTime(uts);
-        }
-
-        function formatTime(seconds) {
-            const safe = Math.max(0, Math.floor(Number(seconds) || 0));
-            const mins = Math.floor(safe / 60);
-            const secs = safe % 60;
-            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        }
-
-        function hashString(value) {
-            let hash = 0;
-            const input = String(value || '');
-            for (let i = 0; i < input.length; i++) {
-                hash = ((hash << 5) - hash) + input.charCodeAt(i);
-                hash |= 0;
-            }
-            return Math.abs(hash);
-        }
-
-        function estimateTrackDuration(trackName, artist, album) {
-            const seed = hashString(`${trackName}|${artist}|${album}`);
-            return 150 + (seed % 121);
-        }
-
-        function estimateTrackElapsed(signature, duration) {
-            if (!duration) return 0;
-            const seed = hashString(signature);
-            const nowSeconds = Math.floor(Date.now() / 1000);
-            return (nowSeconds + seed) % duration;
-        }
-
-        function updateTrackProgress() {
-            const progress = document.getElementById('track-progress');
-            const current = document.getElementById('track-time-current');
-            const total = document.getElementById('track-time-total');
-            if (!progress || !current || !total || !currentTrackDuration) return;
-
-            const pct = Math.min(100, (currentTrackElapsed / currentTrackDuration) * 100);
-            progress.style.width = `${pct}%`;
-            current.textContent = formatTime(currentTrackElapsed);
-            total.textContent = formatTime(currentTrackDuration);
-        }
-
-        function startTrackTimer(isLive) {
-            clearInterval(trackTimerInterval);
-
-            if (!isLive) {
-                currentTrackElapsed = currentTrackDuration;
-                updateTrackProgress();
-                return;
-            }
-
-            updateTrackProgress();
-            trackTimerInterval = setInterval(() => {
-                currentTrackElapsed += 1;
-                if (currentTrackElapsed > currentTrackDuration) {
-                    currentTrackElapsed = 0;
-                }
-                updateTrackProgress();
-            }, 1000);
-        }
-
-        function twitchLiveDuration(startedAt) {
+startedAt) {
             const started = new Date(startedAt).getTime();
             if (!Number.isFinite(started)) return '';
             const minutes = Math.max(0, Math.floor((Date.now() - started) / 60000));
@@ -968,7 +726,7 @@
             countdownEl.textContent = `${d}d ${h}h ${m}m ${s}s`;
         }
 
-        async function fetchDiscordServer() {
+) {
             const card = document.getElementById('discord-server-card');
             if (!card) return;
 
@@ -1109,17 +867,12 @@
             updateBirthdayWidget();
 
             Promise.all([
-                fetchMusic(),
-                fetchGitHub(),
                 fetchDiscordServer(),
                 fetchTwitch()
             ]);
         }
 
         init();
-
-        setInterval(fetchMusic, 5 * 60 * 1000);
-        setInterval(fetchGitHub, 30 * 60 * 1000);
         setInterval(fetchDiscordServer, 5 * 60 * 1000);
         setInterval(fetchTwitch, 5 * 60 * 1000);
         setInterval(updateBirthdayWidget, 1000);
