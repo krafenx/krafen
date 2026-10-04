@@ -58,6 +58,16 @@
         }
 
 
+
+
+        .music-status-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.75rem;
+            align-items: stretch;
+        }
+
+        .time-panel {
             position: relative;
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.06);
@@ -413,6 +423,7 @@
         }
 
         @media (max-width: 640px) {
+            .music-status-grid,
             .birthday-grid,
             .discord-stat-grid {
                 grid-template-columns: minmax(0, 1fr);
@@ -424,6 +435,9 @@
         }
 
         @media (max-width: 900px) {
+            .music-status-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
         }
     </style>
     <link rel="stylesheet" href="/styles/themes.css">
@@ -453,10 +467,9 @@
                 <div>
                     <h1 class="text-3xl font-bold mb-2 tracking-tight text-white">danonsha</h1>
                     <p class="text-zinc-400 text-xs leading-relaxed max-w-xl">
-                        my name's danaya, my nickname is danonsha and i'm 32 years old. i don't have much to say about myself honestly sooo...
+                        my name's danaya, my nickname is danonsha and i'm 20 years old. i don't have much to say about myself honestly sooo...
                     </p>
                 </div>
-
             </div>
 
             <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
@@ -469,7 +482,27 @@
                 </div>
             </div>
 
+            <div class="glass col-span-12 md:col-span-7 p-2 flex flex-col justify-between">
 
+                <div class="music-status-grid">
+                    <div class="time-panel flex flex-col justify-between gap-3">
+                        <div>
+                            <div id="local-time" class="time-value font-bold">00:00:00</div>
+                            <div id="local-date" class="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-400">Loading date</div>
+                        </div>
+                        <div class="birthday-grid">
+                            <div class="birthday-chip">
+                                <span>Birthday</span>
+                                <strong id="birthday-date">13 January</strong>
+                            </div>
+                            <div class="birthday-chip">
+                                <span>Remaining</span>
+                                <strong id="birthday-countdown">--d --h --m --s</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div class="glass col-span-12 md:col-span-5 p-2 flex flex-col justify-between">
                 <div class="sr-only">
@@ -507,7 +540,7 @@
                                         <span class="font-bold text-zinc-500 text-[10px] flex-shrink-0 w-7">TON</span>
                                         <span class="text-zinc-200 truncate font-semibold"></span>
                                     </div>
-                                    <button type="button" data-copy="" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy TON address">&#128203;</button>
+                                    <button type="button" data-copy="angeldanonsha.ton" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy TON address">&#128203;</button>
                                 </div>
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
@@ -526,7 +559,7 @@
                                 <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] border border-white/5 w-full overflow-hidden">
                                     <div class="flex items-center gap-2 min-w-0">
                                         <span class="font-bold text-zinc-500 text-[10px] flex-shrink-0 w-7">TRX</span>
-                                        <span class="text-zinc-200 truncate font-semibold">T9z2B5sfyWqnXeVfEg3gJt3Fi9suVLaFxH</span>
+                                        <span class="text-zinc-200 truncate font-semibold"></span>
                                     </div>
                                     <button type="button" data-copy="" class="text-zinc-400 hover:text-white px-1 text-xs" title="Copy TRX address">&#128203;</button>
                                 </div>
@@ -538,7 +571,7 @@
                         <div>
                             <div class="text-[9px] uppercase tracking-widest text-zinc-500 mb-2.5">Fiat / Cards</div>
                             <div class="flex flex-wrap gap-1.5 mb-4">
-                                <a href="https://www.tinkoff.ru/" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
+                                <a href="" class="rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
                                     tinkoff &nearr;
                                 </a>
                                 <a href="https://t.me/danonsha" class="hint-link rounded-md px-2.5 py-1 text-[10px] btn-action inline-flex items-center gap-1">
@@ -567,16 +600,16 @@
     <script nonce="__CSP_NONCE__">
         const CONFIG = {
             twitch_user: 'danonsha',
-            discord_invite_code: 'kGdxDzxtmK',
-            telegram_channel: 'danonshasad',
+            discord_invite_code: 'GX9wYDd8ay',
+            telegram_channel: 'danonsha',
             telegram_username: 'danonsha',
-            steam_id: '76561199067685266',
+            steam_id: '76561198088611742',
             birthday_month: 9,
             birthday_day: 29,
             socials: [
                 { id: 'discord', name: 'Discord', href: 'https://discord.com/users/danonsha', label: 'Personal chat', subtext: 'OPEN DM' },
                 { id: 'youtube', name: 'YouTube', href: 'https://youtube.com/@danonsha.', label: 'Videos', subtext: 'OPEN' },
-                { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/danonshax', label: 'Photos', subtext: 'OPEN' },
+                { id: 'watchlist', name: 'Instagram', href: 'https://instagram.com/danonsha', label: 'Photos', subtext: 'OPEN' },
                 { id: 'tiktok', name: 'TikTok', href: 'https://www.tiktok.com/@.danonsha', label: 'Short videos', subtext: 'OPEN' },
                 { id: 'boosty', name: 'Boosty', href: 'https://boosty.to/danonsha', label: 'Support', subtext: 'OPEN' },
                 { id: 'x', name: 'X', href: 'https://x.com/danonsha_', label: 'News', subtext: 'OPEN' },
@@ -584,7 +617,89 @@
             ]
         };
 
-startedAt) {
+        function escapeHTML(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function setCard(id, html) {
+            const node = document.getElementById(id);
+            if (!node) return;
+            node.innerHTML = html;
+        }
+
+        async function copyText(value) {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(value);
+                return;
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = value;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                if (!document.execCommand('copy')) {
+                    throw new Error('execCommand copy failed');
+                }
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function statusBox(message) {
+            return `<div class="rounded-xl border border-white/5 bg-white/[0.01] p-3 text-[10px] uppercase tracking-wider text-zinc-500">${escapeHTML(message)}</div>`;
+        }
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString('en-US');
+        }
+
+        function formatMetric(value) {
+            const num = Number(value);
+            return Number.isFinite(num) ? num.toLocaleString('en-US') : '--';
+        }
+
+        function formatAbsoluteTime(uts) {
+            const date = new Date(Number(uts) * 1000);
+            if (!Number.isFinite(date.getTime())) return 'Unknown';
+            return new Intl.DateTimeFormat('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+
+        function formatRelativeTime(uts) {
+            const timestamp = Number(uts) * 1000;
+            if (!Number.isFinite(timestamp)) return 'Unknown';
+
+            const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+            if (diffSeconds < 60) return 'just now';
+            if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+            if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
+            if (diffSeconds < 604800) return `${Math.floor(diffSeconds / 86400)}d ago`;
+            return formatAbsoluteTime(uts);
+        }
+
+        function formatTime(seconds) {
+            const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+            const mins = Math.floor(safe / 60);
+            const secs = safe % 60;
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        function twitchLiveDuration(startedAt) {
             const started = new Date(startedAt).getTime();
             if (!Number.isFinite(started)) return '';
             const minutes = Math.max(0, Math.floor((Date.now() - started) / 60000));
@@ -726,7 +841,7 @@ startedAt) {
             countdownEl.textContent = `${d}d ${h}h ${m}m ${s}s`;
         }
 
-) {
+        async function fetchDiscordServer() {
             const card = document.getElementById('discord-server-card');
             if (!card) return;
 
@@ -873,6 +988,7 @@ startedAt) {
         }
 
         init();
+
         setInterval(fetchDiscordServer, 5 * 60 * 1000);
         setInterval(fetchTwitch, 5 * 60 * 1000);
         setInterval(updateBirthdayWidget, 1000);
