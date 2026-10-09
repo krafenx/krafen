@@ -1021,7 +1021,15 @@ async function getSpotifyAccessToken(env) {
         body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.access_token) throw new Error('spotify_token_refresh_failed');
+    if (!response.ok || !data.access_token) {
+        const error = new Error('spotify_token_refresh_failed');
+        error.status = response.status;
+        error.code = 'spotify_token_refresh_failed';
+        error.reason = ['invalid_grant', 'invalid_client', 'invalid_request', 'unauthorized_client'].includes(data.error)
+            ? data.error
+            : undefined;
+        throw error;
+    }
     if (data.refresh_token) await env.WATCHLIST.put(SPOTIFY_REFRESH_TOKEN_KEY, data.refresh_token);
     await env.WATCHLIST.put(SPOTIFY_ACCESS_TOKEN_KEY, JSON.stringify({
         accessToken: data.access_token,
@@ -1036,9 +1044,11 @@ async function handleSpotify(request, env) {
     const cachedResponse = await readWorkerCache(cacheKey);
     if (cachedResponse) return cachedResponse;
 
+    let stage = 'token';
     try {
         const accessToken = await getSpotifyAccessToken(env);
         if (!accessToken) return json({ error: 'spotify_not_connected' }, 503);
+        stage = 'playback';
         const playbackResponse = await fetch(`${SPOTIFY_API_BASE}/me/player`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         });
@@ -1054,15 +1064,23 @@ async function handleSpotify(request, env) {
             nowPlaying = Boolean(playback.is_playing);
             progressMs = Number.isFinite(playback.progress_ms) ? playback.progress_ms : null;
         } else if (playbackResponse.status === 204) {
+            stage = 'recently_played';
             const recentResponse = await fetch(`${SPOTIFY_API_BASE}/me/player/recently-played?limit=1`, {
                 headers: { Authorization: `Bearer ${accessToken}` },
             });
             if (recentResponse.ok) {
                 const recent = await recentResponse.json();
                 item = recent.items?.[0]?.track || null;
+            } else {
+                return json({ error: 'spotify_recently_played_http_error', status: recentResponse.status }, 502);
             }
         } else {
-            return json({ error: playbackResponse.status === 401 ? 'spotify_reauthorization_required' : 'spotify_unavailable' }, 502);
+            const error = playbackResponse.status === 401
+                ? 'spotify_reauthorization_required'
+                : playbackResponse.status === 403
+                    ? 'spotify_playback_forbidden'
+                    : 'spotify_playback_http_error';
+            return json({ error, status: playbackResponse.status }, 502);
         }
 
         const track = item ? {
@@ -1078,8 +1096,11 @@ async function handleSpotify(request, env) {
         const response = json({ track }, 200, { 'Cache-Control': 'public, max-age=3' });
         await writeWorkerCache(cacheKey, response);
         return response;
-    } catch {
-        return json({ error: 'spotify_unavailable' }, 502);
+    } catch (error) {
+        const response = { error: error.code || `spotify_${stage}_failed` };
+        if (Number.isFinite(error.status)) response.status = error.status;
+        if (error.reason) response.reason = error.reason;
+        return json(response, 502);
     }
 }
 
