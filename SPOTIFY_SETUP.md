@@ -19,7 +19,7 @@ Spotify currently requires the app owner to have an active Premium subscription 
    - `SPOTIFY_CLIENT_SECRET`
 
 4. Deploy the Worker and static assets.
-5. Open `https://krafen.me/`, enter admin mode at `/watchlist` or `/setup`, then open `https://krafen.me/api/spotify/auth` in the same browser.
+5. Open `https://krafen.me/watchlist` or `https://krafen.me/setup`, enter admin mode, then click **подключить Spotify** in the admin bar. This starts OAuth from the authenticated site session.
 6. Approve access with the Spotify account whose playback the widget should show. Spotify returns to the site and the Worker saves its refresh token in `WATCHLIST`.
 
 The widget updates playback about every five seconds and animates progress once per second from Spotify's reported position. When playback is paused, progress freezes. When nothing is playing, the widget shows the most recently played track without a timeline.
