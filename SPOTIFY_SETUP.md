@@ -13,7 +13,7 @@ Spotify currently requires the app owner to have an active Premium subscription 
    https://krafen.online/api/spotify/callback
    ```
 
-3. Save the app's Client ID and Client Secret in the Cloudflare Secret Store used by this Worker. Once both secrets exist, add bindings for `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` to the `secrets_store_secrets` list in `wrangler.jsonc` using the correct store ID and secret names. Do not add bindings to secrets that do not exist: Wrangler will reject deployment.
+3. Save the app's Client ID and Client Secret in the Cloudflare Secret Store used by this Worker. The `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` bindings are declared in `wrangler.jsonc`; both matching secrets must exist in that store before deployment.
 
    - `SPOTIFY_CLIENT_ID`
    - `SPOTIFY_CLIENT_SECRET`
