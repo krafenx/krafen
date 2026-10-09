@@ -68,7 +68,7 @@ function contentSecurityPolicy(nonce = '') {
         "style-src-attr 'unsafe-inline'",
         'font-src https://fonts.gstatic.com',
         "img-src 'self' data: https:",
-        "connect-src 'self' https://api.github.com https://discord.com https://shikimori.one https://api.themoviedb.org",
+        "connect-src 'self' https://discord.com https://shikimori.one https://api.themoviedb.org",
     ].join('; ');
 }
 

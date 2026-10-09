@@ -102,16 +102,22 @@
         }
         .top-nav {
             width: calc(100vw - 3rem);
-            max-width: 72rem;
+            max-width: 90rem;
             margin: 0 auto 1.4rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
-        @media (min-width: 768px) { .top-nav { width: calc(100vw - 6rem); } }
+        main.max-w-6xl {
+            width: calc(100vw - 3rem);
+            max-width: 90rem;
+        }
+        @media (min-width: 768px) {
+            .top-nav, main.max-w-6xl { width: calc(100vw - 6rem); }
+        }
     </style>
-    <link rel="stylesheet" href="/styles/themes.css">
-    <script nonce="__CSP_NONCE__" src="/styles/themes.js"></script>
+    <link rel="stylesheet" href="/styles/themes.css?v=20261009-4">
+    <script nonce="__CSP_NONCE__" src="/styles/themes.js?v=20261009-3" defer></script>
 </head>
 <body class="p-6 md:p-12">
 
@@ -696,3 +702,4 @@
     </script>
 </body>
 </html>
+

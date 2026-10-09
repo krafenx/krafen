@@ -70,6 +70,7 @@
         .timeline-bar { height: 3px; background: rgba(255,255,255,.12); border-radius: 2px; overflow: hidden; }
         .timeline-progress { height: 100%; width: 0%; background: rgba(255,255,255,.9); border-radius: inherit; transition: width .8s linear; }
         #track-timeline[hidden] { display: none !important; }
+        .site-notice { position: fixed; z-index: 100; top: 1rem; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 2rem); padding: .75rem 1rem; border: 1px solid rgba(255,255,255,.12); border-radius: .75rem; background: rgba(16,16,16,.96); color: #f4f4f5; font-size: .75rem; box-shadow: 0 10px 35px rgba(0,0,0,.35); }
 
         .music-blur-bg {
             position: absolute;
@@ -98,11 +99,11 @@
         .time-panel {
             position: relative;
             overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
             border-radius: 0.75rem;
             background:
-                linear-gradient(135deg, rgba(91, 35, 51, 0.18), rgba(255, 255, 255, 0.025)),
-                rgba(0, 0, 0, 0.18);
+                linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--surface-strong) 60%, transparent)),
+                color-mix(in srgb, var(--bg) 70%, transparent);
             min-height: 5rem;
             padding: 0.6rem 0.7rem;
         }
@@ -111,7 +112,7 @@
             content: "";
             position: absolute;
             inset: 0;
-            background: radial-gradient(circle at top right, rgba(247, 244, 243, 0.08), transparent 38%);
+            background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent-light) 10%, transparent), transparent 38%);
             pointer-events: none;
         }
 
@@ -450,8 +451,8 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="/styles/themes.css">
-    <script nonce="__CSP_NONCE__" src="/styles/themes.js"></script>
+    <link rel="stylesheet" href="/styles/themes.css?v=20261009-4">
+    <script nonce="__CSP_NONCE__" src="/styles/themes.js?v=20261009-3" defer></script>
 </head>
 <body class="p-4 sm:p-6 md:p-10 flex flex-col items-center">
     <div id="starfield">
@@ -1110,6 +1111,20 @@
         }
 
         function init() {
+            const currentUrl = new URL(window.location.href);
+            if (currentUrl.searchParams.get('spotify') === 'connected') {
+                currentUrl.searchParams.delete('spotify');
+                window.history.replaceState(null, '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+
+                const notice = document.createElement('div');
+                notice.className = 'site-notice';
+                notice.setAttribute('role', 'status');
+                notice.setAttribute('aria-live', 'polite');
+                notice.textContent = 'Spotify connected';
+                document.body.appendChild(notice);
+                window.setTimeout(() => notice.remove(), 5000);
+            }
+
             renderSocialLinks();
             renderContacts();
             initDonationCopy();
@@ -1132,3 +1147,4 @@
     </script>
 </body>
 </html>
+

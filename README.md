@@ -36,6 +36,8 @@ The configuration contains identifiers for the existing deployment. It is not a 
 
 This is a personal project, not an open-source release. All rights to project materials owned by the author are reserved. No permission is granted to copy, modify, redistribute, or use those materials without prior written permission. Third-party materials remain subject to their respective terms.
 
+To request permission, contact [@krafen on Telegram](https://t.me/krafen).
+
 See [LICENSE](LICENSE). Public visibility on a code-hosting service may still allow viewing or forking through that service; repository visibility must be changed to private to restrict access there.
 
 ---
@@ -77,5 +79,7 @@ See [LICENSE](LICENSE). Public visibility on a code-hosting service may still al
 ## Права и разрешения
 
 Это личный проект, не выпускаемый как open source. Все права на материалы проекта, принадлежащие автору, защищены. Без предварительного письменного разрешения нельзя копировать, изменять, распространять или использовать эти материалы. На сторонние материалы распространяются условия их правообладателей.
+
+Чтобы запросить разрешение, напиши [@krafen в Telegram](https://t.me/krafen).
 
 Подробности — в файле [LICENSE](LICENSE). Если репозиторий публичный, правила хостинга всё ещё могут разрешать просмотр и форк. Чтобы ограничить к нему доступ, нужно сделать репозиторий приватным.
