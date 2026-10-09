@@ -2,7 +2,7 @@
 
 **Krafen is my personal website and collection dashboard.** It brings together profile information, links, live service status, and a few personal lists in one place. It is not a reusable framework or a general-purpose website builder.
 
-[Live site](https://krafen.online/)
+[Live site](https://krafen.me/)
 
 ## What is here
 
@@ -44,7 +44,7 @@ See [LICENSE](LICENSE). Public visibility on a code-hosting service may still al
 
 **Krafen — мой личный сайт и набор страниц для собственных списков.** Здесь собраны профиль, ссылки, статусы сервисов и несколько личных подборок. Это не универсальный конструктор сайтов и не переиспользуемый фреймворк.
 
-[Открыть сайт](https://krafen.online/)
+[Открыть сайт](https://krafen.me/)
 
 ## Что входит в проект
 

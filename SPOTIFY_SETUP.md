@@ -10,7 +10,7 @@ Spotify currently requires the app owner to have an active Premium subscription 
 2. Add this exact Redirect URI to the app settings:
 
    ```text
-   https://krafen.online/api/spotify/callback
+   https://krafen.me/api/spotify/callback
    ```
 
 3. Save the app's Client ID and Client Secret in the Cloudflare Secret Store used by this Worker. The `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` bindings are declared in `wrangler.jsonc`; both matching secrets must exist in that store before deployment.
@@ -19,7 +19,7 @@ Spotify currently requires the app owner to have an active Premium subscription 
    - `SPOTIFY_CLIENT_SECRET`
 
 4. Deploy the Worker and static assets.
-5. Open `https://krafen.online/`, enter admin mode, then open `https://krafen.online/api/spotify/auth` in the same browser.
+5. Open `https://krafen.me/`, enter admin mode at `/watchlist` or `/setup`, then open `https://krafen.me/api/spotify/auth` in the same browser.
 6. Approve access with the Spotify account whose playback the widget should show. Spotify returns to the site and the Worker saves its refresh token in `WATCHLIST`.
 
 The widget updates playback about every five seconds and animates progress once per second from Spotify's reported position. When playback is paused, progress freezes. When nothing is playing, the widget shows the most recently played track without a timeline.
