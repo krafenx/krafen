@@ -970,10 +970,10 @@
                 if (spotifyTimeline) updateSpotifyTimeline();
 
                 playbackStatus.innerHTML = isLive
-                    ? `<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span><span>${source === 'Spotify' ? 'Now playing' : 'Now playing · Last.fm'}</span>`
+                    ? `<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span><span>${source === 'Spotify' ? 'Now playing' : 'Now playing'}</span>`
                     : track.currentPlayback
                         ? '<span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span><span>Paused</span>'
-                        : `<span class="h-1.5 w-1.5 rounded-full bg-zinc-500"></span><span>${source === 'Spotify' ? 'Last played' : 'Last played · Last.fm'}</span>`;
+                        : `<span class="h-1.5 w-1.5 rounded-full bg-zinc-500"></span><span>${source === 'Spotify' ? 'Last played' : 'Last played'}</span>`;
             } catch (error) {
                 trackName.textContent = 'Music status is unavailable';
                 trackArtist.innerHTML = '<span class="text-zinc-500">Spotify and Last.fm could not be reached</span>';
