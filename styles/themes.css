@@ -486,11 +486,18 @@ body.has-admin-toggle .theme-switcher {
 .theme-switcher__option-name { font-size: 0.76rem; }
 .theme-switcher__option-check { margin-left: auto; color: var(--accent-light); }
 
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+    transition: filter 160ms ease, box-shadow 160ms ease, background-color 160ms ease,
+        border-color 160ms ease, color 160ms ease, opacity 160ms ease, transform 160ms ease;
+}
+
 button:not(:disabled):hover,
 [data-theme] button:not(:disabled):hover,
 [role="button"]:not([aria-disabled="true"]):hover {
-    filter: brightness(1.08);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-light) 30%, transparent),
-        0 0 14px color-mix(in srgb, var(--accent) 16%, transparent);
+    filter: brightness(1.04);
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-light) 24%, transparent),
+        0 5px 14px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
