@@ -7,6 +7,11 @@
         { id: 'dusky-orchid', label: 'Dusky Orchid', swatch: '#9a7182' },
         { id: 'red-velvet', label: 'Red Velvet', swatch: 'linear-gradient(135deg, #19171b 25%, #75020f 25% 50%, #51080d 50% 75%, #2b0307 75%)' },
         { id: 'deep-amethyst', label: 'Deep Amethyst', swatch: '#1c101a' },
+        { id: 'neon-navy', label: 'Neon Navy', swatch: '#131936' },
+        { id: 'ponderosa-pine', label: 'Ponderosa Pine', swatch: '#0f2c24' },
+        { id: 'plum-noir', label: 'Plum Noir', swatch: '#351e28' },
+        { id: 'coffee-bag', label: 'Coffee Bag', swatch: 'linear-gradient(135deg, #dad6d4 25%, #aeaaa8 25% 50%, #7a7774 50% 75%, #3b3a37 75%)' },
+        { id: 'eerie-black', label: 'Eerie Black', swatch: 'linear-gradient(135deg, #1b1b1b 25%, #595959 25% 50%, #a2a2a2 50% 75%, #dddddd 75%)' },
     ];
     const validThemes = new Set(themes.map(theme => theme.id));
     const root = document.documentElement;
@@ -24,7 +29,7 @@
         const selected = validThemes.has(themeId) ? themeId : 'original';
         root.dataset.theme = selected;
         root.dataset.themePreference = selected;
-        root.style.colorScheme = 'dark';
+        root.style.colorScheme = selected === 'coffee-bag' ? 'light' : 'dark';
         return selected;
     }
 
