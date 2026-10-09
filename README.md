@@ -1,88 +1,81 @@
-<div align="center">
+# Krafen
 
-# 🌌 Krafen
+**Krafen is my personal website and collection dashboard.** It brings together profile information, links, live service status, and a few personal lists in one place. It is not a reusable framework or a general-purpose website builder.
 
-### *The Next-Gen Modular Engine for Digital Identity & High-Fidelity Interfaces*
+[Live site](https://krafen.online/)
 
-[![Version](https://img.shields.io/badge/version-2.0.0-black?style=for-the-badge&labelColor=111)](https://github.com/krafenx/krafen)
-[![License: MIT](https://img.shields.io/badge/License-MIT-black?style=for-the-badge&labelColor=111)](https://opensource.org/licenses/MIT)
+## What is here
+
+- `index.html` — personal homepage with Discord, Twitch, and music widgets.
+- `watchlist.html` — anime, film, and series list, with TMDB search.
+- `gamelist.html` — game list, with IGDB search.
+- `setup.html` — PC parts and gear list.
+- `wishlist.html` — shopping wishlist.
+- `tasks.html` — task page.
+- `danonsha.html` — a separate profile page.
+- `worker.js` — Cloudflare Worker API for the lists, admin session, and external services.
+
+The pages use plain HTML, CSS, and browser JavaScript. Tailwind CSS and JetBrains Mono are loaded from external CDNs. The backend uses Cloudflare Workers and a Workers KV namespace. There is no React or Next.js application, `package.json`, or `npm run dev` command.
+
+## Services
+
+The homepage reads public Discord and Twitch data. Music is read from Spotify when its Web API is configured; otherwise it falls back to Last.fm. A real playback timeline is only shown when Spotify provides the current track position and duration. Last.fm does not provide that playback progress, so the fallback intentionally has no timeline.
+
+The list pages store data in Cloudflare KV. Editing is protected by the site's admin session. API credentials are configured as Cloudflare secrets and are not intended to be placed in browser code.
+
+## Deployment notes
+
+This site is configured for its existing Cloudflare Worker in `wrangler.jsonc`. Deployment depends on that Cloudflare setup, including its KV namespace, rate-limit bindings, and secrets. See:
+
+- [Cloudflare Worker configuration](WATCHLIST_SETUP.md)
+- [Spotify widget configuration](SPOTIFY_SETUP.md)
+
+The configuration contains identifiers for the existing deployment. It is not a self-service template; deployment elsewhere would require separate Cloudflare resources and configuration.
+
+## Rights and permissions
+
+This is a personal project, not an open-source release. All rights to project materials owned by the author are reserved. No permission is granted to copy, modify, redistribute, or use those materials without prior written permission. Third-party materials remain subject to their respective terms.
+
+See [LICENSE](LICENSE). Public visibility on a code-hosting service may still allow viewing or forking through that service; repository visibility must be changed to private to restrict access there.
 
 ---
 
-[🌐 Live Demo](https://krafen.online/) • [🇬🇧 English Documentation](#-english) • [🇷🇺 Русская документация](#-русский)
+# Krafen (русский)
 
----
-</div>
+**Krafen — мой личный сайт и набор страниц для собственных списков.** Здесь собраны профиль, ссылки, статусы сервисов и несколько личных подборок. Это не универсальный конструктор сайтов и не переиспользуемый фреймворк.
 
-## 🇬🇧 English
+[Открыть сайт](https://krafen.online/)
 
-### 👁️ Vision & Visual Philosophy
-**Krafen** is an ultra-modern, lightweight, and deeply customizable open-source digital identity platform. Moving away from rigid, uninspiring link-aggregators, Krafen acts as a highly optimized boilerplate designed to build expressive web spaces. 
+## Что входит в проект
 
-The architecture is built to support extreme interface customization—blending raw monochrome digital minimalism with advanced, experimental UI/UX engineering, such as interactive micro-animations and glossy, refractive structural layouts.
+- `index.html` — главная страница с виджетами Discord, Twitch и музыки.
+- `watchlist.html` — список аниме, фильмов и сериалов с поиском через TMDB.
+- `gamelist.html` — список игр с поиском через IGDB.
+- `setup.html` — список комплектующих и техники.
+- `wishlist.html` — список желаемых покупок.
+- `tasks.html` — страница задач.
+- `danonsha.html` — отдельная профильная страница.
+- `worker.js` — API на Cloudflare Worker: списки, вход администратора и внешние сервисы.
 
-### 🛠️ Core Tech Stack
-| Technology | Role in Ecosystem | Focus |
-| :--- | :--- | :--- |
-| **Next.js / React** | Core Architecture | Server-side optimization, fast edge execution, components scalability |
-| **Tailwind CSS** | Styling Engine | Granular layout control, custom fluid themes, high-fidelity responsive design |
-| **Modular Modules** | Extensibility | Dynamic widgets, real-time API integrations, self-hosted independence |
+Страницы написаны на обычных HTML, CSS и JavaScript. Tailwind CSS и шрифт JetBrains Mono загружаются с внешних CDN. Серверная часть работает на Cloudflare Workers и Workers KV. В проекте нет приложения на React или Next.js, файла `package.json` и команды `npm run dev`.
 
-### ⚡ Key Capabilities
-* **Architecture v2.0.0:** A complete structural overhaul optimizing state persistence, layout rendering speeds, and bundle size.
-* **API-Ready Ecosystem:** Engineered to dynamically fetch and display real-time data streams (e.g., live GitHub activity pipelines or external media endpoints).
-* **Fork-and-Deploy:** Built as a production-ready boilerplate. Swap the central configuration blueprint, input your credentials, and go live globally in seconds.
+## Сервисы
 
-### 📦 Quick Start
+Главная получает публичные данные Discord и Twitch. Для музыки используется Spotify, если настроен доступ к Web API; иначе виджет обращается к Last.fm. Настоящий таймлайн отображается только когда Spotify возвращает позицию и длительность текущего трека. Last.fm не отдаёт прогресс воспроизведения, поэтому в запасном режиме таймлайна нет.
 
-1. **Clone & Enter Environment**
-   ```bash
-   git clone [https://github.com/krafenx/krafen.git](https://github.com/krafenx/krafen.git) && cd krafen
+Данные страниц со списками хранятся в Cloudflare KV. Редактирование доступно через защищённую сессию администратора. API-секреты задаются в Cloudflare и не должны помещаться в код браузера.
 
- 2. **Initialize Dependencies**
-   ```bash
-   npm install
-   
-   ```
- 3. **Launch Engine**
-   ```bash
-   npm run dev
-   
-   ```
-## 🇷🇺 Русский
-### 👁️ Концепция и визуальная философия
-**Krafen** — это ультрасовременная, легковесная и глубоко настраиваемая платформа цифровой идентичности с открытым исходным кодом. Проект уходит от концепции жестких, лишенных индивидуальности стандартных визиток, предоставляя высокооптимизированный движок для создания выразительных веб-пространств.
-Архитектура платформы спроектирована с прицелом на бескомпромиссный кастом интерфейса — от строгого монохромного цифрового минимализма до сложных экспериментальных UI/UX решений, включающих интерактивные микроанимации и объемные глянцевые элементы с эффектом преломления света.
-### 🛠️ Технологический стек
-| Технология | Роль в экосистеме | Направленность |
-|---|---|---|
-| **Next.js / React** | Ядро архитектуры | Оптимизация на стороне сервера, быстрая работа на Edge-нодах, масштабируемость |
-| **Tailwind CSS** | Стилизация | Гранулярный контроль лейаута, кастомные темы, адаптивность высокого класса |
-| **Modular Modules** | Расширяемость | Динамические виджеты, интеграция сторонних API, полная автономность |
-### ⚡ Ключевые возможности
- * **Архитектура v2.0.0:** Полная структурная переработка кодовой базы, оптимизирующая управление состоянием, скорость рендеринга и финальный размер сборки.
- * **Готовность к интеграциям:** Логика движка подготовлена для динамического получения и отображения потоков данных в реальном времени (например, вашей активности на GitHub или статусов внешних медиа-сервисов).
- * **Fork-and-Deploy:** Готовый к развертыванию продукт. Достаточно изменить центральный конфигурационный файл, указать свои данные и запустить проект в продакшн за считанные минуты.
-### 📦 Быстрый запуск
- 1. **Клонирование репозитория**
-   ```bash
-   git clone [https://github.com/krafenx/krafen.git](https://github.com/krafenx/krafen.git) && cd krafen
-   
-   ```
- 2. **Установка зависимостей**
-   ```bash
-   npm install
-   
-   ```
- 3. **Запуск сервера разработки**
-   ```bash
-   npm run dev
-   
-   ```
-<div align="center">
-### 🛡️ License
-Distributed under the MIT License. Developed with passion by krafenx.
-</div>
-```
+## Развёртывание
 
-```
+`wrangler.jsonc` настроен для существующего Cloudflare Worker. Для развёртывания нужны соответствующие ресурсы Cloudflare: KV namespace, rate limit bindings и секреты. Инструкции:
+
+- [Настройка Cloudflare Worker](WATCHLIST_SETUP.md)
+- [Настройка музыкального виджета Spotify](SPOTIFY_SETUP.md)
+
+Конфигурация содержит идентификаторы существующего развёртывания. Это не готовый шаблон для самостоятельного форка: для другого окружения потребуются отдельные ресурсы Cloudflare и собственная конфигурация.
+
+## Права и разрешения
+
+Это личный проект, не выпускаемый как open source. Все права на материалы проекта, принадлежащие автору, защищены. Без предварительного письменного разрешения нельзя копировать, изменять, распространять или использовать эти материалы. На сторонние материалы распространяются условия их правообладателей.
+
+Подробности — в файле [LICENSE](LICENSE). Если репозиторий публичный, правила хостинга всё ещё могут разрешать просмотр и форк. Чтобы ограничить к нему доступ, нужно сделать репозиторий приватным.

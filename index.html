@@ -479,9 +479,6 @@
 <p class="text-zinc-400 text-xs leading-relaxed max-w-xl whitespace-pre-line">my name's svyatoslav, my nickname is krafen and i'm 20 years old.
     i don't have much to say about myself honestly sooo...</p>
                 </div>
-                <div class="flex flex-wrap gap-2 mt-4" id="github-stats">
-                    <span class="text-[9px] uppercase tracking-wider bg-white/5 border border-white/5 px-2.5 py-1 rounded-md text-zinc-500">fetching_github...</span>
-                </div>
             </div>
 
             <div class="glass col-span-12 md:col-span-4 p-4 flex flex-col justify-between">
@@ -650,7 +647,6 @@
 
     <script nonce="__CSP_NONCE__">
         const CONFIG = {
-            github_user: 'krafenx',
             twitch_user: 'krafen',
             discord_invite_code: 'kGdxDzxtmK',
             telegram_channel: 'krafenx',
@@ -731,10 +727,6 @@
 
         function statusBox(message) {
             return `<div class="rounded-xl border border-white/5 bg-white/[0.01] p-3 text-[10px] uppercase tracking-wider text-zinc-500">${escapeHTML(message)}</div>`;
-        }
-
-        function formatNumber(value) {
-            return Number(value || 0).toLocaleString('en-US');
         }
 
         function formatMetric(value) {
@@ -982,24 +974,6 @@
             }
         }
 
-        async function fetchGitHub() {
-            const stats = document.getElementById('github-stats');
-            if (!stats) return;
-
-            try {
-                const res = await fetch(`https://api.github.com/users/${CONFIG.github_user}`);
-                if (!res.ok) throw new Error(`github_${res.status}`);
-
-                const data = await res.json();
-                stats.innerHTML = `
-                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-300">${formatNumber(data.public_repos)} Repositories</span>
-                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-400">${formatNumber(data.followers)} Followers</span>
-                    <span class="text-[9px] uppercase font-medium bg-white/5 border border-white/5 px-2.5 py-0.5 rounded text-zinc-500">${formatNumber(data.following)} Following</span>`;
-            } catch (error) {
-                stats.innerHTML = '<span class="text-[9px] text-zinc-600 uppercase">github_unavailable</span>';
-            }
-        }
-
         async function fetchDiscordServer() {
             const card = document.getElementById('discord-server-card');
             if (!card) return;
@@ -1142,7 +1116,6 @@
 
             Promise.all([
                 fetchMusic(),
-                fetchGitHub(),
                 fetchDiscordServer(),
                 fetchTwitch()
             ]);
@@ -1152,7 +1125,6 @@
 
         setInterval(fetchMusic, 5000);
         setInterval(updateSpotifyTimeline, 1000);
-        setInterval(fetchGitHub, 30 * 60 * 1000);
         setInterval(fetchDiscordServer, 5 * 60 * 1000);
         setInterval(fetchTwitch, 60 * 1000);
         setInterval(updateBirthdayWidget, 10);

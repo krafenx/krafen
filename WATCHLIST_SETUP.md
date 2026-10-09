@@ -33,12 +33,15 @@ One namespace holds every collection; they are separated by key:
 | `setup` | PC build + other gear | `/api/setup` | `setup.html` |
 | `wishlist` | shopping wishlist | `/api/wishlist` | `wishlist.html` |
 | `igdb:token`, `twitch:token` | short-lived OAuth tokens (TTL) | internal | - |
+| `spotify:refresh_token`, `spotify:access_token` | Spotify OAuth tokens | internal | - |
 
 Add these secrets:
 
 - `ADMIN_PASSWORD`
 - `TMDB_ACCESS_TOKEN`
 - `LASTFM_API_KEY`
+- `SPOTIFY_CLIENT_ID`
+- `SPOTIFY_CLIENT_SECRET`
 - `TWITCH_CLIENT_ID`
 - `TWITCH_CLIENT_SECRET`
 
@@ -75,7 +78,7 @@ so a busy page still costs one KV read per five minutes rather than one per visi
 
 The homepage checks Twitch at most once every five minutes per open tab. The Worker additionally keeps a five-minute Twitch status cache in the Workers Cache API, so cache hits do not make the two Helix API requests and do not write to KV. If Twitch rejects a cached access token with `401`, the Worker requests and stores one replacement token, then retries the status request once.
 
-The Last.fm API key is kept in the `LASTFM_API_KEY` secret and never sent to browsers. Set the non-secret `LASTFM_USER` variable in `wrangler.jsonc` if the profile changes. The Worker caches recent-track data for five minutes. Public watchlist and gamelist responses are cached for five minutes and the local Workers Cache entry is cleared after an admin save.
+The Last.fm API key is kept in the `LASTFM_API_KEY` secret and never sent to browsers. Set the non-secret `LASTFM_USER` variable in `wrangler.jsonc` if the profile changes. The Worker caches recent-track data for five seconds. Spotify credentials are stored as secrets; its refresh token and cached access token are stored in KV. See `SPOTIFY_SETUP.md` for OAuth setup. The homepage uses Last.fm as a fallback and does not show a timeline without Spotify's real playback progress. Public watchlist and gamelist responses are cached for five minutes and the local Workers Cache entry is cleared after an admin save.
 
 ## Data saves
 
