@@ -67,6 +67,9 @@
             transition: all 0.3s ease;
         }
 
+        .timeline-bar { height: 3px; background: rgba(255,255,255,.12); border-radius: 2px; overflow: hidden; }
+        .timeline-progress { height: 100%; width: 0%; background: rgba(255,255,255,.9); border-radius: inherit; transition: width .8s linear; }
+
         .music-blur-bg {
             position: absolute;
             inset: 0;
@@ -153,24 +156,6 @@
             font-size: 0.62rem;
             line-height: 1.35;
             word-break: break-word;
-        }
-
-        .timeline-bar {
-            height: 3px;
-            background: rgba(255, 255, 255, 0.12);
-            border-radius: 2px;
-            position: relative;
-        }
-
-        .timeline-progress {
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 0%;
-            background: rgba(255, 255, 255, 0.85);
-            border-radius: 2px;
-            transition: width 1s linear;
         }
 
         .widget-grid {
@@ -512,7 +497,7 @@
             <div class="glass col-span-12 md:col-span-7 p-2 flex flex-col justify-between">
                 <div class="sr-only">
                     <h2 class="text-[10px] font-bold uppercase text-zinc-600 tracking-[0.2em]">Now Playing</h2>
-                    <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Last.fm</span>
+                    <span class="text-zinc-500 text-[9px] tracking-widest uppercase">Spotify</span>
                 </div>
 
                 <div class="music-status-grid">
@@ -535,18 +520,14 @@
                                     </div>
                                 </div>
 
-                                <div class="mt-2.5 flex items-center gap-3 text-[10px] text-zinc-500 tracking-wider">
+                                <div id="track-playback-status" class="mt-2.5 flex items-center gap-2 text-[10px] text-zinc-500 tracking-wider">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-zinc-500"></span>
+                                    <span>Last played</span>
+                                </div>
+                                <div id="track-timeline" class="mt-2.5 flex items-center gap-2 text-[10px] text-zinc-500 tracking-wider" hidden>
                                     <span id="track-time-current">0:00</span>
-                                    <div class="timeline-bar flex-1">
-                                        <div id="track-progress" class="timeline-progress"></div>
-                                    </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <div class="flex gap-0.5 h-2.5 items-center px-1 opacity-80">
-                                            <div class="w-[2px] h-full bg-white"></div>
-                                            <div class="w-[2px] h-full bg-white"></div>
-                                        </div>
-                                        <span id="track-time-total">0:00</span>
-                                    </div>
+                                    <div class="timeline-bar flex-1"><div id="track-progress" class="timeline-progress"></div></div>
+                                    <span id="track-time-total">0:00</span>
                                 </div>
                             </div>
                         </div>
@@ -688,9 +669,26 @@
             ]
         };
 
-        let currentTrackDuration = 0;
-        let currentTrackElapsed = 0;
-        let trackTimerInterval = null;
+        let musicFetchInProgress = false;
+        let spotifyTimeline = null;
+
+        function formatTrackTime(milliseconds) {
+            const seconds = Math.max(0, Math.floor((Number(milliseconds) || 0) / 1000));
+            return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+        }
+
+        function updateSpotifyTimeline() {
+            const timeline = document.getElementById('track-timeline');
+            const progress = document.getElementById('track-progress');
+            const current = document.getElementById('track-time-current');
+            const total = document.getElementById('track-time-total');
+            if (!timeline || !progress || !current || !total || !spotifyTimeline) return;
+            const elapsed = Math.min(spotifyTimeline.durationMs, spotifyTimeline.progressMs +
+                (spotifyTimeline.isPlaying ? Date.now() - spotifyTimeline.updatedAt : 0));
+            progress.style.width = `${spotifyTimeline.durationMs ? (elapsed / spotifyTimeline.durationMs) * 100 : 0}%`;
+            current.textContent = formatTrackTime(elapsed);
+            total.textContent = formatTrackTime(spotifyTimeline.durationMs);
+        }
 
         function escapeHTML(value) {
             return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -765,66 +763,6 @@
             if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
             if (diffSeconds < 604800) return `${Math.floor(diffSeconds / 86400)}d ago`;
             return formatAbsoluteTime(uts);
-        }
-
-        function formatTime(seconds) {
-            const safe = Math.max(0, Math.floor(Number(seconds) || 0));
-            const mins = Math.floor(safe / 60);
-            const secs = safe % 60;
-            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        }
-
-        function hashString(value) {
-            let hash = 0;
-            const input = String(value || '');
-            for (let i = 0; i < input.length; i++) {
-                hash = ((hash << 5) - hash) + input.charCodeAt(i);
-                hash |= 0;
-            }
-            return Math.abs(hash);
-        }
-
-        function estimateTrackDuration(trackName, artist, album) {
-            const seed = hashString(`${trackName}|${artist}|${album}`);
-            return 150 + (seed % 121);
-        }
-
-        function estimateTrackElapsed(signature, duration) {
-            if (!duration) return 0;
-            const seed = hashString(signature);
-            const nowSeconds = Math.floor(Date.now() / 1000);
-            return (nowSeconds + seed) % duration;
-        }
-
-        function updateTrackProgress() {
-            const progress = document.getElementById('track-progress');
-            const current = document.getElementById('track-time-current');
-            const total = document.getElementById('track-time-total');
-            if (!progress || !current || !total || !currentTrackDuration) return;
-
-            const pct = Math.min(100, (currentTrackElapsed / currentTrackDuration) * 100);
-            progress.style.width = `${pct}%`;
-            current.textContent = formatTime(currentTrackElapsed);
-            total.textContent = formatTime(currentTrackDuration);
-        }
-
-        function startTrackTimer(isLive) {
-            clearInterval(trackTimerInterval);
-
-            if (!isLive) {
-                currentTrackElapsed = currentTrackDuration;
-                updateTrackProgress();
-                return;
-            }
-
-            updateTrackProgress();
-            trackTimerInterval = setInterval(() => {
-                currentTrackElapsed += 1;
-                if (currentTrackElapsed > currentTrackDuration) {
-                    currentTrackElapsed = 0;
-                }
-                updateTrackProgress();
-            }, 1000);
         }
 
         function twitchLiveDuration(startedAt) {
@@ -974,27 +912,29 @@
             const trackName = document.getElementById('track-name');
             const trackArtist = document.getElementById('track-artist');
             const blurBg = document.getElementById('music-blur');
-            const trackProgress = document.getElementById('track-progress');
-            const trackTimeCurrent = document.getElementById('track-time-current');
-            const trackTimeTotal = document.getElementById('track-time-total');
-            if (!artContainer || !trackName || !trackArtist || !blurBg || !trackProgress || !trackTimeCurrent || !trackTimeTotal) return;
+            const playbackStatus = document.getElementById('track-playback-status');
+            if (!artContainer || !trackName || !trackArtist || !blurBg || !playbackStatus) return;
+            if (musicFetchInProgress) return;
+            musicFetchInProgress = true;
 
             try {
-                const res = await fetch('/api/lastfm', { headers: { Accept: 'application/json' } });
-                if (!res.ok) throw new Error(`lastfm_${res.status}`);
-
-                const data = await res.json();
+                let source = 'Spotify';
+                let res = await fetch('/api/spotify', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+                let data = res.ok ? await res.json() : null;
+                if (!data?.track) {
+                    source = 'Last.fm';
+                    res = await fetch('/api/lastfm', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+                    if (!res.ok) throw new Error(`music_${res.status}`);
+                    data = await res.json();
+                }
                 const track = data.track;
 
                 if (!track) {
                     trackName.textContent = 'Nothing playing';
                     trackArtist.innerHTML = '<span class="text-zinc-500">no recent tracks</span>';
-                    currentTrackDuration = 0;
-                    currentTrackElapsed = 0;
-                    clearInterval(trackTimerInterval);
-                    trackProgress.style.width = '0%';
-                    trackTimeCurrent.textContent = '0:00';
-                    trackTimeTotal.textContent = '0:00';
+                    playbackStatus.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-zinc-500"></span><span>No recent tracks</span>';
+                    document.getElementById('track-timeline').hidden = true;
+                    spotifyTimeline = null;
                     blurBg.style.backgroundImage = 'none';
                     artContainer.innerHTML = '<div class="w-14 h-14 sm:w-16 sm:h-16 rounded bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-500 uppercase">No Art</div>';
                     return;
@@ -1004,7 +944,6 @@
                 const imgSrc = track.image || '';
                 const artist = track.artist || 'Unknown artist';
                 const album = track.album || 'No album info';
-                const signature = `${track.name}|${artist}|${album}`;
 
                 if (imgSrc) {
                     artContainer.innerHTML = `<img src="${escapeHTML(imgSrc)}" class="w-14 h-14 sm:w-16 sm:h-16 rounded object-cover border border-white/10 shadow-xl" alt="Cover">`;
@@ -1017,20 +956,29 @@
                 trackName.textContent = track.name || 'Unknown track';
                 trackArtist.innerHTML = `<span class="text-zinc-500">by</span> <span class="underline decoration-zinc-600 font-medium text-zinc-300">${escapeHTML(artist)}</span>`;
 
-                currentTrackDuration = estimateTrackDuration(track.name, artist, album);
-                currentTrackElapsed = isLive
-                    ? estimateTrackElapsed(signature, currentTrackDuration)
-                    : currentTrackDuration;
-                startTrackTimer(isLive);
+                const hasTimeline = Boolean(source === 'Spotify' && track.currentPlayback && Number.isFinite(track.progressMs) && Number.isFinite(track.durationMs));
+                document.getElementById('track-timeline').hidden = !hasTimeline;
+                spotifyTimeline = hasTimeline ? {
+                    progressMs: track.progressMs,
+                    durationMs: track.durationMs,
+                    isPlaying: Boolean(track.nowPlaying),
+                    updatedAt: Date.now(),
+                } : null;
+                if (spotifyTimeline) updateSpotifyTimeline();
+
+                playbackStatus.innerHTML = isLive
+                    ? `<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span><span>${source === 'Spotify' ? 'Now playing' : 'Now playing · Last.fm'}</span>`
+                    : track.currentPlayback
+                        ? '<span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span><span>Paused</span>'
+                        : `<span class="h-1.5 w-1.5 rounded-full bg-zinc-500"></span><span>${source === 'Spotify' ? 'Last played' : 'Last played · Last.fm'}</span>`;
             } catch (error) {
-                trackName.textContent = 'Last.fm is unavailable right now';
-                trackArtist.innerHTML = '<span class="text-zinc-500">unable to reach api try turning on the vpn</span>';
-                currentTrackDuration = 0;
-                currentTrackElapsed = 0;
-                clearInterval(trackTimerInterval);
-                trackProgress.style.width = '0%';
-                trackTimeCurrent.textContent = '0:00';
-                trackTimeTotal.textContent = '0:00';
+                trackName.textContent = 'Music status is unavailable';
+                trackArtist.innerHTML = '<span class="text-zinc-500">Spotify and Last.fm could not be reached</span>';
+                playbackStatus.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-rose-400"></span><span>Unavailable</span>';
+                document.getElementById('track-timeline').hidden = true;
+                spotifyTimeline = null;
+            } finally {
+                musicFetchInProgress = false;
             }
         }
 
@@ -1202,7 +1150,8 @@
 
         init();
 
-        setInterval(fetchMusic, 2000);
+        setInterval(fetchMusic, 5000);
+        setInterval(updateSpotifyTimeline, 1000);
         setInterval(fetchGitHub, 30 * 60 * 1000);
         setInterval(fetchDiscordServer, 5 * 60 * 1000);
         setInterval(fetchTwitch, 60 * 1000);

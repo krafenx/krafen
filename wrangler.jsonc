@@ -71,6 +71,16 @@
       "secret_name": "LASTFM_API_KEY"
     },
     {
+      "binding": "SPOTIFY_CLIENT_ID",
+      "store_id": "dbaa438c8dd84df6b699fe1de942e717",
+      "secret_name": "SPOTIFY_CLIENT_ID"
+    },
+    {
+      "binding": "SPOTIFY_CLIENT_SECRET",
+      "store_id": "dbaa438c8dd84df6b699fe1de942e717",
+      "secret_name": "SPOTIFY_CLIENT_SECRET"
+    },
+    {
       "binding": "TWITCH_CLIENT_ID",
       "store_id": "dbaa438c8dd84df6b699fe1de942e717",
       "secret_name": "TWITCH_CLIENT_ID"

@@ -11,8 +11,13 @@ const IGDB_BASE = 'https://api.igdb.com/v4';
 const TWITCH_API_BASE = 'https://api.twitch.tv/helix';
 const TWITCH_TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 const LASTFM_API_BASE = 'https://ws.audioscrobbler.com/2.0/';
+const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
+const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize';
+const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
+const SPOTIFY_REFRESH_TOKEN_KEY = 'spotify:refresh_token';
+const SPOTIFY_ACCESS_TOKEN_KEY = 'spotify:access_token';
 const TWITCH_STATUS_CACHE_TTL_SECONDS = 5 * 60;
-const LASTFM_CACHE_TTL_SECONDS = 10;
+const LASTFM_CACHE_TTL_SECONDS = 5;
 const PUBLIC_LIST_CACHE_TTL_SECONDS = 5 * 60;
 const SESSION_COOKIE = 'kf_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -925,6 +930,159 @@ async function handleLastfm(request, env) {
     }
 }
 
+function spotifyStateCookie(value, maxAge = 600) {
+    return `kf_spotify_oauth=${value}; Max-Age=${maxAge}; Path=/api/spotify/callback; HttpOnly; Secure; SameSite=Lax`;
+}
+
+async function handleSpotifyAuth(request, env) {
+    if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+    const unauthorized = await requireAdmin(request, env);
+    if (unauthorized) return unauthorized;
+
+    const clientId = await getSecret(env, 'SPOTIFY_CLIENT_ID');
+    const clientSecret = await getSecret(env, 'SPOTIFY_CLIENT_SECRET');
+    if (!clientId || !clientSecret) return json({ error: 'spotify_credentials_missing' }, 503);
+
+    const state = createNonce();
+    const callback = new URL('/api/spotify/callback', request.url).toString();
+    const authorizeUrl = new URL(SPOTIFY_AUTH_URL);
+    authorizeUrl.searchParams.set('response_type', 'code');
+    authorizeUrl.searchParams.set('client_id', clientId);
+    authorizeUrl.searchParams.set('redirect_uri', callback);
+    authorizeUrl.searchParams.set('scope', 'user-read-playback-state user-read-recently-played');
+    authorizeUrl.searchParams.set('state', state);
+    return new Response(null, {
+        status: 302,
+        headers: { ...securityHeaders(), Location: authorizeUrl.toString(), 'Set-Cookie': spotifyStateCookie(state) },
+    });
+}
+
+async function handleSpotifyCallback(request, env) {
+    if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+    const url = new URL(request.url);
+    const cookies = parseCookies(request);
+    const stateCookie = cookies.kf_spotify_oauth;
+    const state = url.searchParams.get('state') || '';
+    const clearStateCookie = spotifyStateCookie('', 0);
+    if (!stateCookie || !state || !constantTimeEqual(stateCookie, state)) {
+        return new Response('Spotify authorization state check failed. Return to the site and try again.', {
+            status: 400, headers: { ...securityHeaders(), 'Content-Type': 'text/plain; charset=utf-8', 'Set-Cookie': clearStateCookie },
+        });
+    }
+    if (url.searchParams.has('error')) {
+        return new Response(null, { status: 303, headers: { ...securityHeaders(), Location: '/', 'Set-Cookie': clearStateCookie } });
+    }
+
+    const code = url.searchParams.get('code') || '';
+    const clientId = await getSecret(env, 'SPOTIFY_CLIENT_ID');
+    const clientSecret = await getSecret(env, 'SPOTIFY_CLIENT_SECRET');
+    if (!code || !clientId || !clientSecret) return json({ error: 'spotify_credentials_missing' }, 503);
+
+    try {
+        const tokenResponse = await fetch(SPOTIFY_TOKEN_URL, {
+            method: 'POST',
+            headers: {
+                Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: new URL('/api/spotify/callback', request.url).toString() }),
+        });
+        const tokenData = await tokenResponse.json().catch(() => ({}));
+        if (!tokenResponse.ok || !tokenData.refresh_token) throw new Error('spotify_token_exchange_failed');
+        requireStorage(env, true);
+        await env.WATCHLIST.put(SPOTIFY_REFRESH_TOKEN_KEY, tokenData.refresh_token);
+        await env.WATCHLIST.put(SPOTIFY_ACCESS_TOKEN_KEY, JSON.stringify({
+            accessToken: tokenData.access_token,
+            expiresAt: Date.now() + (Number(tokenData.expires_in) || 3600) * 1000,
+        }));
+        return new Response(null, { status: 303, headers: { ...securityHeaders(), Location: '/?spotify=connected', 'Set-Cookie': clearStateCookie } });
+    } catch {
+        return new Response('Spotify connection failed. Check the Worker configuration and try again.', {
+            status: 502, headers: { ...securityHeaders(), 'Content-Type': 'text/plain; charset=utf-8', 'Set-Cookie': clearStateCookie },
+        });
+    }
+}
+
+async function getSpotifyAccessToken(env) {
+    requireStorage(env);
+    const cached = await env.WATCHLIST.get(SPOTIFY_ACCESS_TOKEN_KEY, { type: 'json' }).catch(() => null);
+    if (cached?.accessToken && Number(cached.expiresAt) > Date.now() + 60_000) return cached.accessToken;
+    const refreshToken = await env.WATCHLIST.get(SPOTIFY_REFRESH_TOKEN_KEY);
+    const clientId = await getSecret(env, 'SPOTIFY_CLIENT_ID');
+    const clientSecret = await getSecret(env, 'SPOTIFY_CLIENT_SECRET');
+    if (!refreshToken || !clientId || !clientSecret) return '';
+
+    const response = await fetch(SPOTIFY_TOKEN_URL, {
+        method: 'POST',
+        headers: {
+            Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.access_token) throw new Error('spotify_token_refresh_failed');
+    if (data.refresh_token) await env.WATCHLIST.put(SPOTIFY_REFRESH_TOKEN_KEY, data.refresh_token);
+    await env.WATCHLIST.put(SPOTIFY_ACCESS_TOKEN_KEY, JSON.stringify({
+        accessToken: data.access_token,
+        expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000,
+    }));
+    return data.access_token;
+}
+
+async function handleSpotify(request, env) {
+    if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+    const cacheKey = publicListCacheKey(request, '/api/spotify');
+    const cachedResponse = await readWorkerCache(cacheKey);
+    if (cachedResponse) return cachedResponse;
+
+    try {
+        const accessToken = await getSpotifyAccessToken(env);
+        if (!accessToken) return json({ error: 'spotify_not_connected' }, 503);
+        const playbackResponse = await fetch(`${SPOTIFY_API_BASE}/me/player`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        let item = null;
+        let nowPlaying = false;
+        let currentPlayback = false;
+        let progressMs = null;
+        if (playbackResponse.status === 200) {
+            const playback = await playbackResponse.json();
+            item = playback.item;
+            currentPlayback = Boolean(item);
+            nowPlaying = Boolean(playback.is_playing);
+            progressMs = Number.isFinite(playback.progress_ms) ? playback.progress_ms : null;
+        } else if (playbackResponse.status === 204) {
+            const recentResponse = await fetch(`${SPOTIFY_API_BASE}/me/player/recently-played?limit=1`, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            if (recentResponse.ok) {
+                const recent = await recentResponse.json();
+                item = recent.items?.[0]?.track || null;
+            }
+        } else {
+            return json({ error: playbackResponse.status === 401 ? 'spotify_reauthorization_required' : 'spotify_unavailable' }, 502);
+        }
+
+        const track = item ? {
+            name: text(item.name, 200),
+            artist: text(item.artists?.map(artist => artist.name).join(', '), 200),
+            album: text(item.album?.name, 200),
+            image: cleanUrl(item.album?.images?.[0]?.url),
+            nowPlaying,
+            currentPlayback,
+            progressMs,
+            durationMs: Number.isFinite(item.duration_ms) ? item.duration_ms : null,
+        } : null;
+        const response = json({ track }, 200, { 'Cache-Control': 'public, max-age=3' });
+        await writeWorkerCache(cacheKey, response);
+        return response;
+    } catch {
+        return json({ error: 'spotify_unavailable' }, 502);
+    }
+}
+
 async function getTwitchToken(env, clientId, forceRefresh = false) {
     const staticToken = await getSecret(env, 'TWITCH_ACCESS_TOKEN');
     if (staticToken) return staticToken.replace(/^Bearer\s+/i, '');
@@ -1066,6 +1224,9 @@ export default {
         if (url.pathname === '/api/wishlist') return handleWishlist(request, env);
         if (url.pathname === '/api/search') return handleSearch(request, env);
         if (url.pathname === '/api/game-search') return handleGameSearch(request, env);
+        if (url.pathname === '/api/spotify/auth') return handleSpotifyAuth(request, env);
+        if (url.pathname === '/api/spotify/callback') return handleSpotifyCallback(request, env);
+        if (url.pathname === '/api/spotify') return handleSpotify(request, env);
         if (url.pathname === '/api/lastfm') return handleLastfm(request, env);
         if (url.pathname === '/api/twitch') return handleTwitch(request, env);
 
