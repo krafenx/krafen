@@ -66,7 +66,7 @@ function contentSecurityPolicy(nonce = '') {
         `style-src ${styleSrc}`,
         `style-src-elem ${styleSrc}`,
         "style-src-attr 'unsafe-inline'",
-        'font-src https://fonts.gstatic.com',
+        "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: https:",
         "connect-src 'self' https://discord.com https://shikimori.one https://api.themoviedb.org",
     ].join('; ');
@@ -76,7 +76,6 @@ function securityHeaders(nonce = '') {
     return {
         ...BASE_SECURITY_HEADERS,
         'Content-Security-Policy': contentSecurityPolicy(nonce),
-        font-src 'self' https://fonts.gstatic.com;
     };
 }
 
