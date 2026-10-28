@@ -76,6 +76,7 @@ function securityHeaders(nonce = '') {
     return {
         ...BASE_SECURITY_HEADERS,
         'Content-Security-Policy': contentSecurityPolicy(nonce),
+        font-src 'self' https://fonts.gstatic.com;
     };
 }
 
