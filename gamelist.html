@@ -10,9 +10,18 @@
     <meta property="og:title" content="Gamelist krafen — игры, оценки и отзывы">
     <meta property="og:description" content="Коллекция игр krafen: пройденные и активные игры, личные оценки, отзывы, теги и избранное.">
     <meta property="og:url" content="https://krafen.me/gamelist">
-    <meta property="og:image" content="https://krafen.me/favicon.png">
-    <meta property="og:image:alt" content="Значок сайта krafen">
+    <meta property="og:image" content="https://krafen.me/og/gamelist.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Карточка Gamelist krafen">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="krafen">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" data-async-css>
@@ -207,6 +216,8 @@
                 <div class="page-header-actions">
                     <span id="save-indicator" class="save-indicator"></span>
                     <button id="add-btn" class="btn-primary sm admin-only" type="button">+ Добавить игру</button>
+                    <a href="/suggest?type=game" class="btn-action">💡 Предложить на стрим</a>
+                    <button id="pick-random-btn" class="btn-action" type="button">🎲 Во что поиграть?</button>
                     <button id="export-btn" class="btn-action" type="button" hidden>Экспорт JSON</button>
                 </div>
             </div>
@@ -897,6 +908,21 @@
                 setTagFilter(btn.dataset.tagSelect);
             });
             document.getElementById('export-btn').addEventListener('click', exportList);
+            document.getElementById('pick-random-btn')?.addEventListener('click', () => {
+                const domIds = Array.from(document.querySelectorAll('#game-list [data-id]')).map((el) => el.dataset.id);
+                const visible = list.filter((g) => domIds.includes(g.id));
+                const backlog = statusFilter === 'all'
+                    ? visible.filter((g) => g.status === 'wishlist' || g.status === 'playing' || g.status === 'paused')
+                    : [];
+                const pool = backlog.length ? backlog : visible;
+                if (!pool.length) {
+                    toast('Нет подходящих игр под текущим фильтром', '#fde68a');
+                    return;
+                }
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                openViewModal(pick);
+                toast(`Случайный выбор: ${pick.title}`);
+            });
 
             document.getElementById('game-list').addEventListener('click', (e) => {
                 const tagBtn = e.target.closest('[data-tag-select]');

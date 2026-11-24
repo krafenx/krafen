@@ -400,7 +400,7 @@
     const smooth = { target: 0, current: 0, glow: 0, glowT: 0, hero: 0, heroT: 0, rail: 0, railT: 0 };
 
     function anyOverlayOpen() {
-        return Boolean(document.querySelector('.modal.open, .mobile-nav.open'));
+        return Boolean(document.querySelector('.modal.open, .mobile-nav.open, .kf-cmd-backdrop.open'));
     }
 
     function initSmooth() {
@@ -889,6 +889,170 @@
         return ok;
     }
 
+    function initServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        const canSw = window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        if (!canSw) return;
+        const reg = () => navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+        if (document.readyState === 'complete') reg();
+        else window.addEventListener('load', reg, { once: true });
+    }
+
+    function initCommandPalette() {
+        if (window.__kfCmdkLoaded || document.querySelector('script[src="/cmdk.js"]')) return;
+        const s = document.createElement('script');
+        s.setAttribute('data-cfasync', 'false');
+        s.src = '/cmdk.js';
+        s.defer = true;
+        const nonceEl = document.querySelector('script[nonce]');
+        if (nonceEl && nonceEl.nonce) s.nonce = nonceEl.nonce;
+        document.head.appendChild(s);
+    }
+
+    function initSearchFromUrl() {
+        const q = new URLSearchParams(location.search).get('q');
+        if (!q || !q.trim()) return;
+        setTimeout(() => {
+            const inp = document.querySelector('#local-search, #list-search, #wish-search, input[type="search"]');
+            if (!inp || inp.id === 'kf-cmd-input' || inp.value) return;
+            inp.value = q.trim();
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+        }, 0);
+    }
+
+    function urlB64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        const out = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+        return out;
+    }
+
+    const streamPush = {
+        isSupported() {
+            return (
+                'Notification' in window
+                && 'serviceWorker' in navigator
+                && 'PushManager' in window
+                && (window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            );
+        },
+        async ensureSwReady() {
+            let reg = await navigator.serviceWorker.getRegistration('/');
+            if (!reg) {
+                reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            }
+            return await Promise.race([
+                navigator.serviceWorker.ready,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('sw_timeout')), 8000)),
+            ]);
+        },
+        async getSubscription() {
+            if (!this.isSupported()) return null;
+            try {
+                const reg = await navigator.serviceWorker.getRegistration('/');
+                if (!reg || !reg.active) return null;
+                return await reg.pushManager.getSubscription();
+            } catch {
+                return null;
+            }
+        },
+        async isSubscribed(channel) {
+            const sub = await this.getSubscription();
+            if (!sub) return false;
+            if (!channel) return true;
+            try {
+                const res = await fetch('/api/push/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ endpoint: sub.endpoint, channel }),
+                });
+                if (!res.ok) return false;
+                const data = await res.json();
+                return Boolean(data.subscribed);
+            } catch {
+                return false;
+            }
+        },
+        async toggle(channel) {
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+                toast('Ваш браузер не поддерживает Web Push уведомления', '#fca5a5');
+                return false;
+            }
+            if (!(window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+                toast('Web Push работает только по HTTPS или localhost', '#fca5a5');
+                return false;
+            }
+            if (Notification.permission === 'denied') {
+                toast('Уведомления заблокированы — разрешите их в настройках сайта', '#fca5a5');
+                return false;
+            }
+
+            try {
+                // Запрашиваем разрешение сразу в том же user-gesture тике, пока браузер не сбросил активацию.
+                if (Notification.permission === 'default') {
+                    const perm = await Notification.requestPermission();
+                    if (perm !== 'granted') {
+                        toast('Разрешение на уведомления не выдано', '#fca5a5');
+                        return false;
+                    }
+                }
+
+                const reg = await this.ensureSwReady();
+                let sub = await reg.pushManager.getSubscription();
+                const currentlyOn = sub ? await this.isSubscribed(channel) : false;
+
+                if (currentlyOn && sub) {
+                    await fetch('/api/push/unsubscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ endpoint: sub.endpoint, channel }),
+                    }).catch(() => {});
+                    if (!channel) {
+                        await sub.unsubscribe().catch(() => {});
+                    }
+                    toast('Уведомления о стриме отключены');
+                    return false;
+                }
+
+                if (!sub) {
+                    const keyRes = await fetch('/api/push/vapid-key', { headers: { Accept: 'application/json' } });
+                    const keyData = await keyRes.json().catch(() => ({}));
+                    if (!keyRes.ok || !keyData.publicKey) {
+                        toast('Web Push на сервере пока не активен (проверьте pywebpush)', '#fca5a5');
+                        return false;
+                    }
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlB64ToUint8Array(keyData.publicKey),
+                    });
+                }
+
+                const subRes = await fetch('/api/push/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ subscription: sub.toJSON(), channel: channel || 'krafen' }),
+                });
+                if (!subRes.ok) {
+                    toast('Не удалось сохранить подписку на сервере', '#fca5a5');
+                    return false;
+                }
+                toast('Уведомления о начале стрима включены', '#86efac');
+                return true;
+            } catch (err) {
+                const msg = err && err.message === 'sw_timeout'
+                    ? 'Service Worker не ответил вовремя — обновите страницу'
+                    : 'Не удалось настроить уведомления в этом браузере';
+                toast(msg, '#fca5a5');
+                return false;
+            }
+        },
+    };
+
     onReady(() => {
         initGrain();
         observeReveals();
@@ -897,6 +1061,9 @@
         initMobileNav();
         initSmooth();
         initNavPrefetch();
+        initServiceWorker();
+        initCommandPalette();
+        initSearchFromUrl();
     });
 
     window.KrafenUI = {
@@ -925,6 +1092,7 @@
         matchesTags,
         downloadJson,
         exportCollection,
+        streamPush,
         TAG_LIMIT,
         TAG_MAX_LEN,
     };

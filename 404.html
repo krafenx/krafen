@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>404 — Страница не найдена · krafen</title>
+    <meta name="description" content="Запрошенная страница не существует или была перемещена.">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="krafen">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" data-async-css>
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"></noscript>
+    <link rel="stylesheet" href="/style.css">
+    <style nonce="__CSP_NONCE__">
+        .error-section {
+            min-height: calc(100dvh - 160px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 48px 24px;
+            overflow: hidden;
+        }
+        .error-card {
+            width: min(720px, 100%);
+            position: relative;
+            z-index: 1;
+            padding: clamp(36px, 6vw, 56px) clamp(24px, 5vw, 48px);
+            border-radius: 26px;
+            background: rgba(12, 12, 16, .78);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 32px 80px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .05);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .error-glow {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 380px;
+            height: 260px;
+            background: radial-gradient(circle, rgba(163, 19, 19, .32) 0%, rgba(124, 10, 10, .1) 45%, transparent 70%);
+            filter: blur(50px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .error-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 8px 18px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .03);
+            border: 1px solid rgba(163, 19, 19, .35);
+            font-size: 10px;
+            letter-spacing: .24em;
+            text-transform: uppercase;
+            color: var(--crimson-light);
+            margin-bottom: 24px;
+            box-shadow: 0 0 20px rgba(124, 10, 10, .2);
+        }
+        .error-status .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--crimson-bright);
+            box-shadow: 0 0 10px rgba(163, 19, 19, .9);
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+        .error-code {
+            font-family: var(--font-display);
+            font-size: clamp(120px, 22vw, 240px);
+            line-height: .82;
+            letter-spacing: .02em;
+            color: var(--silver-bright);
+            text-shadow: 0 0 90px rgba(163, 19, 19, .35);
+            user-select: none;
+            margin-bottom: 12px;
+        }
+        .error-title {
+            font-family: var(--font-heading);
+            font-size: clamp(26px, 3.8vw, 38px);
+            font-weight: 400;
+            color: #fff;
+            margin-bottom: 14px;
+            line-height: 1.25;
+        }
+        .error-tagline {
+            font-family: var(--font-serif);
+            font-size: clamp(17px, 2.1vw, 21px);
+            line-height: 1.6;
+            color: var(--silver);
+            max-width: 540px;
+            margin-bottom: 36px;
+        }
+        .error-tagline em {
+            color: var(--silver-bright);
+            font-style: italic;
+        }
+        .error-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+        }
+        .error-nav-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            padding-top: 32px;
+            border-top: 1px solid rgba(160, 160, 160, .12);
+        }
+        .error-nav-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 16px 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .02);
+            border: 1px solid rgba(255, 255, 255, .06);
+            color: inherit;
+            text-decoration: none;
+            transition: all .3s var(--ease);
+        }
+        .error-nav-card:hover {
+            background: rgba(124, 10, 10, .14);
+            border-color: rgba(163, 19, 19, .45);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+        }
+        .error-nav-card .icon {
+            font-size: 20px;
+            line-height: 1;
+            margin-bottom: 2px;
+        }
+        .error-nav-card .name {
+            font-family: var(--font-heading);
+            font-size: 15px;
+            color: #fff;
+        }
+        .error-nav-card .hint {
+            font-size: 10px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--silver-dim);
+        }
+        @media (max-width: 640px) {
+            .error-nav-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+            .error-card {
+                padding: 32px 20px;
+            }
+            .error-actions {
+                width: 100%;
+                flex-direction: column;
+            }
+            .error-actions .btn-primary,
+            .error-actions .btn-ghost {
+                width: 100%;
+            }
+        }
+    </style>
+    <script data-cfasync="false" nonce="__CSP_NONCE__" src="/app.js" defer></script>
+</head>
+<body>
+    <div id="glow"></div>
+    <canvas id="rain"></canvas>
+    <div class="fog"></div>
+    <div class="fog f2"></div>
+    <div id="flash"></div>
+    <div class="vignette"></div>
+    <div class="grain"></div>
+
+    <nav class="topnav" aria-label="Навигация по сайту">
+        <a class="brand" href="/">kra<em>fen</em></a>
+        <div class="links">
+            <a href="/">Главная</a>
+            <a href="/watchlist">Watchlist</a>
+            <a href="/gamelist">Gamelist</a>
+            <a href="/setup">Setup</a>
+            <a href="/wishlist">Wishlist</a>
+            <a href="/danonsha">danonsha</a>
+        </div>
+        <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false">Меню</button>
+    </nav>
+
+    <div class="mobile-nav" id="mobile-nav" aria-label="Мобильное меню">
+        <button class="mobile-nav-close" type="button" aria-label="Закрыть меню">✕</button>
+        <a href="/">Главная</a>
+        <a href="/watchlist">Watchlist</a>
+        <a href="/gamelist">Gamelist</a>
+        <a href="/setup">Setup</a>
+        <a href="/wishlist">Wishlist</a>
+        <a href="/danonsha">danonsha</a>
+    </div>
+
+    <main id="top">
+        <section class="error-section">
+            <div class="ghost">404</div>
+
+            <div class="error-card reveal" style="--d:.04s;">
+                <div class="error-glow"></div>
+
+                <div class="error-status">
+                    <span class="dot"></span>
+                    ошибка 404 · страница не найдена
+                </div>
+
+                <div class="error-code">40<span class="grad">4</span></div>
+                <h1 class="error-title">Затерянный маршрут</h1>
+                <p class="error-tagline">
+                    Кажется, эта страница <em>растворилась в тумане</em> или адрес был введён неверно. Все коллекции и основные разделы на месте.
+                </p>
+
+                <div class="error-actions">
+                    <a class="btn-primary" href="/">На главную</a>
+                    <button class="btn-ghost" id="back-btn" type="button">← Вернуться назад</button>
+                </div>
+
+                <div class="error-nav-grid">
+                    <a class="error-nav-card" href="/watchlist">
+                        <span class="icon">🎬</span>
+                        <span class="name">Watchlist</span>
+                        <span class="hint">фильмы · аниме</span>
+                    </a>
+                    <a class="error-nav-card" href="/gamelist">
+                        <span class="icon">🎮</span>
+                        <span class="name">Gamelist</span>
+                        <span class="hint">игры · прогресс</span>
+                    </a>
+                    <a class="error-nav-card" href="/setup">
+                        <span class="icon">💻</span>
+                        <span class="name">Setup</span>
+                        <span class="hint">пк · девайсы</span>
+                    </a>
+                    <a class="error-nav-card" href="/wishlist">
+                        <span class="icon">🎁</span>
+                        <span class="name">Wishlist</span>
+                        <span class="hint">список желаний</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site">
+        <div class="foot-name">krafen</div>
+        <div>личный сайт и коллекции</div>
+    </footer>
+
+    <div class="dock">
+        <a class="dock-box" href="/">← <span class="hide-m">На главную</span></a>
+        <div class="dock-right">
+            <button class="dock-box" id="atmo" type="button">★ <span class="hide-m">Атмосфера</span></button>
+        </div>
+    </div>
+
+    <script data-cfasync="false" nonce="__CSP_NONCE__">
+        document.addEventListener('DOMContentLoaded', () => {
+            const backBtn = document.getElementById('back-btn');
+            if (backBtn) {
+                backBtn.addEventListener('click', () => {
+                    if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        window.location.href = '/';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

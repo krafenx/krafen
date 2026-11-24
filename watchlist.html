@@ -10,9 +10,18 @@
     <meta property="og:title" content="Watchlist krafen — фильмы, сериалы и аниме">
     <meta property="og:description" content="Личный список фильмов, сериалов и аниме krafen: оценки, отзывы, избранное и поиск по коллекции.">
     <meta property="og:url" content="https://krafen.me/watchlist">
-    <meta property="og:image" content="https://krafen.me/favicon.png">
-    <meta property="og:image:alt" content="Значок сайта krafen">
+    <meta property="og:image" content="https://krafen.me/og/watchlist.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Карточка Watchlist krafen">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="krafen">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" data-async-css>
@@ -293,6 +302,8 @@
                 <div class="page-header-actions">
                     <span id="save-indicator" class="save-indicator"></span>
                     <button id="add-btn" class="btn-primary sm admin-only" type="button">+ Добавить тайтл</button>
+                    <a href="/suggest?type=movie" class="btn-action">💡 Предложить на стрим</a>
+                    <button id="pick-random-btn" class="btn-action" type="button">🎲 Случайный выбор</button>
                     <button id="export-btn" class="btn-action" type="button" hidden>Экспорт JSON</button>
                 </div>
             </div>
@@ -1250,6 +1261,19 @@
                 if (btn) setTagFilter(btn.dataset.tagFilter);
             });
             document.getElementById('export-btn').addEventListener('click', exportList);
+            document.getElementById('pick-random-btn')?.addEventListener('click', () => {
+                const domIds = Array.from(document.querySelectorAll('#cards-grid .media-card[data-id]')).map((el) => el.dataset.id);
+                const visible = list.filter((it) => domIds.includes(it.id));
+                const planned = statusFilter === 'all' ? visible.filter((it) => it.status === 'planned') : [];
+                const pool = planned.length ? planned : visible;
+                if (!pool.length) {
+                    toast('Нет доступных карточек под текущим фильтром', '#fde68a');
+                    return;
+                }
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                openReviewViewer(pick);
+                toast(`Выпал тайтл: ${pick.titleRu || pick.title}`);
+            });
 
             bindModalDismiss((id) => {
                 if (id === 'modal-review') {

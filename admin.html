@@ -7,6 +7,12 @@
     <title>krafen — панель управления</title>
     <meta name="description" content="Панель управления, аналитика и телеметрия сервера krafen.me.">
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="krafen">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" data-async-css>
@@ -449,6 +455,7 @@
                     <div class="ctrl-toolbar-right">
                         <button class="filter-pill active" type="button" id="auto-refresh-btn" title="Автоматическое обновление каждые 15 секунд">Авто 15с: вкл</button>
                         <button class="btn-action" type="button" id="manual-refresh-btn">↻ Обновить</button>
+                        <button class="btn-action" type="button" id="top-force-backup-btn">✈ Бэкап в TG сейчас</button>
                         <button class="btn-action" type="button" id="top-github-update-btn">Обновить с GitHub</button>
                         <button class="btn-action" type="button" id="top-logout-btn" style="border-color:rgba(163,19,19,.45);color:#fca5a5;">Выйти</button>
                     </div>
@@ -534,6 +541,49 @@
                 <div class="tab-pane" id="pane-content">
                     <div class="cols-grid" id="collections-grid"></div>
 
+                    <div class="sys-grid" style="margin-bottom:24px;">
+                        <div class="glass no-lift pad-card">
+                            <div class="chart-head">
+                                <div>
+                                    <div class="chart-eyebrow">заявки со стримов</div>
+                                    <h2 class="chart-title">Предложка фильмов и игр</h2>
+                                </div>
+                                <span class="status-badge muted" id="sug-count-badge">0</span>
+                            </div>
+                            <div id="suggestions-list" class="stack">
+                                <div class="bd-empty">Новых заявок пока нет</div>
+                            </div>
+                        </div>
+
+                        <div class="glass no-lift pad-card">
+                            <div class="chart-head">
+                                <div>
+                                    <div class="chart-eyebrow">массовое добавление</div>
+                                    <h2 class="chart-title">Импорт списков</h2>
+                                </div>
+                                <select id="import-target" class="kf-select" style="width:auto;min-width:140px;" aria-label="Коллекция импорта">
+                                    <option value="watchlist">Watchlist</option>
+                                    <option value="gamelist">Gamelist</option>
+                                </select>
+                            </div>
+                            <p style="font-size:12px;color:var(--silver);line-height:1.55;margin-bottom:10px;">
+                                Вставьте экспорт <code>Shikimori JSON/XML</code>, <code>Steam JSON</code>, <code>CSV</code> (<code>title,type,status,rating,year</code>) или список названий построчно.
+                            </p>
+                            <textarea id="import-raw" class="kf-input" rows="4" style="resize:vertical;font-family:var(--font-mono);font-size:11px;margin-bottom:10px;" placeholder="Название 1&#10;Название 2"></textarea>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                    <input type="file" id="import-file-input" accept=".json,.xml,.csv,.txt" class="hidden">
+                                    <button type="button" class="btn-action" id="btn-import-file">📁 Из файла</button>
+                                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--silver);cursor:pointer;">
+                                        <input type="checkbox" id="import-enrich" checked> Подтянуть обложки (до 15)
+                                    </label>
+                                </div>
+                                <button type="button" class="btn-primary sm" id="btn-import-list">Импортировать</button>
+                            </div>
+                            <div id="import-result" style="font-size:11px;color:var(--silver-dim);margin-top:8px;"></div>
+                        </div>
+                    </div>
+
                     <div class="glass no-lift vod-mgr-card">
                         <div class="vod-mgr-bar">
                             <div>
@@ -595,10 +645,15 @@
                             <div class="stack">
                                 <div class="inner-box" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                                     <div>
-                                        <div style="font-size:13px;color:#fff;font-weight:500;">Полный JSON-снимок базы</div>
-                                        <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;">Все 4 списка + переопределения VOD</div>
+                                        <div style="font-size:13px;color:#fff;font-weight:500;">Полный снимок сервера (ZIP / JSON)</div>
+                                        <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;">Весь код, .env, 3 БД SQLite, чаты и превью VOD (авто-отправка в TG ежедневно в 00:00 МСК)</div>
+                                        <div style="font-size:11px;color:var(--silver);margin-top:4px;" id="tg-backup-meta">Последний бэкап в TG: —</div>
                                     </div>
-                                    <a href="/api/admin/backup" class="btn-primary sm" id="btn-download-backup">⬇ Скачать бэкап</a>
+                                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                        <button type="button" class="btn-primary sm" id="btn-tg-backup">✈ Принудительный бэкап в TG</button>
+                                        <a href="/api/admin/backup/zip" class="btn-action" id="btn-download-backup-zip">⬇ Скачать ZIP</a>
+                                        <a href="/api/admin/backup" class="btn-action" id="btn-download-backup">⬇ JSON списков</a>
+                                    </div>
                                 </div>
 
                                 <div class="inner-box" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
@@ -610,6 +665,37 @@
                                     <button type="button" class="btn-action" id="btn-trigger-restore">⬆ Выбрать файл и импортировать</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                    <div class="sys-grid">
+                        <div class="glass no-lift pad-card">
+                            <div class="chart-head">
+                                <div>
+                                    <div class="chart-eyebrow">ссылки и внешние обложки</div>
+                                    <h2 class="chart-title">Проверка битых URL</h2>
+                                </div>
+                                <button type="button" class="btn-primary sm" id="btn-check-links">🔎 Проверить ссылки</button>
+                            </div>
+                            <p style="font-size:12px;color:var(--silver);line-height:1.65;margin-bottom:14px;">
+                                Сканирует внешние ссылки, обложки и постеры во всех коллекциях (<code>setup</code>, <code>wishlist</code>, <code>watchlist</code>, <code>gamelist</code>) обоих профилей и находит ответы 404/таймауты.
+                            </p>
+                            <div id="broken-links-list" class="stack">
+                                <div class="bd-empty">Нажмите «Проверить ссылки» для запуска диагностики</div>
+                            </div>
+                        </div>
+
+                        <div class="glass no-lift pad-card">
+                            <div class="chart-head">
+                                <div>
+                                    <div class="chart-eyebrow">мониторинг VPS в Telegram</div>
+                                    <h2 class="chart-title">Telegram-алерты сервера</h2>
+                                </div>
+                                <button type="button" class="btn-action" id="btn-test-tg-alert">Отправить тест</button>
+                            </div>
+                            <p style="font-size:12px;color:var(--silver);line-height:1.65;margin-bottom:14px;">
+                                Автоматически уведомляет о нехватке места на диске VPS, всплесках HTTP 5xx и сбоях Google Drive (сам <code>recorder.py</code> запускается на домашнем ПК).
+                            </p>
+                            <div id="tg-alert-status" class="inner-box" style="font-size:12px;color:var(--silver);">Проверка конфигурации…</div>
                         </div>
                     </div>
                 </div>
@@ -757,8 +843,14 @@
                 reset_thumb: 'Сброс кэша обложек VOD',
                 cache_clear: 'Очистка серверного кэша',
                 spotify_disconnect: 'Отключение Spotify',
-                backup_export: 'Скачивание бэкапа',
+                backup_export: 'Скачивание JSON-бэкапа',
+                backup_export_zip: 'Скачивание ZIP-бэкапа',
                 backup_restore: 'Импорт бэкапа коллекций',
+                links_check: 'Проверка битых ссылок',
+                tg_alert_test: 'Тест Telegram-алерта',
+                tg_backup: 'Отправка бэкапа в Telegram',
+                suggestion_resolve: 'Модерация предложки',
+                list_import: 'Импорт списка в коллекцию',
             };
 
             function fmtInt(n) {
@@ -1426,6 +1518,47 @@
                         </div>`;
                 }).join('');
 
+                const tgInteg = (data.integrations || []).find((x) => x.id === 'tg_alerts');
+                const tgStatusEl = document.getElementById('tg-alert-status');
+                if (tgStatusEl) {
+                    tgStatusEl.textContent = tgInteg ? tgInteg.detail : 'Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID (или TELEGRAM_CHAT_ID) в .env';
+                }
+                const bk = data.backup || {};
+                const bkMetaEl = document.getElementById('tg-backup-meta');
+                if (bkMetaEl) {
+                    bkMetaEl.textContent = bk.last_tg_backup_ts
+                        ? `Последний бэкап в TG: ${fmtTs(bk.last_tg_backup_ts)}`
+                        : 'Последний бэкап в TG: ещё не отправлялся';
+                }
+
+                const sugs = Array.isArray(data.suggestions) ? data.suggestions : [];
+                const sugBadge = document.getElementById('sug-count-badge');
+                const sugList = document.getElementById('suggestions-list');
+                if (sugBadge) sugBadge.textContent = fmtInt(sugs.length);
+                if (sugList) {
+                    sugList.innerHTML = sugs.length
+                        ? sugs.map((s) => {
+                            const safeLink = safeHttpUrl(s.link);
+                            const acceptLabel = (s.kind === 'movie' || s.kind === 'game') ? '✓ В планы' : '✓ Принять';
+                            return `
+                            <div class="inner-box" style="padding:10px 12px;">
+                                <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+                                    <div style="min-width:0;flex:1;">
+                                        <div style="font-size:13px;color:#fff;font-weight:500;">${escapeHTML(s.title)}${s.year && s.year !== '-' ? ` (${escapeHTML(s.year)})` : ''}</div>
+                                        <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;">
+                                            ${escapeHTML(s.media_type)} · от ${escapeHTML(s.author || 'аноним')}${s.note ? ` · «${escapeHTML(s.note)}»` : ''}${safeLink ? ` · <a href="${escapeHTML(safeLink)}" target="_blank" rel="noopener noreferrer" style="color:var(--crimson-light);">ссылка ↗</a>` : ''}
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                                        <button type="button" class="btn-action" data-sug-id="${s.id}" data-sug-act="accept">${acceptLabel}</button>
+                                        <button type="button" class="btn-action" data-sug-id="${s.id}" data-sug-act="reject">✕</button>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('')
+                        : '<div class="bd-empty">Новых заявок пока нет</div>';
+                }
+
                 const cch = data.caches || {};
                 document.getElementById('cache-list').innerHTML = `
                     <div class="cache-row">
@@ -1840,6 +1973,187 @@
             document.getElementById('btn-refresh-logs').addEventListener('click', () => loadLogs());
             document.getElementById('log-lines-select').addEventListener('change', () => loadLogs());
             document.getElementById('log-filter-input').addEventListener('input', renderLogConsole);
+
+            const checkLinksBtn = document.getElementById('btn-check-links');
+            const brokenLinksList = document.getElementById('broken-links-list');
+            if (checkLinksBtn && brokenLinksList) {
+                checkLinksBtn.addEventListener('click', async () => {
+                    checkLinksBtn.disabled = true;
+                    checkLinksBtn.textContent = 'Проверка…';
+                    brokenLinksList.innerHTML = '<div class="bd-empty">Опрос внешних ссылок и обложек (до 15с)…</div>';
+                    try {
+                        const res = await profileFetch('/api/admin/links/check', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: '{}',
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok || !data.ok) {
+                            brokenLinksList.innerHTML = '<div class="bd-empty">Не удалось выполнить проверку</div>';
+                            toast('Ошибка проверки ссылок', '#fca5a5');
+                            return;
+                        }
+                        if (!data.broken || !data.broken.length) {
+                            brokenLinksList.innerHTML = `<div class="bd-empty" style="color:#86efac;">Все ${fmtInt(data.unique_urls)} уникальных URL отвечают корректно</div>`;
+                            toast(`Проверено URL: ${data.unique_urls}, ошибок нет`, '#86efac');
+                        } else {
+                            brokenLinksList.innerHTML = `<div style="font-size:11px;color:var(--silver);margin-bottom:6px;">Проверено URL: ${fmtInt(data.unique_urls)} · проблемных: <strong style="color:#fca5a5;">${fmtInt(data.broken_count)}</strong></div>` + data.broken.map((b) => `
+                                <div class="inner-box" style="padding:10px 12px;">
+                                    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;">
+                                        <span style="font-size:12px;color:#fff;font-weight:500;">${escapeHTML(b.title)}</span>
+                                        <span class="status-badge crimson">${escapeHTML(b.reason || ('HTTP ' + b.status))}</span>
+                                    </div>
+                                    <div class="mono" style="font-size:10px;color:var(--silver-dim);margin-top:4px;word-break:break-all;">
+                                        ${escapeHTML(b.owner)}/${escapeHTML(b.collection)} · ${escapeHTML(b.field)} · ${escapeHTML(b.url)}
+                                    </div>
+                                </div>`).join('');
+                            toast(`Найдено проблемных ссылок: ${data.broken_count}`, '#fde68a');
+                        }
+                        loadOverview(true);
+                    } finally {
+                        checkLinksBtn.disabled = false;
+                        checkLinksBtn.textContent = '🔎 Проверить ссылки';
+                    }
+                });
+            }
+
+            const testTgBtn = document.getElementById('btn-test-tg-alert');
+            if (testTgBtn) {
+                testTgBtn.addEventListener('click', async () => {
+                    testTgBtn.disabled = true;
+                    try {
+                        const res = await profileFetch('/api/admin/alerts/test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: '{}',
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (res.ok && data.ok) {
+                            toast('Тестовое уведомление отправлено в Telegram', '#86efac');
+                            loadOverview(true);
+                        } else if (data.error === 'telegram_not_configured') {
+                            toast('Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID в .env', '#fde68a');
+                        } else {
+                            toast('Ошибка отправки в Telegram', '#fca5a5');
+                        }
+                    } finally {
+                        testTgBtn.disabled = false;
+                    }
+                });
+            }
+
+            async function triggerForceTelegramBackup(btn) {
+                if (!btn) return;
+                const origText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Отправка бэкапа…';
+                try {
+                    const res = await profileFetch('/api/admin/backup/telegram', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: '{}',
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok && data.ok) {
+                        toast(`Бэкап отправлен в Telegram: ${data.filename || 'zip'}`, '#86efac');
+                        loadOverview(true);
+                    } else if (data.error === 'telegram_not_configured') {
+                        toast('Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID в .env на сервере', '#fde68a');
+                    } else {
+                        toast(`Ошибка отправки бэкапа в Telegram (${data.error || res.status})`, '#fca5a5');
+                    }
+                } catch {
+                    toast('Сетевая ошибка при создании бэкапа', '#fca5a5');
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = origText;
+                }
+            }
+
+            const tgBackupBtn = document.getElementById('btn-tg-backup');
+            const topBackupBtn = document.getElementById('top-force-backup-btn');
+            if (tgBackupBtn) tgBackupBtn.addEventListener('click', () => triggerForceTelegramBackup(tgBackupBtn));
+            if (topBackupBtn) topBackupBtn.addEventListener('click', () => triggerForceTelegramBackup(topBackupBtn));
+
+            const sugListBox = document.getElementById('suggestions-list');
+            if (sugListBox) {
+                sugListBox.addEventListener('click', async (e) => {
+                    const btn = e.target.closest('[data-sug-id][data-sug-act]');
+                    if (!btn) return;
+                    btn.disabled = true;
+                    try {
+                        const res = await profileFetch('/api/admin/suggestions/resolve', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ id: Number(btn.dataset.sugId), action: btn.dataset.sugAct }),
+                        });
+                        if (res.ok) {
+                            toast(btn.dataset.sugAct === 'accept' ? 'Добавлено в планы' : 'Заявка отклонена', '#86efac');
+                            loadOverview(true);
+                        } else {
+                            toast('Не удалось обработать заявку', '#fca5a5');
+                        }
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+            }
+
+            const importFileInp = document.getElementById('import-file-input');
+            const importFileBtn = document.getElementById('btn-import-file');
+            const importRawEl = document.getElementById('import-raw');
+            const importRunBtn = document.getElementById('btn-import-list');
+            if (importFileBtn && importFileInp && importRawEl) {
+                importFileBtn.addEventListener('click', () => importFileInp.click());
+                importFileInp.addEventListener('change', async () => {
+                    const f = importFileInp.files?.[0];
+                    importFileInp.value = '';
+                    if (!f) return;
+                    importRawEl.value = await f.text();
+                });
+            }
+            if (importRunBtn && importRawEl) {
+                importRunBtn.addEventListener('click', async () => {
+                    const raw = importRawEl.value.trim();
+                    if (!raw) {
+                        toast('Вставьте текст или выберите файл для импорта', '#fde68a');
+                        return;
+                    }
+                    importRunBtn.disabled = true;
+                    importRunBtn.textContent = 'Импорт…';
+                    try {
+                        const res = await profileFetch('/api/admin/import-list', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({
+                                target: document.getElementById('import-target')?.value || 'watchlist',
+                                raw,
+                                enrich: Boolean(document.getElementById('import-enrich')?.checked),
+                            }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        const resEl = document.getElementById('import-result');
+                        if (res.ok && data.ok) {
+                            const msg = `Добавлено: ${data.added}, пропущено (дубликаты): ${data.skipped}, обложек найдено: ${data.enriched || 0}`;
+                            if (resEl) resEl.textContent = msg;
+                            toast(msg, '#86efac');
+                            importRawEl.value = '';
+                            loadOverview(true);
+                        } else {
+                            if (resEl) resEl.textContent = 'Формат не распознан или список пуст';
+                            toast('Не удалось импортировать список', '#fca5a5');
+                        }
+                    } finally {
+                        importRunBtn.disabled = false;
+                        importRunBtn.textContent = 'Импортировать';
+                    }
+                });
+            }
 
             bindModalDismiss();
             checkSession();

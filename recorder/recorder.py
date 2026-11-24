@@ -26,6 +26,7 @@ import os
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -81,6 +82,8 @@ _WIN_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" e
 
 
 def _recorder_needs_log_file() -> bool:
+    if "--background" in sys.argv[1:]:
+        return True
     if sys.stdout is None or sys.stderr is None:
         return True
     if Path(sys.executable).stem.lower().startswith(("pythonw", "pyw")):
@@ -96,7 +99,7 @@ if _recorder_needs_log_file():
     try:
         _log_dir = ROOT_DIR / "data"
         _log_dir.mkdir(parents=True, exist_ok=True)
-        _rec_log = open(_log_dir / "server.log", "a", encoding="utf-8", buffering=1, errors="replace")
+        _rec_log = open(_log_dir / "recorder.log", "a", encoding="utf-8", buffering=1, errors="replace")
         sys.stdout = _rec_log
         sys.stderr = _rec_log
     except OSError:
@@ -119,6 +122,13 @@ RECORD_DIR = _raw_rec_dir if _raw_rec_dir.is_absolute() else (ROOT_DIR / _raw_re
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "60"))
 STREAMLINK_BIN = os.environ.get("STREAMLINK_BIN", "streamlink")
 FFMPEG_BIN = os.environ.get("FFMPEG_BIN", "ffmpeg")
+
+# --- связь с VPS (heartbeat, push о готовности VOD, локальные субтитры Whisper) ---
+RECORDER_VPS_URL = os.environ.get("RECORDER_VPS_URL", "").strip().rstrip("/")
+RECORDER_TOKEN = os.environ.get("RECORDER_TOKEN", "").strip()
+RECORDER_WHISPER = os.environ.get("RECORDER_WHISPER", "0").strip().lower() in {"1", "true", "yes", "on"}
+RECORDER_WHISPER_MODEL = os.environ.get("RECORDER_WHISPER_MODEL", "small").strip() or "small"
+RECORDER_WHISPER_LANG = os.environ.get("RECORDER_WHISPER_LANG", "ru").strip() or "ru"
 
 # --- облако и ротация ---
 # RCLONE_REMOTE="gdrive:" или "gdrive:vods" — после завершения записи папка
@@ -518,9 +528,17 @@ def upload_to_cloud(folder: Path) -> bool:
             creationflags=_WIN_NO_WINDOW,
         )
         if res.returncode == 0:
+            vod_title = folder.name
+            meta_p = folder / "meta.json"
+            if meta_p.is_file():
+                try:
+                    vod_title = str(json.loads(meta_p.read_text(encoding="utf-8")).get("title") or folder.name)
+                except Exception:
+                    pass
             if folder.exists():
                 shutil.rmtree(folder, ignore_errors=True)
             log(f"cloud: {folder.name} загружена в Google Drive, локальная копия удалена")
+            notify_vps_vod_ready(folder.name, vod_title)
             return True
         err_tail = (res.stderr or res.stdout or "").strip()[-400:]
         log(f"cloud: ошибка rclone (код {res.returncode}): {err_tail}")
@@ -770,6 +788,121 @@ def extract_vod_thumbnail(video: Path, thumb: Path, duration_s: int) -> bool:
 
 _active_proc: subprocess.Popen | None = None
 _stop_event = threading.Event()
+_state_lock = threading.Lock()
+_rec_state = {"state": "idle", "detail": "Ожидание эфира", "active_vod_id": ""}
+
+
+def _set_rec_state(state: str, detail: str = "", active_vod_id: str = "") -> None:
+    with _state_lock:
+        _rec_state["state"] = state
+        _rec_state["detail"] = detail[:180]
+        _rec_state["active_vod_id"] = active_vod_id[:160]
+
+
+def _post_vps(path: str, payload: dict) -> bool:
+    if not RECORDER_VPS_URL or not RECORDER_TOKEN:
+        return False
+    try:
+        res = requests.post(
+            f"{RECORDER_VPS_URL}{path}",
+            json=payload,
+            headers={"X-Recorder-Token": RECORDER_TOKEN, "Content-Type": "application/json"},
+            timeout=10,
+        )
+        return res.ok
+    except Exception:
+        return False
+
+
+def send_vps_heartbeat() -> None:
+    if not RECORDER_VPS_URL or not RECORDER_TOKEN:
+        return
+    free_gb = 0.0
+    try:
+        RECORD_DIR.mkdir(parents=True, exist_ok=True)
+        free_gb = round(shutil.disk_usage(RECORD_DIR).free / (1024.0 ** 3), 2)
+    except OSError:
+        pass
+    with _state_lock:
+        snap = dict(_rec_state)
+    _post_vps(
+        "/api/recorder/heartbeat",
+        {
+            "channel": CHANNEL,
+            "hostname": socket.gethostname()[:80],
+            "state": snap["state"],
+            "detail": snap["detail"],
+            "active_vod_id": snap["active_vod_id"],
+            "free_gb": free_gb,
+        },
+    )
+
+
+def _start_vps_heartbeat_thread() -> None:
+    if not RECORDER_VPS_URL or not RECORDER_TOKEN:
+        return
+
+    def _hb_loop() -> None:
+        while _running and not _stop_event.is_set():
+            send_vps_heartbeat()
+            _stop_event.wait(300)
+
+    threading.Thread(target=_hb_loop, name="vps-heartbeat", daemon=True).start()
+
+
+def notify_vps_vod_ready(vod_id: str, title: str) -> None:
+    _post_vps(
+        "/api/recorder/vod-ready",
+        {"vod_id": vod_id, "channel": CHANNEL, "title": str(title or "")[:240]},
+    )
+
+
+def _fmt_vtt_ts(seconds: float) -> str:
+    ms_total = max(0, int(round(float(seconds) * 1000)))
+    h = ms_total // 3600000
+    m = (ms_total % 3600000) // 60000
+    s = (ms_total % 60000) // 1000
+    ms = ms_total % 1000
+    return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
+
+
+def generate_whisper_transcript(video: Path, vtt_path: Path) -> bool:
+    """Опционально генерирует субтитры transcript.vtt локально (если установлен faster-whisper)."""
+    if not RECORDER_WHISPER or not video.is_file():
+        return False
+    try:
+        from faster_whisper import WhisperModel
+    except ImportError:
+        log("whisper: RECORDER_WHISPER=1, но пакет faster-whisper не установлен")
+        return False
+
+    tmp = vtt_path.with_suffix(".tmp.vtt")
+    try:
+        log(f"whisper: распознаю речь ({RECORDER_WHISPER_MODEL})…")
+        model = WhisperModel(RECORDER_WHISPER_MODEL, device="auto", compute_type="int8")
+        segments, _info = model.transcribe(str(video.resolve()), language=RECORDER_WHISPER_LANG, vad_filter=True)
+        lines = ["WEBVTT", ""]
+        count = 0
+        for seg in segments:
+            txt = re.sub(r"\s+", " ", str(getattr(seg, "text", "") or "")).strip()
+            if not txt:
+                continue
+            lines.append(f"{_fmt_vtt_ts(seg.start)} --> {_fmt_vtt_ts(seg.end)}")
+            lines.append(txt)
+            lines.append("")
+            count += 1
+        if count == 0:
+            return False
+        tmp.write_text("\n".join(lines), encoding="utf-8")
+        tmp.replace(vtt_path)
+        log(f"whisper: готово {vtt_path.name} ({count} реплик)")
+        return True
+    except Exception as exc:  # noqa: BLE001
+        log(f"whisper: ошибка распознавания: {exc}")
+        return False
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
 
 
 def record_session(stream: dict) -> None:
@@ -803,6 +936,8 @@ def record_session(stream: dict) -> None:
         "chat_file": "chat.jsonl",
     }
     log(f"стрим живой: «{meta['title']}» ({meta['game']}) → {folder}")
+    _set_rec_state("recording", str(meta.get("title") or "Запись эфира"), folder.name)
+    send_vps_heartbeat()
 
     chat = ChatRecorder(CHANNEL, chat_file)
     chat.start()
@@ -853,11 +988,14 @@ def record_session(stream: dict) -> None:
             meta["ended_at"] = datetime.now(timezone.utc).isoformat()
             meta["duration_s"] = duration_s
             remux_mpegts_to_mp4(video)
+            _set_rec_state("processing", "Постобработка и обложка VOD", folder.name)
             v_bytes = video.stat().st_size
             meta["size_bytes"] = v_bytes
             meta["size_label"] = _format_size(v_bytes)
             if extract_vod_thumbnail(video, folder / "thumb.jpg", meta["duration_s"]):
                 meta["thumb_file"] = "thumb.jpg"
+            if generate_whisper_transcript(video, folder / "transcript.vtt"):
+                meta["transcript_file"] = "transcript.vtt"
             (folder / "meta.json").write_text(
                 json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
             )
@@ -868,8 +1006,10 @@ def record_session(stream: dict) -> None:
             if tg_configured():
                 upload_to_telegram(folder, meta)
             if _effective_rclone_remote():
+                _set_rec_state("uploading", "Выгрузка VOD в Google Drive", folder.name)
                 upload_to_cloud(folder)
             rotate_old_recordings()
+        _set_rec_state("idle", "Ожидание эфира", "")
 
 
 # ----------------------------- главный цикл ----------------------------
@@ -889,13 +1029,212 @@ def _sigterm(_sig, _frm):
             pass
 
 
+_REC_REG_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
+_REC_REG_NAME = "KrafenRecorder"
+RECORDER_PID_PATH = ROOT_DIR / "data" / "recorder.pid"
+RECORDER_LOG_PATH = ROOT_DIR / "data" / "recorder.log"
+
+
+def _read_rec_pid() -> int | None:
+    try:
+        if RECORDER_PID_PATH.is_file():
+            val = int(RECORDER_PID_PATH.read_text(encoding="utf-8").strip())
+            return val if val > 0 else None
+    except Exception:
+        pass
+    return None
+
+
+def _is_rec_pid_alive(pid: int | None) -> bool:
+    if not pid or pid <= 0:
+        return False
+    if os.name == "nt":
+        res = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            creationflags=_WIN_NO_WINDOW,
+            check=False,
+        )
+        out = (res.stdout or b"").decode("ascii", errors="ignore").lower()
+        return "python" in out or "py.exe" in out or "pyw.exe" in out
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _stop_background_recorder() -> bool:
+    pid = _read_rec_pid()
+    if not pid or pid == os.getpid() or not _is_rec_pid_alive(pid):
+        try:
+            RECORDER_PID_PATH.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False
+    stopped = False
+    if os.name == "nt":
+        res = subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            creationflags=_WIN_NO_WINDOW,
+            check=False,
+        )
+        stopped = res.returncode == 0
+    else:
+        try:
+            os.kill(pid, 15)
+            stopped = True
+        except OSError:
+            pass
+    try:
+        RECORDER_PID_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return stopped
+
+
+def _spawn_background_recorder() -> int | None:
+    exe_dir = Path(sys.executable).resolve().parent
+    pythonw = exe_dir / "pythonw.exe"
+    launcher = pythonw if pythonw.is_file() else Path(sys.executable).resolve()
+    script_path = Path(__file__).resolve()
+    (ROOT_DIR / "data").mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUNBUFFERED"] = "1"
+    flags = _WIN_NO_WINDOW | getattr(subprocess, "DETACHED_PROCESS", 0)
+    proc = subprocess.Popen(
+        [str(launcher), str(script_path), "--background"],
+        cwd=str(ROOT_DIR),
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=flags,
+    )
+    time.sleep(1.2)
+    return proc.pid if _is_rec_pid_alive(proc.pid) else None
+
+
+def _manage_recorder_autostart_cli(action: str) -> int:
+    if action == "stop":
+        if _stop_background_recorder():
+            print("Фоновый рекордер остановлен.")
+        else:
+            print("Фоновый рекордер не запущен.")
+        return 0
+
+    if action == "status":
+        pid = _read_rec_pid()
+        alive = _is_rec_pid_alive(pid)
+        reg_val = None
+        if os.name == "nt":
+            import winreg
+
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _REC_REG_PATH, 0, winreg.KEY_READ) as key:
+                    reg_val, _ = winreg.QueryValueEx(key, _REC_REG_NAME)
+            except OSError:
+                reg_val = None
+        print(f"Автозапуск Windows: {'ВКЛЮЧЁН (' + str(reg_val) + ')' if reg_val else 'выключен'}")
+        print(f"Рекордер (@{CHANNEL}): {'РАБОТАЕТ (PID ' + str(pid) + ')' if alive else 'не запущен'}")
+        if RECORDER_LOG_PATH.is_file():
+            tail = RECORDER_LOG_PATH.read_text(encoding="utf-8", errors="replace").splitlines()[-10:]
+            if tail:
+                print(f"\nПоследние строки {RECORDER_LOG_PATH}:")
+                for ln in tail:
+                    print(f"  {ln}")
+        return 0
+
+    if os.name != "nt":
+        print("Автозапуск Windows поддерживается только на Windows.")
+        return 0
+
+    import winreg
+
+    if action == "uninstall":
+        _stop_background_recorder()
+        removed = False
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _REC_REG_PATH, 0, winreg.KEY_SET_VALUE) as key:
+                winreg.DeleteValue(key, _REC_REG_NAME)
+                removed = True
+        except OSError:
+            pass
+        startup_vbs = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "KrafenStreamRecorder.vbs"
+        if startup_vbs.is_file():
+            try:
+                startup_vbs.unlink()
+            except OSError:
+                pass
+        subprocess.run(["schtasks", "/Delete", "/TN", "KrafenStreamRecorder", "/F"], stdin=subprocess.DEVNULL, capture_output=True, check=False)
+        print("Автозапуск рекордера удалён." if removed else "Запись автозапуска не найдена (очищено).")
+        return 0
+
+    # install
+    if not CLIENT_ID or not CLIENT_SECRET:
+        print("ОШИБКА: сначала задайте TWITCH_CLIENT_ID и TWITCH_CLIENT_SECRET в .env")
+        return 1
+
+    exe_dir = Path(sys.executable).resolve().parent
+    pythonw = exe_dir / "pythonw.exe"
+    launcher = pythonw if pythonw.is_file() else Path(sys.executable).resolve()
+    cmd_str = f'"{launcher}" "{Path(__file__).resolve()}" --background'
+
+    try:
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, _REC_REG_PATH, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, _REC_REG_NAME, 0, winreg.REG_SZ, cmd_str)
+    except OSError as exc:
+        print(f"Не удалось записать автозапуск в реестр Windows: {exc}")
+        return 1
+
+    # Очистка старых нерабочих вариантов из прошлых версий
+    subprocess.run(["schtasks", "/Delete", "/TN", "KrafenStreamRecorder", "/F"], stdin=subprocess.DEVNULL, capture_output=True, check=False)
+    startup_vbs = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "KrafenStreamRecorder.vbs"
+    if startup_vbs.is_file():
+        try:
+            startup_vbs.unlink()
+        except OSError:
+            pass
+
+    _stop_background_recorder()
+    bg_pid = _spawn_background_recorder()
+    print(f"[OK] Автозапуск добавлен в HKCU\\...\\Run ({_REC_REG_NAME})")
+    print(f"     Команда: {cmd_str}")
+    if bg_pid:
+        print(f"[OK] Фоновый рекордер запущен (PID {bg_pid}, лог: {RECORDER_LOG_PATH})")
+    else:
+        print(f"[ВНИМАНИЕ] Не удалось подтвердить запуск — проверьте лог {RECORDER_LOG_PATH}")
+    return 0
+
+
 def main() -> None:
     if "--test-cloud" in sys.argv[1:]:
         sys.exit(test_cloud_connection())
+    for flag, act in (
+        ("--install-autostart", "install"),
+        ("--uninstall-autostart", "uninstall"),
+        ("--status", "status"),
+        ("--stop", "stop"),
+    ):
+        if flag in sys.argv[1:]:
+            sys.exit(_manage_recorder_autostart_cli(act))
 
     if not CLIENT_ID or not CLIENT_SECRET:
         sys.exit("Задайте TWITCH_CLIENT_ID и TWITCH_CLIENT_SECRET "
                  "(dev.twitch.tv/console → Register Your Application)")
+    old_pid = _read_rec_pid()
+    if old_pid and old_pid != os.getpid() and _is_rec_pid_alive(old_pid):
+        log(f"рекордер уже запущен (PID {old_pid}) — выход")
+        return
+    (ROOT_DIR / "data").mkdir(parents=True, exist_ok=True)
+    try:
+        RECORDER_PID_PATH.write_text(str(os.getpid()), encoding="utf-8")
+    except OSError:
+        pass
     RECORD_DIR.mkdir(parents=True, exist_ok=True)
     signal.signal(signal.SIGINT, _sigterm)
     signal.signal(signal.SIGTERM, _sigterm)
@@ -908,18 +1247,27 @@ def main() -> None:
         sync_pending_uploads()
 
     log(f"слежу за twitch.tv/{CHANNEL}...")
-    while _running and not _stop_event.is_set():
-        stream = get_live_stream()
-        if stream:
-            rotate_old_recordings()
-            try:
-                record_session(stream)
-            except Exception as exc:  # noqa: BLE001
-                log(f"ошибка сессии: {exc}")
-                _stop_event.wait(30)
-        else:
-            sync_pending_uploads()
-            _stop_event.wait(POLL_INTERVAL)
+    _set_rec_state("idle", "Ожидание эфира", "")
+    _start_vps_heartbeat_thread()
+    try:
+        while _running and not _stop_event.is_set():
+            stream = get_live_stream()
+            if stream:
+                rotate_old_recordings()
+                try:
+                    record_session(stream)
+                except Exception as exc:  # noqa: BLE001
+                    log(f"ошибка сессии: {exc}")
+                    _stop_event.wait(30)
+            else:
+                sync_pending_uploads()
+                _stop_event.wait(POLL_INTERVAL)
+    finally:
+        try:
+            if _read_rec_pid() == os.getpid():
+                RECORDER_PID_PATH.unlink(missing_ok=True)
+        except OSError:
+            pass
     log("остановлено")
 
 

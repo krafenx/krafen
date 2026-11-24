@@ -38,9 +38,12 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
+from collections import Counter, deque
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlencode, urlsplit
+from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 import requests
 import uvicorn
@@ -53,6 +56,32 @@ from fastapi.responses import (
     RedirectResponse,
     StreamingResponse,
 )
+
+try:
+    from cryptography.hazmat.primitives import serialization as _crypto_ser
+    from py_vapid import Vapid as _VapidCls
+    from pywebpush import WebPushException as _WebPushError
+    from pywebpush import webpush as _send_webpush
+
+    _WEBPUSH_AVAILABLE = True
+except Exception:
+    _crypto_ser = None
+    _VapidCls = None
+    _WebPushError = Exception
+    _send_webpush = None
+    _WEBPUSH_AVAILABLE = False
+
+try:
+    from PIL import Image as _PILImage
+    from PIL import ImageDraw as _PILDraw
+    from PIL import ImageFilter as _PILFilter
+    from PIL import ImageFont as _PILFont
+    from PIL import ImageOps as _PILOps
+
+    _PIL_AVAILABLE = True
+except Exception:
+    _PILImage = _PILDraw = _PILFilter = _PILFont = _PILOps = None
+    _PIL_AVAILABLE = False
 
 ROOT = Path(__file__).resolve().parent
 _DOTENV_VALUES: dict[str, str] = {}
@@ -156,6 +185,8 @@ SECURE_COOKIES_MODE = os.environ.get("SECURE_COOKIES", "auto").strip().lower()
 TRUST_PROXY_MODE = os.environ.get("TRUST_PROXY_HEADERS", "auto").strip().lower()
 
 TWITCH_CHANNEL = os.environ.get("TWITCH_CHANNEL", "krafen")
+RECORDER_CHANNEL = (os.environ.get("RECORDER_CHANNEL") or "danonsha").strip() or "danonsha"
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:admin@krafen.me").strip() or "mailto:admin@krafen.me"
 TWITCH_CLIENT_ID = os.environ.get("TWITCH_CLIENT_ID", "")
 TWITCH_CLIENT_SECRET = os.environ.get("TWITCH_CLIENT_SECRET", "")
 IGDB_CLIENT_ID = os.environ.get("IGDB_CLIENT_ID", "") or TWITCH_CLIENT_ID
@@ -171,6 +202,18 @@ SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
 DISCORD_INVITE_CODE = os.environ.get("DISCORD_INVITE_CODE", "kGdxDzxtmK")
 GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "1e417_q9s6SjcZHyqMYzbVs8OHqfY5Ifk").strip()
 GDRIVE_API_KEY = os.environ.get("GDRIVE_API_KEY", "").strip()
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_ADMIN_CHAT_ID = (
+    os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip()
+    or os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+)
+try:
+    ALERT_MIN_FREE_GB = max(0.2, float(os.environ.get("ALERT_MIN_FREE_GB", "2.0") or "2.0"))
+except ValueError:
+    ALERT_MIN_FREE_GB = 2.0
+RECORDER_TOKEN = os.environ.get("RECORDER_TOKEN", "").strip()
+MSK_TZ = timezone(timedelta(hours=3))
+TG_BACKUP_DAILY = os.environ.get("TG_BACKUP_DAILY", "1").strip().lower() in {"1", "true", "yes", "on"}
 
 AUTO_UPDATE_MODE = os.environ.get("AUTO_UPDATE", "auto").strip().lower()
 AUTO_UPDATE_REPO = os.environ.get("AUTO_UPDATE_REPO", "krafenx/krafenz").strip().strip("/")
@@ -1089,6 +1132,9 @@ async def _app_lifespan(_app: FastAPI):
     _geo_startup_warnings()
     _start_ipinfo_updater()
     _start_drive_vods_poller()
+    _start_twitch_push_poller()
+    _start_health_alert_poller()
+    _start_daily_tg_backup_scheduler()
     try:
         yield
     finally:
@@ -1134,6 +1180,8 @@ MIME = {
     ".mkv": "video/x-matroska",
     ".mov": "video/quicktime",
     ".jsonl": "application/x-ndjson; charset=utf-8",
+    ".webmanifest": "application/manifest+json; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
 }
 
 LIST_SPECS = {
@@ -1275,9 +1323,26 @@ CREATE TABLE IF NOT EXISTS drive_vods (
     chat_drive_id TEXT NOT NULL DEFAULT '',
     thumb_drive_id TEXT NOT NULL DEFAULT '',
     meta_drive_id TEXT NOT NULL DEFAULT '',
+    transcript_drive_id TEXT NOT NULL DEFAULT '',
     game TEXT NOT NULL DEFAULT '',
     duration_s INTEGER NOT NULL DEFAULT 0,
     started_at TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    ext_id TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    title_ru TEXT NOT NULL DEFAULT '',
+    year TEXT NOT NULL DEFAULT '-',
+    media_type TEXT NOT NULL,
+    image TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    author TEXT NOT NULL DEFAULT '',
+    link TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at INTEGER NOT NULL
 );
 """
 
@@ -1593,6 +1658,18 @@ def init_auth_db() -> None:
             CREATE TABLE IF NOT EXISTS kv (
                 key TEXT PRIMARY KEY,
                 value_json TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                endpoint TEXT PRIMARY KEY,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                channels_json TEXT NOT NULL DEFAULT '["krafen"]',
+                created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             )
             """
@@ -2378,6 +2455,7 @@ def init_db() -> None:
         _migrate_collections_to_owners(conn)
         for table, columns in _COLLECTION_EXTRA_COLUMNS.items():
             _ensure_columns(conn, table, columns)
+        _ensure_columns(conn, "suggestions", [("link", "TEXT NOT NULL DEFAULT ''")])
 
         existing_vod_cols = {
             row["name"] for row in conn.execute("PRAGMA table_info(drive_vods)").fetchall()
@@ -2387,6 +2465,7 @@ def init_db() -> None:
             ("chat_drive_id", "TEXT NOT NULL DEFAULT ''"),
             ("thumb_drive_id", "TEXT NOT NULL DEFAULT ''"),
             ("meta_drive_id", "TEXT NOT NULL DEFAULT ''"),
+            ("transcript_drive_id", "TEXT NOT NULL DEFAULT ''"),
             ("game", "TEXT NOT NULL DEFAULT ''"),
             ("duration_s", "INTEGER NOT NULL DEFAULT 0"),
             ("started_at", "TEXT NOT NULL DEFAULT ''"),
@@ -2549,7 +2628,7 @@ _analytics_last_prune_ts = 0.0
 # Страницы, которые не должны попадать в поиск: панель, служебные разделы.
 # Отдаются с X-Robots-Tag: noindex; сканирование /tasks разрешено в robots.txt,
 # чтобы поисковые роботы могли увидеть этот заголовок.
-_NOINDEX_PAGES = {"admin.html", "tasks.html"}
+_NOINDEX_PAGES = {"admin.html", "tasks.html", "404.html"}
 
 _TRACKED_PAGES: dict[str, tuple[str, str]] = {
     "/": ("/", "Главная"),
@@ -2562,6 +2641,8 @@ _TRACKED_PAGES: dict[str, tuple[str, str]] = {
     "/setup.html": ("/setup", "Setup"),
     "/wishlist": ("/wishlist", "Wishlist"),
     "/wishlist.html": ("/wishlist", "Wishlist"),
+    "/wrapped": ("/wrapped", "Wrapped"),
+    "/wrapped.html": ("/wrapped", "Wrapped"),
     "/tasks": ("/tasks", "Tasks"),
     "/tasks.html": ("/tasks", "Tasks"),
     "/danonsha": ("/danonsha", "danonsha"),
@@ -3001,6 +3082,8 @@ def record_request_telemetry(
     path = request.url.path or "/"
     if path.startswith("/api/admin"):
         return
+    if status_code >= 500:
+        _record_5xx_for_alerts(status_code, path)
 
     now = time.time()
     now_i = int(now)
@@ -3346,7 +3429,7 @@ _COLLECTION_PUT_PATHS = frozenset(f"/api/{_name}" for _name in LIST_SPECS)
 
 
 def _max_body_bytes_for_path(path: str) -> int:
-    if path == "/api/admin/restore":
+    if path in ("/api/admin/restore", "/api/admin/import-list"):
         return _MAX_BODY_RESTORE
     if path.startswith("/api/admin"):
         return _MAX_BODY_ADMIN
@@ -3568,6 +3651,174 @@ def make_put_list(name: str):
 for _name in LIST_SPECS:
     app.add_api_route(f"/api/{_name}", make_get_list(_name), methods=["GET"])
     app.add_api_route(f"/api/{_name}", make_put_list(_name), methods=["PUT"])
+
+
+def get_wrapped_stats(owner: str = "krafen", target_year: str = "all") -> dict[str, Any]:
+    with _db_lock, db_connect() as conn:
+        w_rows = conn.execute(
+            "SELECT title, title_ru, year, type, status, poster, rating, review, tags_json, favorite, added_at "
+            "FROM watchlist_items WHERE owner = ?",
+            (owner,),
+        ).fetchall()
+        g_rows = conn.execute(
+            "SELECT title, year, status, rating, review, cover, genres_json, platforms_json, favorite, added_at "
+            "FROM gamelist_items WHERE owner = ?",
+            (owner,),
+        ).fetchall()
+        vod_rows = conn.execute(
+            "SELECT id, title, game, duration_s, started_at FROM drive_vods"
+        ).fetchall()
+
+    all_years: set[str] = set()
+
+    def _extract_year(ts: Any, fallback_year: Any) -> str | None:
+        if ts:
+            try:
+                num = float(ts)
+                sec = num / 1000.0 if num > 2e10 else num
+                y = datetime.fromtimestamp(sec).year
+                if 2000 <= y <= 2100:
+                    sy = str(y)
+                    all_years.add(sy)
+                    return sy
+            except Exception:
+                pass
+        fy = str(fallback_year or "").strip()
+        if len(fy) >= 4 and fy[:4].isdigit():
+            y_str = fy[:4]
+            if 2000 <= int(y_str) <= 2100:
+                all_years.add(y_str)
+                return y_str
+        return None
+
+    w_parsed = []
+    for r in w_rows:
+        d = dict(r)
+        d["act_year"] = _extract_year(d.get("added_at"), d.get("year"))
+        w_parsed.append(d)
+
+    g_parsed = []
+    for r in g_rows:
+        d = dict(r)
+        d["act_year"] = _extract_year(d.get("added_at"), d.get("year"))
+        try:
+            d["platforms"] = json.loads(d.get("platforms_json") or "[]")
+        except Exception:
+            d["platforms"] = []
+        try:
+            d["genres"] = json.loads(d.get("genres_json") or "[]")
+        except Exception:
+            d["genres"] = []
+        g_parsed.append(d)
+
+    vod_parsed = []
+    for r in vod_rows:
+        d = dict(r)
+        st = str(d.get("started_at") or "")
+        if len(st) >= 4 and st[:4].isdigit():
+            y_str = st[:4]
+            all_years.add(y_str)
+            d["act_year"] = y_str
+        else:
+            d["act_year"] = None
+        vod_parsed.append(d)
+
+    years_list = sorted(list(all_years), reverse=True)
+    if "all" not in years_list:
+        years_list.append("all")
+
+    if not target_year or target_year not in years_list:
+        target_year = years_list[0] if years_list else "all"
+
+    def _match(it: dict[str, Any]) -> bool:
+        return True if target_year == "all" else it.get("act_year") == target_year
+
+    filtered_w = [w for w in w_parsed if _match(w)]
+    filtered_g = [g for g in g_parsed if _match(g)]
+    filtered_v = [v for v in vod_parsed if _match(v)]
+
+    movies_count = sum(1 for w in filtered_w if w.get("type") == "movie")
+    series_count = sum(1 for w in filtered_w if w.get("type") in ("tv", "series", "serial"))
+    anime_count = sum(1 for w in filtered_w if w.get("type") == "anime")
+
+    games_completed = sum(1 for g in filtered_g if g.get("status") in ("completed", "passed", "finished"))
+    total_vod_s = sum(int(v.get("duration_s") or 0) for v in filtered_v)
+
+    w_ratings = [float(w["rating"]) for w in filtered_w if float(w.get("rating") or 0) > 0]
+    avg_w = round(sum(w_ratings) / len(w_ratings), 1) if w_ratings else 0.0
+
+    g_ratings = [float(g["rating"]) for g in filtered_g if float(g.get("rating") or 0) > 0]
+    avg_g = round(sum(g_ratings) / len(g_ratings), 1) if g_ratings else 0.0
+
+    p_counter = Counter()
+    for g in filtered_g:
+        for p in g.get("platforms", []):
+            p_counter[p] += 1
+
+    gen_counter = Counter()
+    for g in filtered_g:
+        for gen in g.get("genres", []):
+            gen_counter[gen] += 1
+
+    top_m = sorted(
+        [w for w in filtered_w if w.get("poster")],
+        key=lambda x: (x.get("favorite") or 0, float(x.get("rating") or 0)),
+        reverse=True,
+    )[:6]
+
+    top_g = sorted(
+        [g for g in filtered_g if g.get("cover")],
+        key=lambda x: (x.get("favorite") or 0, float(x.get("rating") or 0)),
+        reverse=True,
+    )[:6]
+
+    return {
+        "available_years": years_list,
+        "selected_year": target_year,
+        "summary": {
+            "total_watched": len(filtered_w),
+            "movies_count": movies_count,
+            "series_count": series_count,
+            "anime_count": anime_count,
+            "games_total": len(filtered_g),
+            "games_completed": games_completed,
+            "vods_count": len(filtered_v),
+            "total_vod_hours": round(total_vod_s / 3600.0, 1),
+            "avg_w_rating": avg_w,
+            "avg_g_rating": avg_g,
+        },
+        "top_platforms": [{"name": p, "count": c} for p, c in p_counter.most_common(6)],
+        "top_genres": [{"name": gn, "count": c} for gn, c in gen_counter.most_common(8)],
+        "top_movies": [
+            {
+                "title": m.get("title_ru") or m.get("title"),
+                "year": m.get("year"),
+                "rating": m.get("rating"),
+                "poster": m.get("poster"),
+                "favorite": bool(m.get("favorite")),
+                "type": m.get("type"),
+            }
+            for m in top_m
+        ],
+        "top_games": [
+            {
+                "title": g.get("title"),
+                "year": g.get("year"),
+                "rating": g.get("rating"),
+                "cover": g.get("cover"),
+                "favorite": bool(g.get("favorite")),
+                "status": g.get("status"),
+            }
+            for g in top_g
+        ],
+    }
+
+
+@app.get("/api/wrapped")
+def api_wrapped(request: Request, year: str = "") -> JSONResponse:
+    profile = request_profile(request)
+    data = get_wrapped_stats(owner=profile, target_year=year)
+    return j(data)
 
 
 @app.get("/api/health")
@@ -4119,6 +4370,36 @@ def admin_overview(request: Request, days: int = 14) -> JSONResponse:
     tokens = read_tokens()
     rec_enabled = os.environ.get("RECORDER") == "1"
     rec_alive = bool(_ACTIVE_REC_PROC is not None and _ACTIVE_REC_PROC.poll() is None)
+    rec_hb = kv_get("recorder_heartbeat")
+    rec_hb_age = (now - float(rec_hb.get("ts") or 0)) if isinstance(rec_hb, dict) else None
+    rec_hb_fresh = isinstance(rec_hb_age, (int, float)) and rec_hb_age < 900.0
+    if rec_alive:
+        rec_status = "ok"
+        rec_detail = f"Активен (@{os.environ.get('RECORDER_CHANNEL', 'danonsha')})"
+    elif rec_hb_fresh and isinstance(rec_hb, dict):
+        rec_status = "ok"
+        free_s = f"{float(rec_hb.get('free_gb') or 0):.1f} ГБ" if rec_hb.get("free_gb") else "—"
+        rec_detail = (
+            f"Домашний ПК · {rec_hb.get('state') or 'онлайн'} "
+            f"({int(rec_hb_age // 60)}м назад) · диск {free_s}"
+        )
+    elif isinstance(rec_hb, dict) and rec_hb.get("ts"):
+        rec_status = "warn"
+        rec_detail = f"Домашний ПК офлайн > {max(15, int((rec_hb_age or 0) // 60))} мин"
+    elif rec_enabled:
+        rec_status = "warn"
+        rec_detail = "Включён в .env, но процесс остановлен"
+    else:
+        rec_status = "muted"
+        rec_detail = "Домашний ПК (настройте RECORDER_VPS_URL + RECORDER_TOKEN для статуса)"
+
+    with _db_lock, db_connect() as sconn:
+        sug_rows = [
+            dict(sr)
+            for sr in sconn.execute(
+                "SELECT * FROM suggestions WHERE status = 'pending' ORDER BY id DESC LIMIT 60"
+            ).fetchall()
+        ]
 
     req_cnt_period = int(period_sum["req_cnt"] or 0)
     avg_lat_ms = round(float(period_sum["lat_sum"] or 0.0) / req_cnt_period, 1) if req_cnt_period > 0 else 0.0
@@ -4309,14 +4590,28 @@ def admin_overview(request: Request, days: int = 14) -> JSONResponse:
                 {
                     "id": "recorder",
                     "name": "Рекордер стримов",
-                    "status": "ok" if rec_alive else ("warn" if rec_enabled else "muted"),
+                    "status": rec_status,
+                    "detail": rec_detail,
+                },
+                {
+                    "id": "tg_alerts",
+                    "name": "Telegram-алерты VPS",
+                    "status": "ok" if (TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID) else "muted",
                     "detail": (
-                        f"Активен (@{os.environ.get('RECORDER_CHANNEL', 'danonsha')})"
-                        if rec_alive
-                        else ("Включён в .env, но процесс остановлен" if rec_enabled else "Выключен на этом узле (RECORDER=0)")
+                        f"Активны (порог диска < {ALERT_MIN_FREE_GB:.1f} ГБ, 5xx и Drive)"
+                        if (TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID)
+                        else "Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID (или TELEGRAM_CHAT_ID)"
                     ),
+                    "configured": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID),
                 },
             ],
+            "backup": {
+                "last_tg_backup_ts": int(float(kv_get("last_tg_backup_ts") or 0)),
+                "last_tg_backup_msk_day": str(kv_get("last_tg_backup_msk_day") or ""),
+                "daily_enabled": bool(TG_BACKUP_DAILY),
+                "telegram_configured": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID),
+            },
+            "suggestions": sug_rows,
             "audit_log": audit_rows,
         }
     )
@@ -4464,6 +4759,862 @@ def admin_clear_cache(request: Request, body: dict[str, Any]) -> JSONResponse:
     return j({"ok": True, "target": target, "removed": removed_files, "freed_bytes": freed_bytes})
 
 
+_alert_lock = threading.Lock()
+_alert_cooldowns: dict[str, float] = {}
+_http_5xx_timestamps: deque[float] = deque(maxlen=64)
+_drive_sync_failures = 0
+_health_alert_poller_started = False
+
+
+def _send_telegram_admin_message(text_msg: str) -> tuple[bool, str]:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_ADMIN_CHAT_ID:
+        return False, "telegram_not_configured"
+    api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    try:
+        res = requests.post(
+            api_url,
+            json={
+                "chat_id": TELEGRAM_ADMIN_CHAT_ID,
+                "text": str(text_msg)[:3800],
+                "disable_web_page_preview": True,
+            },
+            timeout=6,
+        )
+        if res.ok:
+            return True, "ok"
+        return False, f"http_{res.status_code}"
+    except Exception:
+        return False, "request_failed"
+
+
+def _maybe_send_admin_tg_alert(kind: str, text_msg: str, cooldown_s: float = 3600.0) -> bool:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_ADMIN_CHAT_ID:
+        return False
+    now = time.time()
+    with _alert_lock:
+        last_ts = _alert_cooldowns.get(kind, 0.0)
+        if now - last_ts < cooldown_s:
+            return False
+        _alert_cooldowns[kind] = now
+    threading.Thread(
+        target=_send_telegram_admin_message,
+        args=(text_msg,),
+        name=f"tg-alert-{kind}",
+        daemon=True,
+    ).start()
+    return True
+
+
+def _record_5xx_for_alerts(status_code: int, path: str) -> None:
+    now = time.time()
+    cutoff = now - 300.0
+    burst_count = 0
+    with _alert_lock:
+        _http_5xx_timestamps.append(now)
+        while _http_5xx_timestamps and _http_5xx_timestamps[0] < cutoff:
+            _http_5xx_timestamps.popleft()
+        burst_count = len(_http_5xx_timestamps)
+    if burst_count >= 5:
+        _maybe_send_admin_tg_alert(
+            "http_5xx",
+            f"[krafen.me] Зафиксирован всплеск 5xx на VPS: {burst_count} ошибок за 5 мин (последняя: {status_code} {path[:120]})",
+            cooldown_s=1800.0,
+        )
+
+
+def _check_vps_disk_alert() -> None:
+    try:
+        du = shutil.disk_usage(DATA_DIR)
+        free_gb = du.free / (1024.0 ** 3)
+        if free_gb < ALERT_MIN_FREE_GB:
+            _maybe_send_admin_tg_alert(
+                "low_disk",
+                f"[krafen.me] Мало места на диске VPS: свободно {free_gb:.2f} ГБ (порог {ALERT_MIN_FREE_GB:.1f} ГБ)",
+                cooldown_s=21600.0,
+            )
+    except OSError:
+        pass
+
+    # Проверка протухшего heartbeat домашнего recorder.py
+    hb = kv_get("recorder_heartbeat")
+    if isinstance(hb, dict) and hb.get("ts"):
+        age_s = time.time() - float(hb.get("ts") or 0)
+        if age_s > 1800.0:
+            _maybe_send_admin_tg_alert(
+                "home_recorder_stale",
+                f"[krafen.me] Домашний рекордер (@{hb.get('channel') or RECORDER_CHANNEL}) не отвечает более {int(age_s // 60)} мин.",
+                cooldown_s=21600.0,
+            )
+
+
+def _next_msk_midnight(now_msk: datetime | None = None) -> datetime:
+    cur = now_msk or datetime.now(MSK_TZ)
+    return (cur + timedelta(days=1)).replace(hour=0, minute=0, second=5, microsecond=0)
+
+
+_daily_tg_backup_started = False
+
+
+def _start_daily_tg_backup_scheduler() -> None:
+    global _daily_tg_backup_started
+    if _daily_tg_backup_started:
+        return
+    _daily_tg_backup_started = True
+
+    def _worker() -> None:
+        while True:
+            now_msk = datetime.now(MSK_TZ)
+            target_msk = _next_msk_midnight(now_msk)
+            while True:
+                rem = (target_msk - datetime.now(MSK_TZ)).total_seconds()
+                if rem <= 0:
+                    break
+                time.sleep(min(30.0, rem))
+            if TG_BACKUP_DAILY and TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID:
+                today_key = target_msk.strftime("%Y-%m-%d")
+                if kv_get("last_tg_backup_msk_day") != today_key:
+                    ok, detail = _send_telegram_backup_zip()
+                    if ok:
+                        kv_set("last_tg_backup_msk_day", today_key)
+                    log_admin_event(None, "tg_backup", "ok" if ok else "error", f"Плановый (00:00 МСК): {detail}")
+
+    threading.Thread(target=_worker, name="daily-msk-tg-backup", daemon=True).start()
+
+
+def _build_full_server_backup_zip() -> bytes:
+    """Формирует полный ZIP-бэкап всего сервера (БД SQLite, .env, код сайта, ассеты, кэши VOD/чатов)."""
+    import tempfile
+
+    buf = io.BytesIO()
+    max_zip_raw = 42 * 1024 * 1024  # запас под лимит Telegram sendDocument 50 МБ
+    added_raw = 0
+    skip_dirs = {".git", ".venv", "venv", "__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "vods", "brain", "scratch"}
+    skip_names = {"ipinfo_lite.mmdb", "server.pid", "recorder.pid", "server.log", "recorder.log"}
+    priority_prefixes = ("data/vod_chats/", "data/vod_thumbs/", "images/", "danonsha/", "recorder/", "tests/")
+
+    def _add_path(zf: zipfile.ZipFile, src: Path, arc: str, limit: int = 80 * 1024 * 1024) -> None:
+        nonlocal added_raw
+        if not src.is_file():
+            return
+        with contextlib.suppress(OSError):
+            sz = src.stat().st_size
+            if sz > 15 * 1024 * 1024 or added_raw + sz > limit:
+                return
+            zf.write(src, arcname=arc)
+            added_raw += sz
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_root = Path(tmpdir)
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+            seen_arcs: set[str] = set()
+            # 1. Консистентные снимки всех 3 SQLite БД + seed.sql
+            for src_db in (DB_PATH, AUTH_DB_PATH, ANALYTICS_DB_PATH):
+                if not src_db.is_file():
+                    continue
+                dst_db = tmp_root / src_db.name
+                try:
+                    with (
+                        contextlib.closing(sqlite3.connect(src_db, timeout=15)) as sconn,
+                        contextlib.closing(sqlite3.connect(dst_db)) as dconn,
+                    ):
+                        sconn.backup(dconn)
+                    arc = f"data/{src_db.name}"
+                    _add_path(zf, dst_db, arc, max_zip_raw)
+                    seen_arcs.add(arc)
+                except Exception:
+                    continue
+
+            # 2. Конфиги (.env, rclone.conf, _redirects) + весь код и статика из корня и рабочих подпапок
+            for fpath in sorted(ROOT.rglob("*")):
+                if not fpath.is_file():
+                    continue
+                try:
+                    rel = fpath.relative_to(ROOT).as_posix()
+                except ValueError:
+                    continue
+                parts = rel.split("/")
+                if any(p in skip_dirs for p in parts):
+                    continue
+                if parts[-1] in skip_names or parts[-1].endswith((".pyc", ".pyo", ".exe")):
+                    continue
+                if rel.startswith("data/") and (
+                    rel.startswith(("data/krafen.db", "data/auth.db", "data/analytics.db", "data/img_cache/"))
+                    or ".db-" in parts[-1]
+                ):
+                    continue
+                if "/" not in rel or rel.startswith(priority_prefixes) or rel == "data/seed.sql":
+                    if rel not in seen_arcs:
+                        _add_path(zf, fpath, rel, max_zip_raw)
+                        seen_arcs.add(rel)
+
+            # 3. В оставшийся бюджет докладываем кэш прокси-обложек data/img_cache
+            if IMG_CACHE_DIR.is_dir():
+                for img_f in sorted(IMG_CACHE_DIR.iterdir()):
+                    arc = f"data/img_cache/{img_f.name}"
+                    if arc not in seen_arcs:
+                        _add_path(zf, img_f, arc, max_zip_raw)
+                        seen_arcs.add(arc)
+    return buf.getvalue()
+
+
+_build_sqlite_backup_zip = _build_full_server_backup_zip
+
+
+def _send_telegram_backup_zip() -> tuple[bool, str]:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_ADMIN_CHAT_ID:
+        return False, "telegram_not_configured"
+    zip_bytes = _build_full_server_backup_zip()
+    if not zip_bytes:
+        return False, "empty_backup"
+    now_msk = datetime.now(MSK_TZ)
+    stamp = now_msk.strftime("%Y-%m-%d_%H-%M")
+    filename = f"krafen-server-backup-{stamp}-msk.zip"
+    size_kb = max(1, len(zip_bytes) // 1024)
+    try:
+        res = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument",
+            data={
+                "chat_id": TELEGRAM_ADMIN_CHAT_ID,
+                "caption": f"[krafen.me] Полный бэкап сервера ({stamp} МСК · {size_kb} КБ)",
+            },
+            files={"document": (filename, zip_bytes, "application/zip")},
+            timeout=30,
+        )
+        if res.ok:
+            kv_set("last_tg_backup_ts", time.time())
+            return True, filename
+        return False, f"http_{res.status_code}"
+    except Exception:
+        return False, "request_failed"
+
+
+def _start_health_alert_poller() -> None:
+    global _health_alert_poller_started
+    if _health_alert_poller_started:
+        return
+    _health_alert_poller_started = True
+
+    def _poller() -> None:
+        time.sleep(30)
+        while True:
+            _check_vps_disk_alert()
+            time.sleep(600)
+
+    threading.Thread(target=_poller, name="vps-health-alerts", daemon=True).start()
+
+
+def _is_safe_public_http_url(raw_url: Any) -> str | None:
+    cleaned = clean_url(raw_url, 2000)
+    if not cleaned:
+        return None
+    parsed = urlsplit(cleaned)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if not host or host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
+        return None
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        ip = ipaddress.ip_address(host)
+        return cleaned if ip.is_global else None
+    except ValueError:
+        pass
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError:
+        return None
+    if not infos:
+        return None
+    for info in infos:
+        addr = info[4][0]
+        try:
+            resolved_ip = ipaddress.ip_address(addr.split("%")[0])
+        except ValueError:
+            continue
+        if not resolved_ip.is_global:
+            return None
+    return cleaned
+
+
+def _unwrap_checkable_url(raw_url: Any) -> str | None:
+    s = str(raw_url or "").strip()
+    if not s:
+        return None
+    if s.startswith("/api/img?"):
+        qs = parse_qs(urlsplit(s).query)
+        inner = qs.get("u", [""])[0]
+        return inner or None
+    if s.startswith(("http://", "https://")):
+        return s
+    return None
+
+
+def _check_single_external_url(raw_url: str) -> dict[str, Any]:
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; KrafenLinkCheck/1.0)"}
+    cur = _is_safe_public_http_url(raw_url)
+    if not cur:
+        return {"ok": False, "status": 0, "reason": "Небезопасный или неразрешённый URL"}
+
+    session = requests.Session()
+    try:
+        for _hop in range(4):
+            try:
+                res = session.head(cur, headers=headers, timeout=5, allow_redirects=False)
+                if res.status_code in (403, 405, 501, 999):
+                    res.close()
+                    res = session.get(cur, headers=headers, timeout=5, allow_redirects=False, stream=True)
+            except requests.Timeout:
+                return {"ok": False, "status": 0, "reason": "Таймаут (5с)"}
+            except requests.RequestException as exc:
+                return {"ok": False, "status": 0, "reason": text(type(exc).__name__, 80)}
+
+            try:
+                code = int(res.status_code)
+                if code in (301, 302, 303, 307, 308):
+                    loc = res.headers.get("location") or ""
+                    if not loc:
+                        return {"ok": False, "status": code, "reason": f"HTTP {code} без Location"}
+                    next_abs = loc if loc.startswith(("http://", "https://")) else urlsplit(cur)._replace(path=loc if loc.startswith("/") else "/" + loc, query="", fragment="").geturl()
+                    safe_next = _is_safe_public_http_url(next_abs)
+                    if not safe_next:
+                        return {"ok": False, "status": code, "reason": "Редирект на приватный/недопустимый узел"}
+                    cur = safe_next
+                    continue
+                if code < 400:
+                    return {"ok": True, "status": code, "reason": "ok"}
+                return {"ok": False, "status": code, "reason": f"HTTP {code}"}
+            finally:
+                res.close()
+        return {"ok": False, "status": 310, "reason": "Слишком много редиректов"}
+    finally:
+        session.close()
+
+
+@app.post("/api/admin/alerts/test")
+def admin_test_tg_alert(request: Request) -> JSONResponse:
+    require_same_origin(request)
+    require_admin(request)
+    rate_limit(request, "admin_alert_test", 10, 60)
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_ADMIN_CHAT_ID:
+        return j({"ok": False, "error": "telegram_not_configured"}, 400)
+    ok, detail = _send_telegram_admin_message(
+        "[krafen.me] Тестовый алерт из /admin: Telegram-уведомления VPS работают."
+    )
+    log_admin_event(request, "tg_alert_test", "ok" if ok else "error", f"Результат: {detail}")
+    if not ok:
+        return j({"ok": False, "error": detail}, 502)
+    return j({"ok": True})
+
+
+@app.post("/api/admin/links/check")
+def admin_check_links(request: Request) -> JSONResponse:
+    require_same_origin(request)
+    require_admin(request)
+    rate_limit(request, "admin_links_check", 6, 60)
+
+    field_map = {
+        "watchlist": ("poster",),
+        "gamelist": ("cover",),
+        "setup": ("link",),
+        "wishlist": ("link", "image"),
+    }
+    refs_by_url: dict[str, list[dict[str, str]]] = {}
+    total_items = 0
+
+    for owner in ("krafen", "danonsha"):
+        for coll, fields in field_map.items():
+            state = read_list(coll, owner=owner)
+            items = state.get("items") or []
+            total_items += len(items)
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                item_title = text(item.get("title") or item.get("name"), 140) or "Без названия"
+                for fld in fields:
+                    target_url = _unwrap_checkable_url(item.get(fld))
+                    if not target_url:
+                        continue
+                    refs_by_url.setdefault(target_url, []).append(
+                        {
+                            "collection": coll,
+                            "owner": owner,
+                            "title": item_title,
+                            "field": fld,
+                        }
+                    )
+
+    unique_urls = list(refs_by_url.keys())[:250]
+    results: dict[str, dict[str, Any]] = {}
+    if unique_urls:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for url_str, res in zip(unique_urls, pool.map(_check_single_external_url, unique_urls)):
+                results[url_str] = res
+
+    broken: list[dict[str, Any]] = []
+    for url_str in unique_urls:
+        res = results.get(url_str) or {}
+        if res.get("ok"):
+            continue
+        for ref in refs_by_url.get(url_str, []):
+            broken.append(
+                {
+                    **ref,
+                    "url": url_str[:300],
+                    "status": int(res.get("status") or 0),
+                    "reason": str(res.get("reason") or "Ошибка"),
+                }
+            )
+            if len(broken) >= 200:
+                break
+        if len(broken) >= 200:
+            break
+
+    log_admin_event(
+        request,
+        "links_check",
+        "ok",
+        f"Проверено URL: {len(unique_urls)}, проблемных: {len(broken)}",
+    )
+    return j(
+        {
+            "ok": True,
+            "total_items": total_items,
+            "unique_urls": len(unique_urls),
+            "broken_count": len(broken),
+            "broken": broken,
+        }
+    )
+
+
+def _require_recorder_auth(request: Request) -> None:
+    if not RECORDER_TOKEN:
+        raise HTTPException(status_code=503, detail="recorder_token_not_configured")
+    raw = (request.headers.get("x-recorder-token") or "").strip()
+    if not raw:
+        auth_h = (request.headers.get("authorization") or "").strip()
+        if auth_h.lower().startswith("bearer "):
+            raw = auth_h[7:].strip()
+    if not raw or not hmac.compare_digest(raw, RECORDER_TOKEN):
+        raise HTTPException(status_code=401, detail="invalid_recorder_token")
+
+
+@app.post("/api/recorder/heartbeat")
+def recorder_heartbeat(request: Request, body: dict[str, Any]) -> JSONResponse:
+    rate_limit(request, "rec_hb", 30, 60)
+    _require_recorder_auth(request)
+    channel = _normalize_push_channel(body.get("channel") or RECORDER_CHANNEL)
+    try:
+        free_gb = round(max(0.0, float(body.get("free_gb") or 0.0)), 2)
+    except (TypeError, ValueError):
+        free_gb = 0.0
+    payload = {
+        "channel": channel,
+        "hostname": text(body.get("hostname"), 80),
+        "state": text(body.get("state"), 32) or "idle",
+        "detail": text(body.get("detail"), 180),
+        "active_vod_id": text(body.get("active_vod_id"), 160),
+        "free_gb": free_gb,
+        "ts": time.time(),
+    }
+    kv_set("recorder_heartbeat", payload)
+    if 0.0 < free_gb < ALERT_MIN_FREE_GB:
+        _maybe_send_admin_tg_alert(
+            "home_low_disk",
+            f"[krafen.me] На домашнем ПК рекордера (@{channel}) осталось {free_gb:.1f} ГБ",
+            cooldown_s=21600.0,
+        )
+    return j({"ok": True})
+
+
+@app.post("/api/recorder/vod-ready")
+def recorder_vod_ready(request: Request, body: dict[str, Any]) -> JSONResponse:
+    rate_limit(request, "rec_vod_ready", 12, 60)
+    _require_recorder_auth(request)
+    vod_id = text(body.get("vod_id"), 160)
+    if not safe_name(vod_id):
+        return j({"error": "invalid_vod_id"}, 400)
+    channel = _normalize_push_channel(body.get("channel") or RECORDER_CHANNEL)
+    title = text(body.get("title"), 240) or vod_id
+    if GDRIVE_FOLDER_ID:
+        threading.Thread(
+            target=lambda: maybe_sync_drive_vods(force=True),
+            name="vod-ready-sync",
+            daemon=True,
+        ).start()
+    last_notified = str(kv_get("last_vod_ready_push_id") or "")
+    push_res = {"sent": 0, "failed": 0, "removed": 0}
+    if last_notified != vod_id:
+        kv_set("last_vod_ready_push_id", vod_id)
+        push_res = send_stream_push_notifications(
+            channel=channel,
+            title=f"{channel}: запись стрима готова",
+            body_text=title[:140],
+            url=f"/danonsha?vod={quote(vod_id, safe='')}",
+        )
+    return j({"ok": True, "vod_id": vod_id, "push": push_res})
+
+
+@app.post("/api/admin/backup/telegram")
+def admin_backup_telegram(request: Request) -> JSONResponse:
+    require_same_origin(request)
+    require_admin(request)
+    rate_limit(request, "admin_tg_backup", 6, 60)
+    ok, detail = _send_telegram_backup_zip()
+    log_admin_event(request, "tg_backup", "ok" if ok else "error", f"Принудительно: {detail}")
+    if not ok:
+        status = 400 if detail == "telegram_not_configured" else 502
+        return j({"ok": False, "error": detail}, status)
+    return j({"ok": True, "filename": detail})
+
+
+@app.get("/api/admin/backup/zip")
+def admin_download_backup_zip(request: Request) -> Response:
+    require_admin(request)
+    rate_limit(request, "admin_backup_zip", 10, 60)
+    zip_bytes = _build_full_server_backup_zip()
+    stamp = datetime.now(MSK_TZ).strftime("%Y-%m-%d_%H-%M")
+    fname = f"krafen-server-backup-{stamp}-msk.zip"
+    log_admin_event(request, "backup_export_zip", "ok", f"ZIP {fname} ({len(zip_bytes)} байт)")
+    return Response(
+        content=zip_bytes,
+        status_code=200,
+        media_type="application/zip",
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Length": str(len(zip_bytes)),
+            "Content-Disposition": f'attachment; filename="{fname}"',
+        },
+    )
+
+
+@app.post("/api/suggestions")
+def public_create_suggestion(request: Request, body: dict[str, Any]) -> JSONResponse:
+    require_same_origin(request)
+    rate_limit(request, "public_suggest", 5, 600)
+    raw_kind = text(body.get("kind"), 24).lower()
+    if raw_kind and raw_kind not in {"movie", "game", "other"}:
+        return j({"error": "invalid_kind"}, 400)
+    kind = raw_kind or "other"
+    title = text(body.get("title"), 180)
+    if len(title) < 2:
+        return j({"error": "title_too_short"}, 400)
+    raw_mt = re.sub(r"[^a-zа-яё0-9 _/-]", "", text(body.get("media_type"), 32).lower()).strip()
+    if kind == "game":
+        media_type = "game"
+    elif kind == "movie":
+        media_type = raw_mt if raw_mt in {"movie", "series", "anime"} else "movie"
+    else:
+        media_type = raw_mt or "other"
+    title_ru = text(body.get("title_ru"), 180)
+    year = text(body.get("year"), 16) or "-"
+    ext_id = text(body.get("ext_id"), 64)
+    image = clean_url(body.get("image")) or ""
+    raw_link = text(body.get("link"), 500)
+    link = raw_link if raw_link.startswith(("https://", "http://")) else ""
+    note = text(body.get("note"), 260)
+    author = text(body.get("author"), 48) or "аноним"
+    now_i = int(time.time())
+
+    with _db_lock, db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO suggestions (kind, ext_id, title, title_ru, year, media_type, image, note, author, link, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+            """,
+            (kind, ext_id, title, title_ru, year, media_type, image, note, author, link, now_i),
+        )
+    _maybe_send_admin_tg_alert(
+        "new_suggestion",
+        f"[krafen.me] Новая предложка ({media_type}): {title}"
+        + (f" ({year})" if year and year != "-" else "")
+        + f" от {author}"
+        + (f"\nСсылка: {link}" if link else "")
+        + (f"\nКоммент: {note}" if note else ""),
+        cooldown_s=60.0,
+    )
+    return j({"ok": True})
+
+
+@app.post("/api/admin/suggestions/resolve")
+def admin_resolve_suggestion(request: Request, body: dict[str, Any]) -> JSONResponse:
+    require_same_origin(request)
+    require_admin(request)
+    rate_limit(request, "admin_sug_resolve", 30, 60)
+    sug_id = _safe_int(body.get("id"), 0)
+    action = text(body.get("action"), 16).lower()
+    if sug_id <= 0 or action not in {"accept", "reject"}:
+        return j({"error": "invalid_request"}, 400)
+
+    owner = request_profile(request)
+    with _db_lock, db_connect() as conn:
+        row = conn.execute("SELECT * FROM suggestions WHERE id = ?", (sug_id,)).fetchone()
+        if not row:
+            return j({"error": "not_found"}, 404)
+        sug = dict(row)
+        conn.execute("UPDATE suggestions SET status = ? WHERE id = ?", ("accepted" if action == "accept" else "rejected", sug_id))
+
+    if action == "accept" and sug["kind"] in {"game", "movie"}:
+        target_col = "gamelist" if sug["kind"] == "game" else "watchlist"
+        state = read_list(target_col, use_cache=False, owner=owner)
+        items = list(state.get("items") or [])
+        norm_title = re.sub(r"\s+", " ", str(sug["title"] or "").strip().lower())
+        exists = any(re.sub(r"\s+", " ", str(x.get("title") or "").strip().lower()) == norm_title for x in items)
+        if not exists:
+            now_ms = int(time.time() * 1000)
+            if target_col == "gamelist":
+                new_item = normalize_gamelist_item(
+                    {
+                        "id": sug.get("ext_id") or f"sug_{sug_id}_{now_ms}",
+                        "title": sug["title"],
+                        "year": sug.get("year") or "-",
+                        "status": "wishlist",
+                        "rating": 0,
+                        "review": f"Предложено: {sug.get('author') or 'зритель'}. {sug.get('note') or ''}".strip(),
+                        "cover": sug.get("image") or None,
+                        "genres": [],
+                        "platforms": [],
+                        "addedAt": now_ms,
+                        "updatedAt": now_ms,
+                    }
+                )
+            else:
+                new_item = normalize_watchlist_item(
+                    {
+                        "id": sug.get("ext_id") or f"sug_{sug_id}_{now_ms}",
+                        "title": sug["title"],
+                        "titleRu": sug.get("title_ru") or None,
+                        "year": sug.get("year") or "-",
+                        "type": sug.get("media_type") if sug.get("media_type") in VALID_TYPES else "movie",
+                        "status": "planned",
+                        "poster": sug.get("image") or None,
+                        "rating": 0,
+                        "review": f"Предложено: {sug.get('author') or 'зритель'}. {sug.get('note') or ''}".strip(),
+                        "addedAt": now_ms,
+                        "updatedAt": now_ms,
+                    }
+                )
+            if new_item:
+                items.insert(0, new_item)
+                update_list_atomic(target_col, int(state["revision"]), items, owner=owner)
+
+    log_admin_event(request, "suggestion_resolve", "ok", f"#{sug_id} {action}: {sug.get('title')}")
+    return j({"ok": True})
+
+
+def _parse_import_rows(target: str, raw_text: str) -> list[dict[str, Any]]:
+    raw = (raw_text or "").strip()
+    if not raw:
+        return []
+    out: list[dict[str, Any]] = []
+    status_wl_map = {
+        "completed": "watched", "watched": "watched", "просмотрено": "watched", "2": "watched",
+        "planned": "planned", "plan_to_watch": "planned", "watching": "planned", "в планах": "planned", "1": "planned", "0": "planned",
+        "dropped": "dropped", "брошено": "dropped", "4": "dropped",
+    }
+    status_gl_map = {
+        "completed": "completed", "played": "completed", "пройдено": "completed",
+        "playing": "playing", "играю": "playing",
+        "paused": "paused", "on_hold": "paused",
+        "dropped": "dropped", "брошено": "dropped",
+        "wishlist": "wishlist", "planned": "wishlist", "в планах": "wishlist",
+    }
+
+    # 1) JSON (Shikimori user_rates export, Steam GetOwnedGames, generic list)
+    if raw.startswith(("[", "{")):
+        try:
+            parsed = json.loads(raw)
+            rows = parsed if isinstance(parsed, list) else (
+                parsed.get("items") or parsed.get("response", {}).get("games") or parsed.get("games") or []
+            )
+            if isinstance(rows, list):
+                for row in rows[:250]:
+                    if not isinstance(row, dict):
+                        continue
+                    anime_obj = row.get("anime") if isinstance(row.get("anime"), dict) else {}
+                    title = text(
+                        row.get("title") or row.get("name") or anime_obj.get("name") or row.get("target_title"),
+                        180,
+                    )
+                    if not title:
+                        continue
+                    title_ru = text(row.get("titleRu") or anime_obj.get("russian"), 180)
+                    raw_st = str(row.get("status") or "").strip().lower()
+                    if target == "gamelist":
+                        playtime = int(row.get("playtime_forever") or 0)
+                        st = status_gl_map.get(raw_st) or ("completed" if playtime >= 120 else "wishlist")
+                    else:
+                        st = status_wl_map.get(raw_st) or "planned"
+                    raw_type = str(row.get("type") or ("anime" if anime_obj else ("game" if target == "gamelist" else "movie"))).lower()
+                    out.append(
+                        {
+                            "title": title,
+                            "titleRu": title_ru or None,
+                            "year": text(row.get("year"), 10) or year_from(anime_obj.get("aired_on")) or "-",
+                            "type": raw_type,
+                            "status": st,
+                            "rating": float(row.get("score") or row.get("rating") or 0),
+                            "poster": clean_url(row.get("poster") or row.get("cover") or row.get("image")),
+                        }
+                    )
+                return out
+        except Exception:
+            pass
+
+    # 2) XML (MyAnimeList / Shikimori XML export <anime>...</anime>)
+    if "<anime>" in raw.lower():
+        try:
+            import xml.etree.ElementTree as ET
+            root_xml = ET.fromstring(raw)
+            for node in root_xml.findall(".//anime")[:250]:
+                t_el = node.find("series_title") or node.find("title")
+                s_el = node.find("my_status")
+                sc_el = node.find("my_score")
+                title = text(t_el.text if t_el is not None else "", 180)
+                if not title:
+                    continue
+                st_raw = str((s_el.text if s_el is not None else "") or "").strip().lower()
+                st = status_wl_map.get(st_raw, "planned")
+                rating = _safe_int(sc_el.text if sc_el is not None else 0, 0)
+                out.append({"title": title, "year": "-", "type": "anime", "status": st, "rating": rating})
+            if out:
+                return out
+        except Exception:
+            pass
+
+    # 3) CSV / plain lines ("title,type,status,rating,year" or plain titles one per line)
+    import csv
+    lines = [ln for ln in raw.splitlines() if ln.strip()][:250]
+    if lines and ("," in lines[0] or ";" in lines[0]):
+        delim = ";" if lines[0].count(";") > lines[0].count(",") else ","
+        reader = csv.reader(lines, delimiter=delim)
+        for row_idx, cols in enumerate(reader):
+            if not cols or not cols[0].strip():
+                continue
+            first_low = cols[0].strip().lower()
+            if row_idx == 0 and first_low in {"title", "name", "название"}:
+                continue
+            title = text(cols[0], 180)
+            col1 = text(cols[1], 24).lower() if len(cols) > 1 else ""
+            col2 = text(cols[2], 24).lower() if len(cols) > 2 else ""
+            col3 = cols[3].strip() if len(cols) > 3 else "0"
+            col4 = text(cols[4], 10) if len(cols) > 4 else "-"
+            if target == "gamelist":
+                st = status_gl_map.get(col1) or status_gl_map.get(col2) or "completed"
+                out.append({"title": title, "type": "game", "status": st, "rating": col3, "year": col4 or "-"})
+            else:
+                tp = col1 if col1 in VALID_TYPES else "movie"
+                st = status_wl_map.get(col2) or status_wl_map.get(col1) or "watched"
+                out.append({"title": title, "type": tp, "status": st, "rating": col3, "year": col4 or "-"})
+        return out
+
+    for ln in lines:
+        out.append({
+            "title": text(ln, 180),
+            "type": "game" if target == "gamelist" else "movie",
+            "status": "wishlist" if target == "gamelist" else "planned",
+            "rating": 0,
+            "year": "-",
+        })
+    return out
+
+
+@app.post("/api/admin/import-list")
+def admin_import_list(request: Request, body: dict[str, Any]) -> JSONResponse:
+    require_same_origin(request)
+    require_admin(request)
+    rate_limit(request, "admin_import_list", 10, 60)
+    target = text(body.get("target"), 20).lower()
+    if target not in {"watchlist", "gamelist"}:
+        return j({"error": "invalid_target"}, 400)
+    raw = str(body.get("raw") or "")
+    enrich = bool(body.get("enrich", True))
+    parsed = _parse_import_rows(target, raw)
+    if not parsed:
+        return j({"error": "empty_or_unrecognized"}, 400)
+
+    owner = request_profile(request)
+    state = read_list(target, use_cache=False, owner=owner)
+    existing_items = list(state.get("items") or [])
+    seen_titles = {re.sub(r"\s+", " ", str(i.get("title") or "").strip().lower()) for i in existing_items}
+
+    added_items: list[dict[str, Any]] = []
+    skipped = 0
+    enriched_cnt = 0
+    now_ms = int(time.time() * 1000)
+
+    for idx, row in enumerate(parsed):
+        t_clean = text(row.get("title"), 180)
+        t_norm = re.sub(r"\s+", " ", t_clean.lower())
+        if not t_clean or t_norm in seen_titles:
+            skipped += 1
+            continue
+        seen_titles.add(t_norm)
+        poster = row.get("poster")
+        year_v = row.get("year") or "-"
+        title_ru = row.get("titleRu")
+        ext_id = f"imp_{target}_{now_ms}_{idx}"
+
+        if enrich and not poster and enriched_cnt < 15:
+            try:
+                if target == "gamelist":
+                    resp = search_igdb(t_clean)
+                elif row.get("type") == "anime":
+                    resp = search_shikimori(t_clean)
+                else:
+                    tp = row.get("type") if row.get("type") in {"movie", "series"} else "movie"
+                    resp = search_tmdb(t_clean, tp)
+                if getattr(resp, "status_code", 500) == 200:
+                    res_data = json.loads(resp.body.decode("utf-8"))
+                    first = (res_data.get("results") or [None])[0]
+                    if isinstance(first, dict):
+                        ext_id = first.get("id") or ext_id
+                        poster = first.get("cover") or first.get("poster") or poster
+                        year_v = first.get("year") or year_v
+                        title_ru = first.get("titleRu") or title_ru
+                        enriched_cnt += 1
+            except Exception:
+                pass
+
+        if target == "gamelist":
+            norm_item = normalize_gamelist_item(
+                {
+                    "id": ext_id,
+                    "title": t_clean,
+                    "year": year_v,
+                    "status": row.get("status") or "wishlist",
+                    "rating": row.get("rating") or 0,
+                    "review": "",
+                    "cover": poster,
+                    "addedAt": now_ms + idx,
+                    "updatedAt": now_ms + idx,
+                }
+            )
+        else:
+            norm_item = normalize_watchlist_item(
+                {
+                    "id": ext_id,
+                    "title": t_clean,
+                    "titleRu": title_ru,
+                    "year": year_v,
+                    "type": row.get("type") if row.get("type") in VALID_TYPES else "movie",
+                    "status": row.get("status") or "planned",
+                    "poster": poster,
+                    "rating": row.get("rating") or 0,
+                    "review": "",
+                    "addedAt": now_ms + idx,
+                    "updatedAt": now_ms + idx,
+                }
+            )
+        if norm_item:
+            added_items.append(norm_item)
+
+    if added_items:
+        merged = (added_items + existing_items)[: LIST_SPECS[target]["max_items"]]
+        update_list_atomic(target, int(state["revision"]), merged, owner=owner)
+    log_admin_event(request, "list_import", "ok", f"{owner}/{target}: +{len(added_items)}, skip {skipped}")
+    return j({"ok": True, "added": len(added_items), "skipped": skipped, "enriched": enriched_cnt})
+
+
 @app.post("/api/admin/spotify/disconnect")
 def admin_spotify_disconnect(request: Request) -> JSONResponse:
     require_same_origin(request)
@@ -4473,7 +5624,7 @@ def admin_spotify_disconnect(request: Request) -> JSONResponse:
     tokens.pop("spotify_refresh_token", None)
     write_tokens(tokens)
     with _api_cache_lock:
-        for key in ("spotify", "spotify_now", "lastfm"):
+        for key in ("spotify", "spotify_now", "spotify_recent", "lastfm"):
             _api_cache.pop(key, None)
     log_admin_event(request, "spotify_disconnect", "ok", "Отключён токен Spotify")
     return j({"ok": True})
@@ -4801,6 +5952,30 @@ def game_search(request: Request, q: str = "") -> JSONResponse:
 # ----------------------------- Музыка (Spotify + Last.fm) -----------------------------
 
 
+def _parse_lastfm_track_item(raw_track: Any) -> dict[str, Any] | None:
+    if not isinstance(raw_track, dict):
+        return None
+    artist = raw_track.get("artist") if isinstance(raw_track.get("artist"), dict) else {}
+    album = raw_track.get("album") if isinstance(raw_track.get("album"), dict) else {}
+    images = raw_track.get("image") if isinstance(raw_track.get("image"), list) else []
+    image = None
+    for image_item in reversed(images):
+        if isinstance(image_item, dict) and image_item.get("#text"):
+            image = clean_url(image_item.get("#text"))
+            break
+    attrs = raw_track.get("@attr") if isinstance(raw_track.get("@attr"), dict) else {}
+    date_obj = raw_track.get("date") if isinstance(raw_track.get("date"), dict) else {}
+    return {
+        "name": text(raw_track.get("name"), 200),
+        "artist": text(artist.get("#text"), 200),
+        "album": text(album.get("#text"), 200),
+        "image": image,
+        "url": clean_url(raw_track.get("url")),
+        "nowPlaying": attrs.get("nowplaying") == "true",
+        "playedAt": _safe_int(date_obj.get("uts"), 0),
+    }
+
+
 @app.get("/api/lastfm")
 def lastfm(request: Request) -> JSONResponse:
     rate_limit(request, "lastfm", 60, 60)
@@ -4819,7 +5994,7 @@ def lastfm(request: Request) -> JSONResponse:
                 "user": LASTFM_USER,
                 "api_key": LASTFM_API_KEY,
                 "format": "json",
-                "limit": 1,
+                "limit": 8,
             },
             timeout=15,
         )
@@ -4828,26 +6003,11 @@ def lastfm(request: Request) -> JSONResponse:
             return j({"error": "lastfm_unavailable"}, 502)
         recent = data.get("recenttracks") if isinstance(data.get("recenttracks"), dict) else {}
         raw_list = recent.get("track")
-        raw_track = raw_list[0] if isinstance(raw_list, list) and raw_list else (raw_list if isinstance(raw_list, dict) else None)
-        track = None
-        if isinstance(raw_track, dict):
-            artist = raw_track.get("artist") if isinstance(raw_track.get("artist"), dict) else {}
-            album = raw_track.get("album") if isinstance(raw_track.get("album"), dict) else {}
-            images = raw_track.get("image") if isinstance(raw_track.get("image"), list) else []
-            image = None
-            for image_item in reversed(images):
-                if isinstance(image_item, dict) and image_item.get("#text"):
-                    image = clean_url(image_item.get("#text"))
-                    break
-            attrs = raw_track.get("@attr") if isinstance(raw_track.get("@attr"), dict) else {}
-            track = {
-                "name": text(raw_track.get("name"), 200),
-                "artist": text(artist.get("#text"), 200),
-                "album": text(album.get("#text"), 200),
-                "image": image,
-                "nowPlaying": attrs.get("nowplaying") == "true",
-            }
-        payload = {"track": track}
+        items_raw = raw_list if isinstance(raw_list, list) else ([raw_list] if isinstance(raw_list, dict) else [])
+        parsed_tracks = [t for t in (_parse_lastfm_track_item(x) for x in items_raw[:8]) if t and t.get("name")]
+        track = parsed_tracks[0] if parsed_tracks else None
+        history = parsed_tracks[1:7] if len(parsed_tracks) > 1 else []
+        payload = {"track": track, "recent": history}
         cached_api_set("lastfm", 5.0, 200, payload)
         return j(payload)
     except Exception:
@@ -4974,6 +6134,72 @@ def get_spotify_access_token(force_refresh: bool = False) -> str:
     return data["access_token"]
 
 
+def _parse_spotify_track_item(
+    item: Any,
+    *,
+    now_playing: bool = False,
+    current_playback: bool = False,
+    progress_ms: Any = None,
+    played_at_iso: Any = None,
+) -> dict[str, Any] | None:
+    if not isinstance(item, dict):
+        return None
+    album = item.get("album") if isinstance(item.get("album"), dict) else {}
+    artists = item.get("artists") if isinstance(item.get("artists"), list) else []
+    images = album.get("images") if isinstance(album.get("images"), list) else []
+    ext_urls = item.get("external_urls") if isinstance(item.get("external_urls"), dict) else {}
+    played_ts = 0
+    if isinstance(played_at_iso, str) and played_at_iso:
+        with contextlib.suppress(ValueError):
+            played_ts = int(datetime.fromisoformat(played_at_iso.replace("Z", "+00:00")).timestamp())
+    return {
+        "name": text(item.get("name"), 200),
+        "artist": text(", ".join(a.get("name") for a in artists if isinstance(a, dict) and a.get("name")), 200),
+        "album": text(album.get("name"), 200),
+        "image": clean_url(images[0].get("url")) if images and isinstance(images[0], dict) else None,
+        "url": clean_url(ext_urls.get("spotify")),
+        "nowPlaying": now_playing,
+        "currentPlayback": current_playback,
+        "progressMs": progress_ms,
+        "durationMs": item.get("duration_ms"),
+        "playedAt": played_ts,
+    }
+
+
+def _get_spotify_recent_tracks(token: str) -> list[dict[str, Any]]:
+    hit = cached_api_get("spotify_recent")
+    if hit and isinstance(hit[1], list):
+        return hit[1]
+    if not token:
+        return []
+    try:
+        recent_res = requests.get(
+            f"{SPOTIFY_API_BASE}/me/player/recently-played?limit=7",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if not recent_res.ok:
+            return []
+        recent = recent_res.json() if recent_res.content else {}
+        items = recent.get("items") if isinstance(recent.get("items"), list) else []
+        parsed: list[dict[str, Any]] = []
+        for entry in items:
+            if not isinstance(entry, dict):
+                continue
+            tr = _parse_spotify_track_item(
+                entry.get("track"),
+                now_playing=False,
+                current_playback=False,
+                played_at_iso=entry.get("played_at"),
+            )
+            if tr and tr.get("name"):
+                parsed.append(tr)
+        cached_api_set("spotify_recent", 60.0, 200, parsed)
+        return parsed
+    except Exception:
+        return []
+
+
 @app.get("/api/spotify")
 def spotify(request: Request) -> JSONResponse:
     rate_limit(request, "spotify", 60, 60)
@@ -5000,15 +6226,24 @@ def spotify(request: Request) -> JSONResponse:
         now_playing = False
         current_playback = False
         progress_ms = None
+        recent_tracks: list[dict[str, Any]] = []
         if res.status_code == 200:
             data = res.json() if res.content else {}
             item = data.get("item") if isinstance(data.get("item"), dict) else None
             now_playing = bool(data.get("is_playing"))
             current_playback = bool(item)
             progress_ms = data.get("progress_ms")
+            recent_tracks = _get_spotify_recent_tracks(token)
         elif res.status_code == 204:
+            recent_tracks = _get_spotify_recent_tracks(token)
+            if recent_tracks:
+                track_top = recent_tracks[0]
+                history = recent_tracks[1:7]
+                payload = {"track": track_top, "recent": history}
+                cached_api_set("spotify", 3.0, 200, payload)
+                return j(payload)
             recent_res = requests.get(
-                f"{SPOTIFY_API_BASE}/me/player/recently-played?limit=1",
+                f"{SPOTIFY_API_BASE}/me/player/recently-played?limit=7",
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=15,
             )
@@ -5021,22 +6256,18 @@ def spotify(request: Request) -> JSONResponse:
             err = "spotify_reauthorization_required" if res.status_code == 401 else "spotify_playback_http_error"
             return j({"error": err, "status": res.status_code}, 502)
 
-        track = None
-        if item:
-            album = item.get("album") if isinstance(item.get("album"), dict) else {}
-            artists = item.get("artists") if isinstance(item.get("artists"), list) else []
-            images = album.get("images") if isinstance(album.get("images"), list) else []
-            track = {
-                "name": text(item.get("name"), 200),
-                "artist": text(", ".join(a.get("name") for a in artists if isinstance(a, dict) and a.get("name")), 200),
-                "album": text(album.get("name"), 200),
-                "image": clean_url(images[0].get("url")) if images and isinstance(images[0], dict) else None,
-                "nowPlaying": now_playing,
-                "currentPlayback": current_playback,
-                "progressMs": progress_ms,
-                "durationMs": item.get("duration_ms"),
-            }
-        payload = {"track": track}
+        track = _parse_spotify_track_item(
+            item,
+            now_playing=now_playing,
+            current_playback=current_playback,
+            progress_ms=progress_ms,
+        )
+        history = [
+            t
+            for t in recent_tracks
+            if not track or (t.get("name"), t.get("artist")) != (track.get("name"), track.get("artist"))
+        ][:6]
+        payload = {"track": track, "recent": history}
         cached_api_set("spotify", 3.0, 200, payload)
         return j(payload)
     except Exception:
@@ -5131,6 +6362,777 @@ def twitch(request: Request, login: str = TWITCH_CHANNEL) -> JSONResponse:
     clean_login = re.sub(r"[^A-Za-z0-9_]", "", text(login, 40)) or TWITCH_CHANNEL
     status_code, payload = twitch_status(clean_login)
     return j(payload, status_code)
+
+
+# ----------------------------- Web Push (уведомления о стриме) -----------------------------
+
+_push_vapid_lock = threading.Lock()
+_cached_vapid_pair: tuple[Any, str] | None = None
+_twitch_push_poller_started = False
+
+
+def resolve_vapid_keys() -> tuple[Any, str]:
+    global _cached_vapid_pair
+    if not _WEBPUSH_AVAILABLE or _VapidCls is None or _crypto_ser is None:
+        return None, ""
+    with _push_vapid_lock:
+        if _cached_vapid_pair is not None:
+            return _cached_vapid_pair
+        env_priv = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+        env_pub = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+        if env_priv and env_pub:
+            try:
+                v = (
+                    _VapidCls.from_pem(env_priv.encode("utf-8"))
+                    if "-----BEGIN" in env_priv
+                    else _VapidCls.from_string(env_priv)
+                )
+                _cached_vapid_pair = (v, env_pub)
+                return _cached_vapid_pair
+            except Exception:
+                pass
+        stored = kv_get("vapid_keys")
+        if isinstance(stored, dict) and stored.get("private_pem") and stored.get("public_key"):
+            try:
+                v = _VapidCls.from_pem(str(stored["private_pem"]).encode("utf-8"))
+                _cached_vapid_pair = (v, str(stored["public_key"]))
+                return _cached_vapid_pair
+            except Exception:
+                pass
+        v = _VapidCls()
+        v.generate_keys()
+        priv_pem = v.private_pem().decode("utf-8")
+        raw_pub = v.public_key.public_bytes(
+            encoding=_crypto_ser.Encoding.X962,
+            format=_crypto_ser.PublicFormat.UncompressedPoint,
+        )
+        pub_b64 = b64url(raw_pub)
+        kv_set("vapid_keys", {"private_pem": priv_pem, "public_key": pub_b64})
+        _cached_vapid_pair = (v, pub_b64)
+        return _cached_vapid_pair
+
+
+def _is_safe_push_endpoint(raw_url: Any) -> str | None:
+    cleaned = clean_url(raw_url, 2000)
+    if not cleaned:
+        return None
+    parsed = urlsplit(cleaned)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if not host or host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
+        return None
+    try:
+        ip = ipaddress.ip_address(host)
+        if not ip.is_global:
+            return None
+        return cleaned
+    except ValueError:
+        pass
+    try:
+        infos = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        for info in infos:
+            addr = info[4][0]
+            try:
+                resolved_ip = ipaddress.ip_address(addr.split("%")[0])
+                if not resolved_ip.is_global:
+                    return None
+            except ValueError:
+                continue
+    except OSError:
+        pass
+    return cleaned
+
+
+def _normalize_push_channel(raw: Any) -> str:
+    allowed = {TWITCH_CHANNEL.lower(), RECORDER_CHANNEL.lower(), "krafen", "danonsha"}
+    ch = re.sub(r"[^a-z0-9_]", "", text(raw, 40).lower())
+    return ch if ch in allowed else TWITCH_CHANNEL.lower()
+
+
+def send_stream_push_notifications(channel: str, title: str, body_text: str, url: str) -> dict[str, int]:
+    vapid_inst, _ = resolve_vapid_keys()
+    if vapid_inst is None or _send_webpush is None:
+        return {"sent": 0, "failed": 0, "removed": 0}
+    with _db_lock, auth_db_connect() as conn:
+        rows = conn.execute("SELECT endpoint, p256dh, auth, channels_json FROM push_subscriptions").fetchall()
+    if not rows:
+        return {"sent": 0, "failed": 0, "removed": 0}
+
+    payload = json.dumps(
+        {
+            "title": title,
+            "body": body_text,
+            "url": url,
+            "icon": "/icon-192.png",
+            "badge": "/favicon.png",
+            "tag": f"twitch-live-{channel}",
+        },
+        ensure_ascii=False,
+    )
+    sent = 0
+    failed = 0
+    dead_endpoints: list[str] = []
+    for r in rows:
+        try:
+            channels = json.loads(r["channels_json"] or "[]")
+        except Exception:
+            channels = []
+        if channel != "*" and channel not in channels and "all" not in channels:
+            continue
+        sub_info = {
+            "endpoint": r["endpoint"],
+            "keys": {"p256dh": r["p256dh"], "auth": r["auth"]},
+        }
+        try:
+            _send_webpush(
+                subscription_info=sub_info,
+                data=payload,
+                vapid_private_key=vapid_inst,
+                vapid_claims={"sub": VAPID_SUBJECT},
+                timeout=10,
+            )
+            sent += 1
+        except _WebPushError as exc:
+            status = getattr(exc, "status_code", None)
+            if status in (404, 410):
+                dead_endpoints.append(r["endpoint"])
+            else:
+                failed += 1
+        except Exception:
+            failed += 1
+
+    if dead_endpoints:
+        with _db_lock, auth_db_connect() as conn:
+            conn.executemany("DELETE FROM push_subscriptions WHERE endpoint = ?", [(ep,) for ep in dead_endpoints])
+    return {"sent": sent, "failed": failed, "removed": len(dead_endpoints)}
+
+
+def _start_twitch_push_poller() -> None:
+    global _twitch_push_poller_started
+    if _twitch_push_poller_started:
+        return
+    if not _WEBPUSH_AVAILABLE or not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
+        return
+    if os.environ.get("TWITCH_PUSH_POLL", "1").strip() == "0":
+        return
+    _twitch_push_poller_started = True
+
+    def _poller() -> None:
+        channels = list(dict.fromkeys([TWITCH_CHANNEL.lower(), RECORDER_CHANNEL.lower()]))
+        while True:
+            time.sleep(90)
+            try:
+                with _db_lock, auth_db_connect() as conn:
+                    cnt = int(conn.execute("SELECT COUNT(*) FROM push_subscriptions").fetchone()[0] or 0)
+                if cnt <= 0:
+                    continue
+                last_notified = kv_get("push_last_notified", {})
+                if not isinstance(last_notified, dict):
+                    last_notified = {}
+                changed = False
+                for ch in channels:
+                    code, st = twitch_status(ch)
+                    if code != 200 or not st.get("live"):
+                        continue
+                    stream = st.get("stream") if isinstance(st.get("stream"), dict) else {}
+                    started_at = text(stream.get("startedAt"), 64)
+                    if not started_at or last_notified.get(ch) == started_at:
+                        continue
+                    # Не отправляем старые стримы (старше 2 часов), если это первый запуск с пустой историей
+                    try:
+                        st_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                        if (datetime.now(timezone.utc) - st_dt).total_seconds() > 7200:
+                            last_notified[ch] = started_at
+                            changed = True
+                            continue
+                    except Exception:
+                        pass
+                    disp = text(st.get("displayName"), 80) or ch
+                    s_title = text(stream.get("title"), 160) or "Прямой эфир"
+                    s_game = text(stream.get("gameName"), 80)
+                    body_txt = f"{s_title} · {s_game}" if s_game else s_title
+                    dest_url = "/danonsha" if ch == RECORDER_CHANNEL.lower() else "/"
+                    res = send_stream_push_notifications(ch, f"{disp} в эфире!", body_txt, dest_url)
+                    last_notified[ch] = started_at
+                    changed = True
+                    print(f"[push] {ch} live -> sent={res['sent']}, failed={res['failed']}", flush=True)
+                if changed:
+                    kv_set("push_last_notified", last_notified)
+            except Exception:
+                pass
+
+    threading.Thread(target=_poller, name="twitch-push-poller", daemon=True).start()
+
+
+@app.get("/api/push/vapid-key")
+def api_push_vapid_key() -> JSONResponse:
+    _, pub = resolve_vapid_keys()
+    return j({"configured": bool(pub), "publicKey": pub}, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/push/status")
+def api_push_status(request: Request, body: dict[str, Any]) -> JSONResponse:
+    rate_limit(request, "push_status", 60, 60)
+    endpoint = _is_safe_push_endpoint(body.get("endpoint"))
+    channel = _normalize_push_channel(body.get("channel"))
+    if not endpoint:
+        return j({"subscribed": False})
+    with _db_lock, auth_db_connect() as conn:
+        row = conn.execute("SELECT channels_json FROM push_subscriptions WHERE endpoint = ?", (endpoint,)).fetchone()
+    if not row:
+        return j({"subscribed": False})
+    try:
+        channels = json.loads(row["channels_json"] or "[]")
+    except Exception:
+        channels = []
+    return j({"subscribed": channel in channels or "all" in channels, "channels": channels})
+
+
+@app.post("/api/push/subscribe")
+def api_push_subscribe(request: Request, body: dict[str, Any]) -> JSONResponse:
+    require_same_origin(request)
+    rate_limit(request, "push_sub", 20, 60)
+    if not _WEBPUSH_AVAILABLE:
+        return j({"error": "webpush_unavailable"}, 503)
+    sub = body.get("subscription") if isinstance(body.get("subscription"), dict) else {}
+    endpoint = _is_safe_push_endpoint(sub.get("endpoint"))
+    keys = sub.get("keys") if isinstance(sub.get("keys"), dict) else {}
+    p256dh = text(keys.get("p256dh"), 300)
+    auth_key = text(keys.get("auth"), 200)
+    if not endpoint or not p256dh or not auth_key:
+        return j({"error": "invalid_subscription"}, 400)
+    channel = _normalize_push_channel(body.get("channel"))
+    now = int(time.time())
+    with _db_lock, auth_db_connect() as conn:
+        total = int(conn.execute("SELECT COUNT(*) FROM push_subscriptions").fetchone()[0] or 0)
+        existing = conn.execute("SELECT channels_json FROM push_subscriptions WHERE endpoint = ?", (endpoint,)).fetchone()
+        if not existing and total >= 5000:
+            return j({"error": "subscriptions_full"}, 503)
+        channels: list[str] = []
+        if existing:
+            try:
+                parsed_c = json.loads(existing["channels_json"] or "[]")
+                if isinstance(parsed_c, list):
+                    channels = [str(x) for x in parsed_c if isinstance(x, str)]
+            except Exception:
+                pass
+        if channel not in channels:
+            channels.append(channel)
+        c_json = json.dumps(channels, ensure_ascii=False, separators=(",", ":"))
+        conn.execute(
+            """
+            INSERT INTO push_subscriptions (endpoint, p256dh, auth, channels_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(endpoint) DO UPDATE SET
+                p256dh = excluded.p256dh,
+                auth = excluded.auth,
+                channels_json = excluded.channels_json,
+                updated_at = excluded.updated_at
+            """,
+            (endpoint, p256dh, auth_key, c_json, now, now),
+        )
+    return j({"ok": True, "channels": channels})
+
+
+@app.post("/api/push/unsubscribe")
+def api_push_unsubscribe(request: Request, body: dict[str, Any]) -> JSONResponse:
+    require_same_origin(request)
+    rate_limit(request, "push_sub", 20, 60)
+    endpoint = _is_safe_push_endpoint(body.get("endpoint"))
+    if not endpoint:
+        return j({"ok": True})
+    raw_ch = text(body.get("channel"), 40)
+    with _db_lock, auth_db_connect() as conn:
+        if not raw_ch:
+            conn.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+        else:
+            channel = _normalize_push_channel(raw_ch)
+            row = conn.execute("SELECT channels_json FROM push_subscriptions WHERE endpoint = ?", (endpoint,)).fetchone()
+            if row:
+                try:
+                    channels = [c for c in json.loads(row["channels_json"] or "[]") if c != channel]
+                except Exception:
+                    channels = []
+                if channels:
+                    conn.execute(
+                        "UPDATE push_subscriptions SET channels_json = ?, updated_at = ? WHERE endpoint = ?",
+                        (json.dumps(channels, separators=(",", ":")), int(time.time()), endpoint),
+                    )
+                else:
+                    conn.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+    return j({"ok": True})
+
+
+@app.post("/api/admin/push/test")
+def api_admin_push_test(request: Request) -> JSONResponse:
+    require_same_origin(request)
+    require_admin(request)
+    rate_limit(request, "admin_push_test", 10, 60)
+    res = send_stream_push_notifications(
+        "*",
+        "krafen.me — тестовое уведомление",
+        "Web Push уведомления о стримах работают исправно.",
+        "/",
+    )
+    return j({"ok": True, **res})
+
+
+# ----------------------------- Динамические OG-превью (Pillow) -----------------------------
+
+_og_cache_lock = threading.Lock()
+_og_image_cache: dict[str, tuple[float, bytes, str]] = {}
+_og_font_cache: dict[tuple[int, bool, bool], Any] = {}
+
+
+def _og_font(size: int, *, bold: bool = False, mono: bool = False) -> Any:
+    key = (size, bold, mono)
+    cached = _og_font_cache.get(key)
+    if cached is not None:
+        return cached
+    win_fonts = Path(os.environ.get("WINDIR", "")) / "Fonts" if os.name == "nt" and os.environ.get("WINDIR") else None
+    if mono:
+        candidates = (
+            *((str(win_fonts / ("consolab.ttf" if bold else "consola.ttf")),) if win_fonts else ()),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
+        )
+    elif bold:
+        candidates = (
+            *((str(win_fonts / "segoeuib.ttf"), str(win_fonts / "arialbd.ttf")) if win_fonts else ()),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+        )
+    else:
+        candidates = (
+            *((str(win_fonts / "segoeui.ttf"), str(win_fonts / "arial.ttf")) if win_fonts else ()),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        )
+    font = None
+    for path_str in candidates:
+        if Path(path_str).is_file():
+            try:
+                font = _PILFont.truetype(path_str, size)
+                break
+            except Exception:
+                continue
+    if font is None:
+        try:
+            font = _PILFont.load_default(size=size)
+        except TypeError:
+            font = _PILFont.load_default()
+    _og_font_cache[key] = font
+    return font
+
+
+def _og_fit_text(draw: Any, raw: str, font: Any, max_width: int) -> str:
+    val = re.sub(r"\s+", " ", str(raw or "")).strip()
+    if not val:
+        return ""
+    if draw.textlength(val, font=font) <= max_width:
+        return val
+    while len(val) > 1 and draw.textlength(val + "…", font=font) > max_width:
+        val = val[:-1]
+    return val.rstrip() + "…"
+
+
+def _og_rounded_thumb(img: Any, size: tuple[int, int], radius: int) -> Any:
+    fit = _PILOps.fit(img.convert("RGBA"), size, method=_PILImage.Resampling.LANCZOS)
+    mask = _PILImage.new("L", size, 0)
+    md = _PILDraw.Draw(mask)
+    md.rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255)
+    fit.putalpha(mask)
+    return fit
+
+
+def _og_load_img(url: str | None, fallback_path: Path | None) -> Any:
+    if url:
+        cleaned = clean_url(url)
+        if cleaned and _is_allowed_proxy_img_url(cleaned):
+            digest = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:32]
+            for ext in (".jpg", ".webp", ".png", ".gif", ".avif"):
+                p = IMG_CACHE_DIR / f"img_{digest}{ext}"
+                if p.is_file():
+                    try:
+                        return _PILImage.open(p).convert("RGBA")
+                    except Exception:
+                        pass
+            if os.environ.get("OG_FETCH_REMOTE", "1").strip() != "0":
+                try:
+                    res = requests.get(cleaned, timeout=2.0, headers={"User-Agent": "KrafenOG/1.0"})
+                    if res.ok and 0 < len(res.content) <= 2_097_152:
+                        img = _PILImage.open(io.BytesIO(res.content)).convert("RGBA")
+                        ctype = (res.headers.get("content-type") or "").split(";")[0].strip().lower()
+                        ext = _SAFE_IMG_MIMES.get(ctype)
+                        if ext:
+                            with contextlib.suppress(Exception):
+                                IMG_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                                (IMG_CACHE_DIR / f"img_{digest}{ext}").write_bytes(res.content)
+                        return img
+                except Exception:
+                    pass
+    if fallback_path and fallback_path.is_file():
+        try:
+            return _PILImage.open(fallback_path).convert("RGBA")
+        except Exception:
+            pass
+    return None
+
+
+def _og_fetch_live_track() -> dict[str, Any] | None:
+    hit = cached_api_get("spotify")
+    if hit and hit[0] == 200 and isinstance(hit[1], dict) and hit[1].get("track"):
+        return hit[1]["track"]
+    if os.environ.get("OG_FETCH_REMOTE", "1").strip() == "0":
+        return None
+    if SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET:
+        try:
+            token = get_spotify_access_token()
+            if token:
+                res = requests.get(
+                    f"{SPOTIFY_API_BASE}/me/player",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=2.5,
+                )
+                item = None
+                now_playing = False
+                if res.status_code == 200 and res.content:
+                    data = res.json()
+                    item = data.get("item") if isinstance(data.get("item"), dict) else None
+                    now_playing = bool(data.get("is_playing"))
+                elif res.status_code == 204:
+                    rec = requests.get(
+                        f"{SPOTIFY_API_BASE}/me/player/recently-played?limit=1",
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=2.5,
+                    )
+                    if rec.ok and rec.content:
+                        items = rec.json().get("items") or []
+                        if items and isinstance(items[0], dict):
+                            item = items[0].get("track")
+                if isinstance(item, dict):
+                    album = item.get("album") if isinstance(item.get("album"), dict) else {}
+                    images = album.get("images") if isinstance(album.get("images"), list) else []
+                    artists = item.get("artists") if isinstance(item.get("artists"), list) else []
+                    return {
+                        "name": text(item.get("name"), 140),
+                        "artist": text(", ".join(a.get("name") for a in artists if isinstance(a, dict) and a.get("name")), 140),
+                        "image": clean_url(images[0].get("url")) if images and isinstance(images[0], dict) else None,
+                        "nowPlaying": now_playing,
+                    }
+        except Exception:
+            pass
+    hit_lfm = cached_api_get("lastfm")
+    if hit_lfm and hit_lfm[0] == 200 and isinstance(hit_lfm[1], dict) and hit_lfm[1].get("track"):
+        return hit_lfm[1]["track"]
+    return None
+
+
+def _og_collect_context(page: str) -> dict[str, Any]:
+    owner = "danonsha" if page == "danonsha" else "krafen"
+    counts = {}
+    for col in ("watchlist", "gamelist", "setup", "wishlist"):
+        try:
+            counts[col] = len(read_list(col, use_cache=True, owner=owner).get("items") or [])
+        except Exception:
+            counts[col] = 0
+
+    twitch_data: dict[str, Any] = {}
+    ch = RECORDER_CHANNEL.lower() if page == "danonsha" else TWITCH_CHANNEL.lower()
+    if page in {"index", "danonsha"} and TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET:
+        hit_tw = cached_api_get(f"twitch:{ch}")
+        if hit_tw and hit_tw[0] == 200 and isinstance(hit_tw[1], dict):
+            twitch_data = hit_tw[1]
+        elif os.environ.get("OG_FETCH_REMOTE", "1").strip() != "0":
+            code, st = twitch_status(ch)
+            if code == 200 and isinstance(st, dict):
+                twitch_data = st
+
+    track = _og_fetch_live_track() if page == "index" else None
+    wrapped = get_wrapped_stats(owner=owner, target_year="all") if page in {"wrapped", "danonsha"} else None
+    return {
+        "page": page,
+        "owner": owner,
+        "counts": counts,
+        "twitch": twitch_data,
+        "track": track,
+        "wrapped": wrapped,
+    }
+
+
+def generate_og_png(page: str = "index") -> bytes:
+    if not _PIL_AVAILABLE:
+        fav = ROOT / "favicon.png"
+        return fav.read_bytes() if fav.is_file() else b""
+
+    clean_page = page if page in {"index", "watchlist", "gamelist", "setup", "wishlist", "danonsha", "wrapped"} else "index"
+    now = time.time()
+    with _og_cache_lock:
+        hit = _og_image_cache.get(clean_page)
+        if hit and hit[0] > now:
+            return hit[1]
+
+    ctx = _og_collect_context(clean_page)
+    W, H = 1200, 630
+
+    # Фон: глубокий обсидиан с багровым свечением
+    canvas = _PILImage.new("RGBA", (W, H), (5, 5, 7, 255))
+    glow = _PILImage.new("RGBA", (300, 158), (0, 0, 0, 0))
+    gd = _PILDraw.Draw(glow)
+    gd.ellipse((-40, -35, 165, 130), fill=(155, 18, 18, 115))
+    gd.ellipse((150, 45, 340, 200), fill=(110, 10, 14, 90))
+    glow = glow.filter(_PILFilter.GaussianBlur(28)).resize((W, H), _PILImage.Resampling.BILINEAR)
+    canvas = _PILImage.alpha_composite(canvas, glow)
+
+    # Полупрозрачные слои рисуем на отдельном overlay и композитим через alpha_composite
+    overlay = _PILImage.new("RGBA", (W, H), (0, 0, 0, 0))
+    od = _PILDraw.Draw(overlay)
+    for gx in range(80, W, 80):
+        od.line([(gx, 0), (gx, H)], fill=(255, 255, 255, 9), width=1)
+    for gy in range(80, H, 80):
+        od.line([(0, gy), (W, gy)], fill=(255, 255, 255, 9), width=1)
+
+    card_box = (44, 38, W - 44, H - 38)
+    od.rounded_rectangle(card_box, radius=28, fill=(11, 11, 16, 224), outline=(160, 160, 175, 48), width=1)
+    od.line([(120, 39), (W - 120, 39)], fill=(163, 19, 19, 185), width=2)
+    canvas = _PILImage.alpha_composite(canvas, overlay)
+
+    ui_layer = _PILImage.new("RGBA", (W, H), (0, 0, 0, 0))
+    ud = _PILDraw.Draw(ui_layer)
+
+    f_mono_sm = _og_font(17, bold=True, mono=True)
+    f_mono_xs = _og_font(15, bold=False, mono=True)
+    f_title = _og_font(62, bold=True)
+    f_sub = _og_font(24, bold=False)
+    f_card_title = _og_font(28, bold=True)
+    f_card_sub = _og_font(21, bold=False)
+
+    titles = {
+        "index": ("krafen", "Личный сайт · музыка · коллекции · эфиры"),
+        "danonsha": ("danonsha", "Прямые эфиры Twitch · архив VOD и коллекции"),
+        "watchlist": ("Watchlist", "Аниме, фильмы и сериалы с оценками и рецензиями"),
+        "gamelist": ("Gamelist", "Библиотека пройденных и активных игр"),
+        "setup": ("Setup", "Конфигурация системного блока и периферия"),
+        "wishlist": ("Wishlist", "Список желаемых покупок и приоритеты"),
+        "wrapped": ("Wrapped", "Хроника и статистика коллекций по годам"),
+    }
+    main_title, main_sub = titles[clean_page]
+    eyebrow = f"KRAFEN.ME // {clean_page.upper()}" if clean_page != "index" else "KRAFEN.ME // PERSONAL SITE"
+
+    # Верхняя строка: eyebrow слева, статус-пилюля справа
+    ud.ellipse((88, 79, 98, 89), fill=(163, 19, 19, 255))
+    ud.text((112, 74), eyebrow, font=f_mono_sm, fill=(165, 165, 175, 255))
+
+    tw = ctx.get("twitch") or {}
+    is_live = bool(tw.get("live"))
+    badge_txt = "LIVE ON TWITCH" if is_live else ("TWITCH OFFLINE" if tw else "KRAFEN.ME")
+    badge_w = int(ud.textlength(badge_txt, font=f_mono_xs)) + 52
+    bx2 = W - 84
+    bx1 = bx2 - badge_w
+    if is_live:
+        ud.rounded_rectangle((bx1, 66, bx2, 102), radius=18, fill=(22, 163, 74, 42), outline=(34, 197, 94, 160), width=1)
+        ud.ellipse((bx1 + 16, 79, bx1 + 26, 89), fill=(34, 197, 94, 255))
+        ud.text((bx1 + 36, 74), badge_txt, font=f_mono_xs, fill=(213, 255, 236, 255))
+    else:
+        ud.rounded_rectangle((bx1, 66, bx2, 102), radius=18, fill=(255, 255, 255, 14), outline=(160, 160, 170, 60), width=1)
+        ud.ellipse((bx1 + 16, 79, bx1 + 26, 89), fill=(163, 19, 19, 255))
+        ud.text((bx1 + 36, 74), badge_txt, font=f_mono_xs, fill=(220, 220, 228, 255))
+
+    # Аватар профиля
+    fallback_av = (ROOT / "images" / "danonsha-portrait.png") if clean_page == "danonsha" else (ROOT / "favicon.png")
+    if not fallback_av.is_file():
+        fallback_av = ROOT / "favicon.png"
+    av_img = _og_load_img(tw.get("profileImage"), fallback_av)
+    ud.rounded_rectangle((84, 134, 240, 290), radius=30, outline=(163, 19, 19, 185), width=2)
+
+    # Заголовок и подзаголовок
+    ud.text((272, 138), main_title, font=f_title, fill=(255, 255, 255, 255))
+    ud.text((274, 218), _og_fit_text(ud, main_sub, f_sub, 820), font=f_sub, fill=(175, 175, 185, 255))
+
+    # Плашки статистики коллекций
+    cnt = ctx["counts"]
+    chips = [
+        f"Watchlist · {cnt.get('watchlist', 0)}",
+        f"Gamelist · {cnt.get('gamelist', 0)}",
+        f"Setup · {cnt.get('setup', 0)}",
+        f"Wishlist · {cnt.get('wishlist', 0)}",
+    ]
+    cx = 274
+    cy = 266
+    for ch_txt in chips:
+        cw = int(ud.textlength(ch_txt, font=f_mono_xs)) + 26
+        if cx + cw > W - 84:
+            break
+        ud.rounded_rectangle((cx, cy, cx + cw, cy + 34), radius=17, fill=(255, 255, 255, 12), outline=(160, 160, 175, 48), width=1)
+        ud.text((cx + 13, cy + 8), ch_txt, font=f_mono_xs, fill=(224, 224, 232, 255))
+        cx += cw + 10
+
+    # Нижняя динамическая витрина (Live Track / Live Stream / Archive Summary)
+    box_y1, box_y2 = 356, 542
+    ud.rounded_rectangle((84, box_y1, W - 84, box_y2), radius=22, fill=(255, 255, 255, 10), outline=(255, 255, 255, 34), width=1)
+
+    track = ctx.get("track")
+    wr = ctx.get("wrapped") or {}
+    wr_sum = wr.get("summary") or {}
+
+    art_to_paste = None
+    if clean_page == "index" and isinstance(track, dict) and track.get("name"):
+        art_to_paste = _og_load_img(track.get("image"), ROOT / "favicon.png")
+        tx = 266
+        now_pl = bool(track.get("nowPlaying"))
+        eye = "СЕЙЧАС ИГРАЕТ В SPOTIFY" if now_pl else "НЕДАВНО ПРОСЛУШАНО"
+        ud.ellipse((tx, box_y1 + 36, tx + 10, box_y1 + 46), fill=(34, 197, 94, 255) if now_pl else (163, 19, 19, 255))
+        ud.text((tx + 20, box_y1 + 31), eye, font=f_mono_xs, fill=(210, 210, 220, 255))
+        ud.text((tx, box_y1 + 66), _og_fit_text(ud, track.get("name"), f_card_title, 780), font=f_card_title, fill=(255, 255, 255, 255))
+        ud.text((tx, box_y1 + 110), _og_fit_text(ud, track.get("artist") or "Spotify / Last.fm", f_card_sub, 780), font=f_card_sub, fill=(165, 165, 175, 255))
+    elif is_live:
+        stream = tw.get("stream") if isinstance(tw.get("stream"), dict) else {}
+        s_title = text(stream.get("title"), 120) or "Прямой эфир"
+        s_game = text(stream.get("gameName"), 60)
+        s_view = stream.get("viewerCount", 0)
+        ud.ellipse((114, box_y1 + 36, 124, box_y1 + 46), fill=(34, 197, 94, 255))
+        ud.text((134, box_y1 + 31), f"TWITCH LIVE · @{tw.get('login', clean_page)}", font=f_mono_xs, fill=(213, 255, 236, 255))
+        ud.text((114, box_y1 + 66), _og_fit_text(ud, s_title, f_card_title, 940), font=f_card_title, fill=(255, 255, 255, 255))
+        meta_line = f"{s_view} зрителей" + (f" · {s_game}" if s_game else "")
+        ud.text((114, box_y1 + 112), _og_fit_text(ud, meta_line, f_card_sub, 940), font=f_card_sub, fill=(175, 185, 180, 255))
+    else:
+        if clean_page == "danonsha":
+            eye_lbl = "АРХИВ ЭФИРОВ · GOOGLE DRIVE"
+            line1 = f"Записей в архиве: {wr_sum.get('vods_count', 0)} · {wr_sum.get('total_vod_hours', 0)} часов"
+            line2 = text(tw.get("description"), 120) or "Трансляции, синхронизированный чат и личные коллекции"
+        elif clean_page == "wrapped":
+            eye_lbl = "ИТОГИ И СТАТИСТИКА КОЛЛЕКЦИЙ"
+            line1 = f"Тайтлов: {wr_sum.get('total_watched', 0)} · Игр: {wr_sum.get('games_total', 0)} · Стримов: {wr_sum.get('vods_count', 0)}"
+            line2 = f"Средняя оценка кино: {wr_sum.get('avg_w_rating') or '—'} · Длительность VOD: {wr_sum.get('total_vod_hours', 0)} ч."
+        elif clean_page in {"watchlist", "gamelist", "setup", "wishlist"}:
+            eye_lbl = f"КОЛЛЕКЦИЯ {clean_page.upper()}"
+            line1 = f"Элементов в базе: {cnt.get(clean_page, 0)}"
+            line2 = "Оценки, отзывы, фильтры, теги и быстрый поиск · krafen.me"
+        else:
+            eye_lbl = "TWITCH & ПРОФИЛЬ"
+            line1 = f"@{tw.get('login', TWITCH_CHANNEL)} · {tw.get('viewCount', 0)} просмотров канала" if tw else "Коллекции, музыка, статус Twitch и ссылки в одном месте"
+            line2 = "Нажмите, чтобы открыть профиль, списки и live-статусы"
+        ud.ellipse((114, box_y1 + 36, 124, box_y1 + 46), fill=(163, 19, 19, 255))
+        ud.text((134, box_y1 + 31), eye_lbl, font=f_mono_xs, fill=(195, 195, 205, 255))
+        ud.text((114, box_y1 + 68), _og_fit_text(ud, line1, f_card_title, 940), font=f_card_title, fill=(255, 255, 255, 255))
+        ud.text((114, box_y1 + 112), _og_fit_text(ud, line2, f_card_sub, 940), font=f_card_sub, fill=(160, 160, 170, 255))
+
+    canvas = _PILImage.alpha_composite(canvas, ui_layer)
+    if av_img is not None:
+        r_av = _og_rounded_thumb(av_img, (148, 148), 26)
+        canvas.paste(r_av, (88, 138), r_av)
+    if art_to_paste is not None:
+        r_art = _og_rounded_thumb(art_to_paste, (132, 132), 18)
+        canvas.paste(r_art, (110, box_y1 + 27), r_art)
+
+    out = io.BytesIO()
+    canvas.convert("RGB").save(out, format="PNG", compress_level=6)
+    png_bytes = out.getvalue()
+    etag = f'"{hashlib.sha256(png_bytes).hexdigest()[:24]}"'
+    with _og_cache_lock:
+        _og_image_cache[clean_page] = (now + 60.0, png_bytes, etag)
+    return png_bytes
+
+
+@app.api_route("/og/{page}.png", methods=["GET", "HEAD"])
+def og_page_image(page: str, request: Request) -> Response:
+    rate_limit(request, "og_img", 120, 60)
+    png_bytes = generate_og_png(page)
+    etag = f'"{hashlib.sha256(png_bytes).hexdigest()[:24]}"'
+    cache_hdr = "public, max-age=60, stale-while-revalidate=300"
+    if (request.headers.get("if-none-match") or "").strip() == etag:
+        return Response(status_code=304, headers={"ETag": etag, "Cache-Control": cache_hdr})
+    headers = {
+        "Cache-Control": cache_hdr,
+        "ETag": etag,
+        "Content-Length": str(len(png_bytes)),
+        "X-Content-Type-Options": "nosniff",
+    }
+    if request.method == "HEAD":
+        return Response(status_code=200, media_type="image/png", headers=headers)
+    return Response(content=png_bytes, status_code=200, media_type="image/png", headers=headers)
+
+
+@app.api_route("/api/og", methods=["GET", "HEAD"])
+def api_og_image(request: Request, page: str = "index") -> Response:
+    return og_page_image(page, request)
+
+
+def generate_showcase_card_png(kind: str, owner: str = DEFAULT_PROFILE) -> bytes:
+    """Генерирует PNG-карточку сборки ПК (/setup) или вишлиста (/wishlist) на Pillow."""
+    clean_kind = kind if kind in {"setup", "wishlist"} else "setup"
+    if not _PIL_AVAILABLE:
+        fav = ROOT / "favicon.png"
+        return fav.read_bytes() if fav.is_file() else b""
+    items = read_list(clean_kind, use_cache=True, owner=owner).get("items") or []
+    rows_text: list[tuple[str, str]] = []
+    if clean_kind == "setup":
+        for it in items[:10]:
+            cat = text(it.get("category"), 28) or text(it.get("group"), 16).upper()
+            nm = text(it.get("name"), 72)
+            note = text(it.get("note"), 44)
+            rows_text.append((cat, f"{nm}" + (f" · {note}" if note else "")))
+    else:
+        wanted = [i for i in items if i.get("status") != "bought"] or items
+        for it in wanted[:10]:
+            cat = text(it.get("category"), 24)
+            price_val = float(it.get("price") or 0)
+            cur = text(it.get("currency"), 8) or "RUB"
+            p_str = f"{int(round(price_val))} {cur}" if price_val > 0 else "подарок"
+            rows_text.append((cat, f"{text(it.get('title'), 66)} — {p_str}"))
+
+    W = 1080
+    H = max(540, 220 + max(1, len(rows_text)) * 54 + 60)
+    canvas = _PILImage.new("RGBA", (W, H), (6, 6, 9, 255))
+    ov = _PILImage.new("RGBA", (W, H), (0, 0, 0, 0))
+    od = _PILDraw.Draw(ov)
+    od.rounded_rectangle((32, 28, W - 32, H - 28), radius=24, fill=(13, 13, 18, 238), outline=(163, 19, 19, 130), width=1)
+    od.line([(96, 29), (W - 96, 29)], fill=(163, 19, 19, 210), width=2)
+    canvas = _PILImage.alpha_composite(canvas, ov)
+
+    ud = _PILDraw.Draw(canvas)
+    f_eyebrow = _og_font(15, bold=True, mono=True)
+    f_title = _og_font(42, bold=True)
+    f_tag = _og_font(15, bold=True, mono=True)
+    f_row = _og_font(20, bold=False)
+
+    heading = "PC & GEAR SETUP" if clean_kind == "setup" else "WISHLIST & PLANS"
+    ud.text((68, 62), f"KRAFEN.ME // {owner.upper()}", font=f_eyebrow, fill=(163, 19, 19, 255))
+    ud.text((68, 92), heading, font=f_title, fill=(245, 245, 250, 255))
+    ud.line([(68, 160), (W - 68, 160)], fill=(255, 255, 255, 28), width=1)
+
+    if not rows_text:
+        ud.text((68, 210), "Список пока пуст", font=f_row, fill=(160, 160, 172, 255))
+    else:
+        y = 186
+        for left_lbl, right_val in rows_text:
+            ud.rounded_rectangle((68, y, W - 68, y + 44), radius=10, fill=(255, 255, 255, 9), outline=(255, 255, 255, 22), width=1)
+            ud.text((86, y + 13), _og_fit_text(ud, left_lbl.upper(), f_tag, 175), font=f_tag, fill=(255, 122, 122, 255))
+            ud.text((280, y + 10), _og_fit_text(ud, right_val, f_row, W - 368), font=f_row, fill=(236, 236, 242, 255))
+            y += 54
+
+    out = io.BytesIO()
+    canvas.convert("RGB").save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
+@app.api_route("/api/card/{kind}.png", methods=["GET", "HEAD"])
+def api_showcase_card(kind: str, request: Request) -> Response:
+    rate_limit(request, "showcase_card", 60, 60)
+    if kind not in {"setup", "wishlist"}:
+        return j({"error": "invalid_card_kind"}, 404)
+    owner = request_profile(request)
+    png_bytes = generate_showcase_card_png(kind, owner=owner)
+    headers = {
+        "Cache-Control": "public, max-age=120, stale-while-revalidate=300",
+        "Content-Length": str(len(png_bytes)),
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f'inline; filename="krafen-{kind}.png"',
+    }
+    if request.method == "HEAD":
+        return Response(status_code=200, media_type="image/png", headers=headers)
+    return Response(content=png_bytes, status_code=200, media_type="image/png", headers=headers)
 
 
 @app.get("/api/discord")
@@ -5654,10 +7656,10 @@ def _upsert_drive_vod(conn: sqlite3.Connection, row_data: dict[str, Any]) -> Non
         """
         INSERT INTO drive_vods (
             id, drive_id, title, size_label, note, sort_key,
-            folder_drive_id, chat_drive_id, thumb_drive_id, meta_drive_id,
+            folder_drive_id, chat_drive_id, thumb_drive_id, meta_drive_id, transcript_drive_id,
             game, duration_s, started_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             drive_id = excluded.drive_id,
             title = excluded.title,
@@ -5668,6 +7670,7 @@ def _upsert_drive_vod(conn: sqlite3.Connection, row_data: dict[str, Any]) -> Non
             chat_drive_id = excluded.chat_drive_id,
             thumb_drive_id = excluded.thumb_drive_id,
             meta_drive_id = excluded.meta_drive_id,
+            transcript_drive_id = excluded.transcript_drive_id,
             game = excluded.game,
             duration_s = CASE WHEN excluded.duration_s > 0 THEN excluded.duration_s ELSE drive_vods.duration_s END,
             started_at = CASE WHEN excluded.started_at != '' THEN excluded.started_at ELSE drive_vods.started_at END
@@ -5683,6 +7686,7 @@ def _upsert_drive_vod(conn: sqlite3.Connection, row_data: dict[str, Any]) -> Non
             row_data.get("chat_drive_id", ""),
             row_data.get("thumb_drive_id", ""),
             row_data.get("meta_drive_id", ""),
+            row_data.get("transcript_drive_id", ""),
             row_data.get("game", ""),
             int(row_data.get("duration_s") or 0),
             row_data.get("started_at", ""),
@@ -5741,6 +7745,7 @@ def _inspect_drive_vod_subfolder(
     preferred_video = str(meta_obj.get("video_file") or "video.mp4").strip().lower()
     preferred_chat = str(meta_obj.get("chat_file") or "chat.jsonl").strip().lower()
     preferred_thumb = str(meta_obj.get("thumb_file") or "thumb.jpg").strip().lower()
+    preferred_transcript = str(meta_obj.get("transcript_file") or "transcript.vtt").strip().lower()
 
     video_entry = files_by_lower.get(preferred_video) or files_by_lower.get("video.mp4")
     if not video_entry:
@@ -5793,6 +7798,17 @@ def _inspect_drive_vod_subfolder(
             size_bytes = _probe_gdrive_file_size(video_entry["id"])
         size_label = _format_size_bytes(size_bytes)
 
+    transcript_entry = (
+        files_by_lower.get(preferred_transcript)
+        or files_by_lower.get("transcript.vtt")
+        or files_by_lower.get("subtitles.vtt")
+    )
+    if not transcript_entry:
+        for f in all_files:
+            if f["name"].lower().endswith(".vtt"):
+                transcript_entry = f
+                break
+
     return {
         "id": parsed_folder["id"],
         "drive_id": video_entry["id"],
@@ -5804,6 +7820,7 @@ def _inspect_drive_vod_subfolder(
         "chat_drive_id": chat_entry["id"] if chat_entry else "",
         "thumb_drive_id": thumb_entry["id"] if thumb_entry else "",
         "meta_drive_id": meta_entry["id"] if meta_entry else "",
+        "transcript_drive_id": transcript_entry["id"] if transcript_entry else "",
         "game": game,
         "duration_s": duration_s,
         "started_at": started_at,
@@ -5811,6 +7828,7 @@ def _inspect_drive_vod_subfolder(
 
 
 def _sync_drive_vods_worker(folder_id: str, force: bool = False) -> None:
+    global _drive_sync_failures
     if not re.fullmatch(r"[A-Za-z0-9_-]{10,80}", folder_id):
         return
     if not _drive_sync_worker_lock.acquire(blocking=False):
@@ -5818,7 +7836,15 @@ def _sync_drive_vods_worker(folder_id: str, force: bool = False) -> None:
     try:
         ok, top_entries = _list_gdrive_folder(folder_id)
         if not ok:
+            _drive_sync_failures += 1
+            if _drive_sync_failures >= 3:
+                _maybe_send_admin_tg_alert(
+                    "gdrive_sync",
+                    f"[krafen.me] Google Drive VOD sync не отвечает ({_drive_sync_failures} попытки подряд)",
+                    cooldown_s=7200.0,
+                )
             return
+        _drive_sync_failures = 0
 
         with _db_lock, db_connect() as conn:
             existing_rows = {
@@ -5860,6 +7886,7 @@ def _sync_drive_vods_worker(folder_id: str, force: bool = False) -> None:
                         "chat_drive_id": "",
                         "thumb_drive_id": "",
                         "meta_drive_id": "",
+                        "transcript_drive_id": "",
                         "game": "",
                         "duration_s": 0,
                         "started_at": "",
@@ -5922,6 +7949,19 @@ def maybe_sync_drive_vods(force: bool = False) -> None:
         threading.Thread(target=_sync_drive_vods_worker, args=(GDRIVE_FOLDER_ID, False), daemon=True).start()
 
 
+def _parse_vod_chapters(raw_chapters: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw_chapters, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for entry in raw_chapters[:40]:
+        if isinstance(entry, dict):
+            sec = max(0, _safe_int(entry.get("t") if "t" in entry else entry.get("time"), 0))
+            title = text(entry.get("title") or entry.get("label") or entry.get("name"), 120)
+            if title:
+                out.append({"t": sec, "title": title})
+    return sorted(out, key=lambda x: x["t"])
+
+
 def list_vods(force_sync: bool = False, *, include_hidden: bool = False) -> list[dict[str, Any]]:
     if force_sync:
         maybe_sync_drive_vods(force=True)
@@ -5957,10 +7997,12 @@ def list_vods(force_sync: bool = False, *, include_hidden: bool = False) -> list
                 "note": text(raw_meta.get("note"), 180),
                 "video_file": video_file,
                 "has_chat": (folder / "chat.jsonl").is_file(),
+                "has_transcript": any((folder / fn).is_file() for fn in ("transcript.vtt", "subtitles.vtt")),
                 "has_video": (folder / video_file).is_file() or (folder / "video.mp4").is_file(),
                 "has_thumb": (folder / thumb_file).is_file() or (folder / "thumb.jpg").is_file(),
                 "thumb_url": f"/api/vods/{q_id}/thumb",
                 "thumb_fallbacks": [],
+                "chapters": _parse_vod_chapters(raw_meta.get("chapters")),
                 "sort_key": folder.name,
             }
 
@@ -6006,6 +8048,7 @@ def list_vods(force_sync: bool = False, *, include_hidden: bool = False) -> list
                 "thumb_url": f"/api/vods/{q_vid}/thumb",
                 "thumb_fallbacks": fallbacks,
                 "has_chat": bool(chat_drive_id),
+                "has_transcript": bool((r["transcript_drive_id"] or "").strip()) if "transcript_drive_id" in r.keys() else False,
                 "has_video": True,
                 "sort_key": r["sort_key"],
             }
@@ -6086,6 +8129,78 @@ def vod_chat(vod_id: str, request: Request):
     if cached_chat.is_file() and cached_chat.stat().st_size > 0:
         return FileResponse(cached_chat, media_type=MIME[".jsonl"], headers=pub_chat_headers)
 
+
+def _parse_vtt_seconds(raw_ts: str) -> float:
+    parts = raw_ts.strip().replace(",", ".").split(":")
+    try:
+        if len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        if len(parts) == 2:
+            return int(parts[0]) * 60 + float(parts[1])
+        return float(parts[0])
+    except ValueError:
+        return 0.0
+
+
+def _parse_webvtt_cues(vtt_text: str) -> list[dict[str, Any]]:
+    cues: list[dict[str, Any]] = []
+    blocks = re.split(r"\r?\n\s*\r?\n", vtt_text.strip())
+    for block in blocks:
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if not lines or lines[0].upper().startswith(("WEBVTT", "NOTE", "STYLE")):
+            continue
+        ts_idx = 0 if "-->" in lines[0] else (1 if len(lines) > 1 and "-->" in lines[1] else -1)
+        if ts_idx < 0:
+            continue
+        start_s, _, end_rest = lines[ts_idx].partition("-->")
+        end_s = end_rest.strip().split()[0] if end_rest.strip() else "0"
+        cue_txt = " ".join(lines[ts_idx + 1 :]).strip()
+        if not cue_txt:
+            continue
+        cues.append(
+            {
+                "start": round(_parse_vtt_seconds(start_s), 2),
+                "end": round(_parse_vtt_seconds(end_s), 2),
+                "text": cue_txt[:300],
+            }
+        )
+    return cues[:6000]
+
+
+@app.get("/api/vods/{vod_id}/transcript")
+def vod_transcript(vod_id: str, request: Request, format: str = "json") -> Response:
+    rate_limit(request, "vod_transcript", 60, 60)
+    if not safe_name(vod_id):
+        return j({"error": "not found"}, 404)
+    raw_vtt: bytes | None = None
+    folder = find_vod(vod_id)
+    if folder:
+        for fn in ("transcript.vtt", "subtitles.vtt"):
+            cand = folder / fn
+            if cand.is_file():
+                raw_vtt = cand.read_bytes()
+                break
+    if raw_vtt is None:
+        row = _get_drive_vod_row(vod_id)
+        tr_drive_id = str(row.get("transcript_drive_id") or "").strip() if row else ""
+        if not tr_drive_id:
+            return j({"cues": []})
+        cached_vtt = CHAT_CACHE_DIR / f"sub_{_vod_cache_stem(vod_id)}.vtt"
+        if cached_vtt.is_file() and cached_vtt.stat().st_size > 0:
+            raw_vtt = cached_vtt.read_bytes()
+        else:
+            raw_vtt = _download_gdrive_small_bytes(tr_drive_id, max_bytes=10 * 1024 * 1024)
+            if raw_vtt:
+                CHAT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                with contextlib.suppress(OSError):
+                    cached_vtt.write_bytes(raw_vtt)
+    if not raw_vtt:
+        return j({"cues": []})
+    vtt_str = raw_vtt.decode("utf-8", errors="replace")
+    if format == "vtt":
+        return Response(content=vtt_str.encode("utf-8"), media_type="text/vtt; charset=utf-8")
+    return j({"cues": _parse_webvtt_cues(vtt_str)})
+
     raw_chat = _download_gdrive_small_bytes(chat_drive_id, max_bytes=20 * 1024 * 1024)
     if not raw_chat:
         return j({"error": "chat_unavailable"}, 502)
@@ -6102,6 +8217,78 @@ def vod_chat(vod_id: str, request: Request):
             tmp_chat.unlink(missing_ok=True)
 
     return FileResponse(cached_chat, media_type=MIME[".jsonl"], headers=pub_chat_headers)
+
+
+def _parse_vtt_seconds(raw_ts: str) -> float:
+    parts = raw_ts.strip().replace(",", ".").split(":")
+    try:
+        if len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        if len(parts) == 2:
+            return int(parts[0]) * 60 + float(parts[1])
+        return float(parts[0])
+    except ValueError:
+        return 0.0
+
+
+def _parse_webvtt_cues(vtt_text: str) -> list[dict[str, Any]]:
+    cues: list[dict[str, Any]] = []
+    blocks = re.split(r"\r?\n\s*\r?\n", vtt_text.strip())
+    for block in blocks:
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if not lines or lines[0].upper().startswith(("WEBVTT", "NOTE", "STYLE")):
+            continue
+        ts_idx = 0 if "-->" in lines[0] else (1 if len(lines) > 1 and "-->" in lines[1] else -1)
+        if ts_idx < 0:
+            continue
+        start_s, _, end_rest = lines[ts_idx].partition("-->")
+        end_s = end_rest.strip().split()[0] if end_rest.strip() else "0"
+        cue_txt = " ".join(lines[ts_idx + 1 :]).strip()
+        if not cue_txt:
+            continue
+        cues.append(
+            {
+                "start": round(_parse_vtt_seconds(start_s), 2),
+                "end": round(_parse_vtt_seconds(end_s), 2),
+                "text": cue_txt[:300],
+            }
+        )
+    return cues[:6000]
+
+
+@app.get("/api/vods/{vod_id}/transcript")
+def vod_transcript(vod_id: str, request: Request, format: str = "json") -> Response:
+    rate_limit(request, "vod_transcript", 60, 60)
+    if not safe_name(vod_id):
+        return j({"error": "not found"}, 404)
+    raw_vtt: bytes | None = None
+    folder = find_vod(vod_id)
+    if folder:
+        for fn in ("transcript.vtt", "subtitles.vtt"):
+            cand = folder / fn
+            if cand.is_file():
+                raw_vtt = cand.read_bytes()
+                break
+    if raw_vtt is None:
+        row = _get_drive_vod_row(vod_id)
+        tr_drive_id = str(row.get("transcript_drive_id") or "").strip() if row else ""
+        if not tr_drive_id:
+            return j({"cues": []})
+        cached_vtt = CHAT_CACHE_DIR / f"sub_{_vod_cache_stem(vod_id)}.vtt"
+        if cached_vtt.is_file() and cached_vtt.stat().st_size > 0:
+            raw_vtt = cached_vtt.read_bytes()
+        else:
+            raw_vtt = _download_gdrive_small_bytes(tr_drive_id, max_bytes=10 * 1024 * 1024)
+            if raw_vtt:
+                CHAT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                with contextlib.suppress(OSError):
+                    cached_vtt.write_bytes(raw_vtt)
+    if not raw_vtt:
+        return j({"cues": []})
+    vtt_str = raw_vtt.decode("utf-8", errors="replace")
+    if format == "vtt":
+        return Response(content=vtt_str.encode("utf-8"), media_type="text/vtt; charset=utf-8")
+    return j({"cues": _parse_webvtt_cues(vtt_str)})
 
 
 def video_file_for(folder: Path, filename: str) -> Path | None:
@@ -6561,17 +8748,45 @@ def vod_stream(vod_id: str, request: Request) -> Response:
 # ----------------------------- Статика -----------------------------
 
 STATIC_ALLOWED = {
-    ".html", ".css", ".js", ".xml", ".txt", ".png", ".jpg", ".jpeg",
+    ".html", ".css", ".js", ".xml", ".png", ".jpg", ".jpeg",
     ".webp", ".svg", ".ico", ".mp4", ".webm", ".mkv", ".mov",
+    ".webmanifest",
 }
-STATIC_EXACT_NAMES = {"CNAME"}
-STATIC_BLOCKED_ROOTS = {"data", "recorder", "vods", ".git", ".github", ".venv", "venv", "__pycache__"}
+STATIC_EXACT_NAMES = {"CNAME", "robots.txt", "manifest.json"}
+STATIC_BLOCKED_ROOTS = {
+    "data", "recorder", "vods", ".git", ".github", ".venv", "venv", "__pycache__",
+    "etc", "tests", ".local", ".cache", "brain", "scratch",
+}
 
 # Явный список не затрагивает API, файлы и несуществующие адреса.
-_STATIC_PAGE_REDIRECTS = {"/index.html": "/"}
-for _page in ("watchlist", "gamelist", "setup", "wishlist", "danonsha"):
+_STATIC_PAGE_REDIRECTS = {"/index.html": "/", "/favicon.ico": "/favicon.png"}
+for _page in ("watchlist", "gamelist", "setup", "wishlist", "danonsha", "wrapped", "suggest"):
     _STATIC_PAGE_REDIRECTS[f"/{_page}.html"] = f"/{_page}"
     _STATIC_PAGE_REDIRECTS[f"/{_page}/"] = f"/{_page}"
+_STATIC_PAGE_REDIRECTS["/404.html"] = "/404"
+_STATIC_PAGE_REDIRECTS["/404/"] = "/404"
+_STATIC_PAGE_REDIRECTS["/recap"] = "/wrapped"
+_STATIC_PAGE_REDIRECTS["/recap/"] = "/wrapped"
+_STATIC_PAGE_REDIRECTS["/recap.html"] = "/wrapped"
+
+_REDIRECTS_FILE = ROOT / "_redirects"
+if _REDIRECTS_FILE.is_file():
+    try:
+        for _r_line in _REDIRECTS_FILE.read_text(encoding="utf-8", errors="ignore").splitlines():
+            _r_line = _r_line.strip()
+            if not _r_line or _r_line.startswith("#"):
+                continue
+            _r_parts = _r_line.split()
+            if len(_r_parts) >= 2:
+                _r_src, _r_dst = _r_parts[0].strip(), _r_parts[1].strip()
+                if _r_src.startswith("/"):
+                    _STATIC_PAGE_REDIRECTS[_r_src] = _r_dst
+                    _clean_src = _r_src.rstrip("/")
+                    if _clean_src:
+                        _STATIC_PAGE_REDIRECTS[_clean_src] = _r_dst
+                        _STATIC_PAGE_REDIRECTS[_clean_src + "/"] = _r_dst
+    except OSError:
+        pass
 
 
 def resolve_static(full_path: str) -> Path | None:
@@ -6626,17 +8841,38 @@ def static_file(full_path: str, request: Request) -> Response:
     target = _STATIC_PAGE_REDIRECTS.get("/" + full_path)
     if target is not None:
         query = request.url.query
-        return RedirectResponse(target + (f"?{query}" if query else ""), status_code=301)
+        is_external = target.startswith(("http://", "https://"))
+        dest = target
+        if query:
+            sep = "&" if ("?" in dest) else "?"
+            dest += f"{sep}{query}"
+        return RedirectResponse(dest, status_code=302 if is_external else 301)
 
     path = resolve_static(full_path)
     if not path:
-        return j({"error": "not found"}, 404)
+        accept = request.headers.get("accept", "")
+        has_static_ext = bool(Path(full_path).suffix)
+        is_json_req = full_path.startswith("api/") or ("application/json" in accept and "text/html" not in accept)
+        if is_json_req:
+            return j({"error": "not found"}, 404)
+        if has_static_ext and Path(full_path).suffix.lower() not in {".html", ".htm"}:
+            return Response(b"Not Found", status_code=404, media_type="text/plain; charset=utf-8")
+        err_page = ROOT / "404.html"
+        if err_page.is_file():
+            path = err_page
+        else:
+            return j({"error": "not found"}, 404)
+
     ext = path.suffix.lower()
     if ext == ".html":
+        status = 404 if path.name.lower() == "404.html" else 200
         nonce = b64url(secrets.token_bytes(16))
         body = path.read_text(encoding="utf-8", errors="replace").replace("__CSP_NONCE__", nonce)
         encoded = body.encode("utf-8")
-        headers = {"Cache-Control": "private, no-cache, no-transform", "Content-Length": str(len(encoded))}
+        headers = {
+            "Cache-Control": "private, no-cache, no-store, must-revalidate" if status == 404 else "private, no-cache, no-transform",
+            "Content-Length": str(len(encoded)),
+        }
         # Панель управления, личный профиль и служебные страницы не индексируются.
         relative = path.relative_to(ROOT).as_posix()
         if path.name.lower() in _NOINDEX_PAGES or relative.startswith("danonsha/"):
@@ -6649,8 +8885,8 @@ def static_file(full_path: str, request: Request) -> Response:
             )
         )
         if request.method == "HEAD":
-            return Response(status_code=200, media_type=MIME[".html"], headers=headers)
-        return Response(content=encoded, status_code=200, media_type=MIME[".html"], headers=headers)
+            return Response(status_code=status, media_type=MIME[".html"], headers=headers)
+        return Response(content=encoded, status_code=status, media_type=MIME[".html"], headers=headers)
 
     media_type = MIME.get(ext, "text/plain; charset=utf-8")
     try:
@@ -6659,13 +8895,25 @@ def static_file(full_path: str, request: Request) -> Response:
     except OSError:
         etag = ""
 
-    cache_ctrl = "no-cache" if ext in {".css", ".js"} else "public, max-age=86400"
+    if path.name == "sw.js":
+        cache_ctrl = "no-cache, no-store, must-revalidate"
+    elif ext in {".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".mp4", ".webm", ".mkv", ".mov"}:
+        cache_ctrl = "public, max-age=2592000, stale-while-revalidate=86400"
+    elif ext in {".webmanifest"} or path.name == "manifest.json":
+        cache_ctrl = "public, max-age=86400, stale-while-revalidate=604800"
+    elif ext in {".css", ".js"}:
+        cache_ctrl = "public, max-age=86400, stale-while-revalidate=604800"
+    else:
+        cache_ctrl = "public, max-age=86400"
+
     if etag and (request.headers.get("if-none-match") or "").strip() == etag:
         return Response(status_code=304, headers={"ETag": etag, "Cache-Control": cache_ctrl})
 
-    if ext in {".css", ".js", ".svg", ".xml", ".txt"} and st.st_size <= 2 * 1024 * 1024:
+    if ext in {".css", ".js", ".svg", ".xml", ".txt", ".webmanifest"} and st.st_size <= 2 * 1024 * 1024:
         raw_bytes = path.read_bytes()
         headers = {"Cache-Control": cache_ctrl, "Content-Length": str(len(raw_bytes))}
+        if path.name == "sw.js":
+            headers["Service-Worker-Allowed"] = "/"
         if etag:
             headers["ETag"] = etag
         if request.method == "HEAD":

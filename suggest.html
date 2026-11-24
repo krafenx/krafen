@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Предложка на стрим — krafen &amp; danonsha</title>
+    <meta name="description" content="Предложить идею, видео, фильм, сериал, аниме, игру, челлендж или что угодно на стрим.">
+    <link rel="canonical" href="https://krafen.me/suggest">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Предложка на стрим — krafen &amp; danonsha">
+    <meta property="og:description" content="Предложить идею, видео, фильм, сериал, аниме, игру или что угодно на стрим.">
+    <meta property="og:url" content="https://krafen.me/suggest">
+    <meta property="og:image" content="https://krafen.me/og/index.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#050505">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" data-async-css>
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"></noscript>
+    <link rel="stylesheet" href="/style.css">
+    <style nonce="__CSP_NONCE__">
+        .suggest-card { padding: 28px; max-width: 820px; }
+        .suggest-hits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .suggest-hit {
+            display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+            border-radius: 12px; background: rgba(255, 255, 255, .03);
+            border: 1px solid rgba(160, 160, 160, .14); cursor: pointer; text-align: left;
+            color: inherit; font-family: inherit;
+            transition: border-color .25s var(--ease), background .25s var(--ease);
+        }
+        .suggest-hit:hover, .suggest-hit.picked {
+            border-color: rgba(163, 19, 19, .65);
+            background: rgba(124, 10, 10, .14);
+        }
+        .suggest-hit img {
+            width: 42px; height: 58px; border-radius: 7px; object-fit: cover; flex-shrink: 0;
+            background: rgba(255, 255, 255, .05);
+        }
+        .suggest-hit-ph {
+            width: 42px; height: 58px; border-radius: 7px; flex-shrink: 0;
+            background: rgba(255, 255, 255, .05); display: flex; align-items: center; justify-content: center;
+            color: var(--silver-dim); font-size: 14px;
+        }
+        .suggest-picked-box {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 12px 14px; border-radius: 12px;
+            background: rgba(124, 10, 10, .14); border: 1px solid rgba(163, 19, 19, .45);
+        }
+        .suggest-field { display: flex; flex-direction: column; gap: 8px; }
+        .suggest-label { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--silver-dim); }
+        .suggest-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+        @media (max-width: 720px) {
+            .suggest-card { padding: 20px 16px; }
+            .suggest-hits { grid-template-columns: 1fr; }
+        }
+    </style>
+    <script data-cfasync="false" nonce="__CSP_NONCE__" src="/app.js" defer></script>
+</head>
+<body>
+    <div id="glow"></div>
+    <canvas id="rain"></canvas>
+    <div class="fog"></div>
+    <div class="fog f2"></div>
+    <div id="flash"></div>
+    <div class="vignette"></div>
+    <div class="grain"></div>
+
+    <nav class="topnav" aria-label="Навигация по сайту">
+        <a class="brand" href="/">kra<em>fen</em></a>
+        <div class="links">
+            <a href="/">Главная</a>
+            <a href="/watchlist">Watchlist</a>
+            <a href="/gamelist">Gamelist</a>
+            <a href="/setup">Setup</a>
+            <a href="/wishlist">Wishlist</a>
+            <a href="/danonsha">danonsha</a>
+        </div>
+        <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false">Меню</button>
+    </nav>
+
+    <div class="mobile-nav" id="mobile-nav" aria-label="Мобильное меню">
+        <button class="mobile-nav-close" type="button" aria-label="Закрыть меню">✕</button>
+        <a href="/">Главная</a>
+        <a href="/watchlist">Watchlist</a>
+        <a href="/gamelist">Gamelist</a>
+        <a href="/setup">Setup</a>
+        <a href="/wishlist">Wishlist</a>
+        <a href="/danonsha">danonsha</a>
+    </div>
+
+    <main id="top">
+        <section class="page-section">
+            <div class="ghost">IDEAS</div>
+
+            <div class="page-header-row reveal">
+                <div>
+                    <div class="sec-eyebrow">05 / заявки зрителей</div>
+                    <h1 class="page-display">пред<span class="grad">ложка</span></h1>
+                    <p class="page-tagline">Можно предложить вообще <em>что угодно</em> — идею, челлендж, видео, фильм, сериал, аниме, игру или ссылку.</p>
+                </div>
+            </div>
+
+            <div class="glass no-lift suggest-card reveal" style="--d:.08s;">
+                <div class="stack" style="gap:18px;">
+                    <div class="suggest-field">
+                        <span class="suggest-label">Категория (или выберите «Всё что угодно»)</span>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="sug-kind-pills">
+                            <button type="button" class="filter-pill active" data-sug-kind="other">Всё что угодно</button>
+                            <button type="button" class="filter-pill" data-sug-kind="video">Видео / Ролик</button>
+                            <button type="button" class="filter-pill" data-sug-kind="movie">Фильм</button>
+                            <button type="button" class="filter-pill" data-sug-kind="series">Сериал</button>
+                            <button type="button" class="filter-pill" data-sug-kind="anime">Аниме</button>
+                            <button type="button" class="filter-pill" data-sug-kind="game">Игра</button>
+                        </div>
+                    </div>
+
+                    <div class="suggest-field">
+                        <label class="suggest-label" for="sug-search" id="sug-search-label">Что предлагаете? (любая идея, тема, видео, игра…)</label>
+                        <input id="sug-search" class="kf-input" type="search" placeholder="Например: пройти такой-то челлендж / посмотреть видео / почитать…" autocomplete="off">
+                    </div>
+
+                    <div id="sug-results" class="suggest-hits" hidden></div>
+
+                    <div id="sug-picked-box" class="suggest-picked-box" hidden>
+                        <div style="min-width:0;flex:1;">
+                            <div style="font-size:13px;color:#fff;font-weight:500;" id="sug-picked-title"></div>
+                            <div style="font-size:11px;color:var(--silver-dim);" id="sug-picked-meta"></div>
+                        </div>
+                        <button type="button" class="btn-action" id="sug-clear-pick">Сбросить</button>
+                    </div>
+
+                    <div class="grid-2" style="gap:14px;">
+                        <div class="suggest-field">
+                            <label class="suggest-label" for="sug-link">Ссылка (необязательно)</label>
+                            <input id="sug-link" class="kf-input" type="url" maxlength="500" placeholder="https://youtube.com/... или любой сайт">
+                        </div>
+                        <div class="suggest-field">
+                            <label class="suggest-label" for="sug-custom-tag">Тег / категория (необязательно)</label>
+                            <input id="sug-custom-tag" class="kf-input" type="text" maxlength="32" placeholder="Челлендж, рубрика, музыка, квест…">
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="gap:14px;">
+                        <div class="suggest-field">
+                            <label class="suggest-label" for="sug-author">Ваш ник (необязательно)</label>
+                            <input id="sug-author" class="kf-input" type="text" maxlength="48" placeholder="@nick или имя">
+                        </div>
+                        <div class="suggest-field">
+                            <label class="suggest-label" for="sug-note">Комментарий / детали</label>
+                            <input id="sug-note" class="kf-input" type="text" maxlength="260" placeholder="Почему это будет круто или что именно нужно сделать">
+                        </div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                        <span style="font-size:11px;color:var(--silver-dim);" id="sug-status"></span>
+                        <button type="button" class="btn-primary" id="sug-submit">Отправить в предложку</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="suggest-links reveal" style="--d:.14s;">
+                <a href="/watchlist" class="btn-action">← В Watchlist</a>
+                <a href="/gamelist" class="btn-action">← В Gamelist</a>
+                <a href="/danonsha" class="btn-action">К стримам danonsha →</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site">
+        <div class="foot-name">krafen</div>
+        <div>предложка идей, видео, фильмов и игр</div>
+    </footer>
+
+    <div class="dock">
+        <a class="dock-box" href="#top">↑ <span class="hide-m">Наверх</span></a>
+        <div class="dock-right">
+            <button class="dock-box" id="atmo" type="button">★ <span class="hide-m">Атмосфера</span></button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script data-cfasync="false" nonce="__CSP_NONCE__">
+        document.querySelectorAll('link[data-async-css]').forEach((el) => { el.media = 'all'; });
+        window.addEventListener('DOMContentLoaded', () => {
+            const { escapeHTML, proxyImgUrl, toast } = window.KrafenUI;
+            const params = new URLSearchParams(location.search);
+            const validKinds = ['other', 'video', 'movie', 'series', 'anime', 'game'];
+            const initType = validKinds.includes(params.get('type')) ? params.get('type') : 'other';
+            const SEARCHABLE_TYPES = new Set(['movie', 'series', 'anime', 'game']);
+
+            const searchLabel = document.getElementById('sug-search-label');
+            const searchInp = document.getElementById('sug-search');
+            const resultsBox = document.getElementById('sug-results');
+            const pickedBox = document.getElementById('sug-picked-box');
+            const pickedTitle = document.getElementById('sug-picked-title');
+            const pickedMeta = document.getElementById('sug-picked-meta');
+            const clearPickBtn = document.getElementById('sug-clear-pick');
+            const linkInp = document.getElementById('sug-link');
+            const tagInp = document.getElementById('sug-custom-tag');
+            const authorInp = document.getElementById('sug-author');
+            const noteInp = document.getElementById('sug-note');
+            const submitBtn = document.getElementById('sug-submit');
+            const statusEl = document.getElementById('sug-status');
+
+            let currentKind = initType;
+            let searchHits = [];
+            let pickedItem = null;
+            let searchTimer = null;
+
+            function syncKindUI() {
+                document.querySelectorAll('#sug-kind-pills [data-sug-kind]').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.sugKind === currentKind);
+                });
+                const isSearchable = SEARCHABLE_TYPES.has(currentKind);
+                if (searchLabel) {
+                    searchLabel.textContent = isSearchable
+                        ? 'Название или поиск (TMDB / Shikimori / IGDB)'
+                        : 'Что предлагаете? (идея, видео, челлендж, вопрос, всё что угодно)';
+                }
+                if (searchInp) {
+                    searchInp.placeholder = isSearchable
+                        ? 'Начните вводить название (или напишите своё)…'
+                        : 'Например: пройти челлендж / реакция на ролик / обсудить тему…';
+                }
+                if (!isSearchable) {
+                    resultsBox.innerHTML = '';
+                    resultsBox.hidden = true;
+                }
+            }
+            syncKindUI();
+
+            function setPicked(item) {
+                pickedItem = item;
+                if (!item) {
+                    pickedBox.hidden = true;
+                    return;
+                }
+                pickedTitle.textContent = item.titleRu || item.title || 'Без названия';
+                pickedMeta.textContent = `${currentKind} · ${item.year || '-'}`;
+                pickedBox.hidden = false;
+                resultsBox.hidden = true;
+            }
+
+            async function runSearch(q) {
+                if (!SEARCHABLE_TYPES.has(currentKind)) return;
+                const url = currentKind === 'game'
+                    ? `/api/game-search?q=${encodeURIComponent(q)}`
+                    : `/api/search?type=${encodeURIComponent(currentKind)}&q=${encodeURIComponent(q)}`;
+                try {
+                    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+                    const data = await res.json().catch(() => ({}));
+                    searchHits = Array.isArray(data.results) ? data.results.slice(0, 6) : [];
+                    if (!searchHits.length) {
+                        resultsBox.innerHTML = '';
+                        resultsBox.hidden = true;
+                        return;
+                    }
+                    resultsBox.innerHTML = searchHits.map((it, idx) => {
+                        const imgUrl = proxyImgUrl(it.cover || it.poster);
+                        const thumb = imgUrl
+                            ? `<img src="${escapeHTML(imgUrl)}" alt="" loading="lazy" decoding="async">`
+                            : `<div class="suggest-hit-ph">★</div>`;
+                        return `
+                            <button type="button" class="suggest-hit" data-pick-idx="${idx}">
+                                ${thumb}
+                                <div style="min-width:0;flex:1;">
+                                    <div style="font-size:13px;color:#fff;font-weight:500;" class="truncate">${escapeHTML(it.titleRu || it.title)}</div>
+                                    <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;">${escapeHTML(it.year || '-')}</div>
+                                </div>
+                            </button>`;
+                    }).join('');
+                    resultsBox.hidden = false;
+                } catch {
+                    resultsBox.hidden = true;
+                }
+            }
+
+            document.getElementById('sug-kind-pills').addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-sug-kind]');
+                if (!btn) return;
+                currentKind = btn.dataset.sugKind;
+                syncKindUI();
+                setPicked(null);
+                const q = searchInp.value.trim();
+                if (SEARCHABLE_TYPES.has(currentKind) && q.length >= 2) runSearch(q);
+            });
+
+            searchInp.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                setPicked(null);
+                const q = searchInp.value.trim();
+                if (!SEARCHABLE_TYPES.has(currentKind) || q.length < 2) {
+                    resultsBox.innerHTML = '';
+                    resultsBox.hidden = true;
+                    return;
+                }
+                searchTimer = setTimeout(() => runSearch(q), 340);
+            });
+
+            resultsBox.addEventListener('click', (e) => {
+                const hitBtn = e.target.closest('[data-pick-idx]');
+                if (!hitBtn) return;
+                const hit = searchHits[Number(hitBtn.dataset.pickIdx)];
+                if (hit) setPicked(hit);
+            });
+
+            clearPickBtn.addEventListener('click', () => setPicked(null));
+
+            submitBtn.addEventListener('click', async () => {
+                const titleVal = (pickedItem && pickedItem.title) || searchInp.value.trim();
+                if (titleVal.length < 2) {
+                    toast('Опишите предложение (минимум 2 символа)', '#fde68a');
+                    return;
+                }
+                const backendKind = currentKind === 'game'
+                    ? 'game'
+                    : (['movie', 'series', 'anime'].includes(currentKind) ? 'movie' : 'other');
+                const customTag = tagInp.value.trim();
+                const mediaTypeVal = backendKind === 'other' && customTag ? customTag : currentKind;
+
+                submitBtn.disabled = true;
+                statusEl.textContent = 'Отправка…';
+                try {
+                    const res = await fetch('/api/suggestions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            kind: backendKind,
+                            media_type: mediaTypeVal,
+                            ext_id: pickedItem ? pickedItem.id : '',
+                            title: titleVal,
+                            title_ru: pickedItem ? (pickedItem.titleRu || '') : '',
+                            year: (pickedItem && pickedItem.year) || '-',
+                            image: (pickedItem && (pickedItem.cover || pickedItem.poster)) || '',
+                            link: linkInp.value.trim(),
+                            author: authorInp.value.trim(),
+                            note: noteInp.value.trim(),
+                        }),
+                    });
+                    if (res.status === 429) {
+                        statusEl.textContent = 'Слишком часто — подождите немного.';
+                        toast('Слишком частая отправка заявок', '#fde68a');
+                        return;
+                    }
+                    if (!res.ok) throw new Error('submit_failed');
+                    searchInp.value = '';
+                    linkInp.value = '';
+                    tagInp.value = '';
+                    noteInp.value = '';
+                    resultsBox.innerHTML = '';
+                    resultsBox.hidden = true;
+                    setPicked(null);
+                    statusEl.textContent = 'Заявка отправлена и появится в админке.';
+                    toast('Спасибо! Предложение отправлено', '#86efac');
+                } catch {
+                    statusEl.textContent = 'Не удалось отправить заявку.';
+                    toast('Ошибка отправки заявки', '#fca5a5');
+                } finally {
+                    submitBtn.disabled = false;
+                }
+            });
+
+            if (params.get('q')) {
+                searchInp.value = params.get('q').trim();
+                if (SEARCHABLE_TYPES.has(currentKind) && searchInp.value.length >= 2) runSearch(searchInp.value);
+            }
+        });
+    </script>
+</body>
+</html>

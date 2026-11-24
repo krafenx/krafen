@@ -10,13 +10,23 @@
     <meta property="og:title" content="danonsha — стримы, записи и коллекции">
     <meta property="og:description" content="Страница danonsha: статус канала, архив записей стримов, ссылки и личные коллекции.">
     <meta property="og:url" content="https://krafen.me/danonsha">
-    <meta property="og:image" content="https://krafen.me/favicon.png">
-    <meta property="og:image:alt" content="Значок сайта krafen">
+    <meta property="og:image" content="https://krafen.me/og/danonsha.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Карточка danonsha — прямые эфиры и архив VOD">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="krafen">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" crossorigin media="print" data-async-css>
     <noscript><link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" crossorigin></noscript>
+    <script data-cfasync="false" nonce="__CSP_NONCE__" src="/cmdk.js" defer></script>
     <style nonce="__CSP_NONCE__">
         :root {
             color-scheme: dark;
@@ -478,6 +488,21 @@
             opacity: .94;
             transition: transform .65s var(--ease), opacity .4s var(--ease);
         }
+        .vod-resume-track {
+            position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 4;
+            background: rgba(255,255,255,.14); pointer-events: none;
+        }
+        .vod-resume-fill {
+            height: 100%; background: linear-gradient(90deg, #a31313, #ff7a7a);
+            box-shadow: 0 0 10px rgba(163,19,19,.85);
+        }
+        .vod-resume-pill {
+            position: absolute; left: 10px; top: 10px; z-index: 4;
+            padding: 4px 9px; border-radius: 999px;
+            background: rgba(8,8,12,.86); border: 1px solid rgba(163,19,19,.55);
+            font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; color: #f4f4f6;
+            pointer-events: none; backdrop-filter: blur(8px);
+        }
         .vod-card:hover .vod-thumb img { transform: scale(1.04); opacity: 1; }
         .vod-curve {
             position: absolute; left: -1px; right: -1px; bottom: -1px;
@@ -670,17 +695,105 @@
         .watch-player-inner.idle .watch-top-shade,
         .watch-player-inner.idle .watch-controls-wrap { opacity: 0; }
         .watch-progress {
-            position: relative; height: 14px; display: flex; align-items: center; cursor: pointer;
+            position: relative; height: 18px; display: flex; align-items: center; cursor: pointer;
         }
+        .watch-heatmap {
+            position: absolute; left: 0; right: 0; bottom: 50%; height: 20px;
+            pointer-events: none; opacity: .52; transition: opacity .2s var(--ease), transform .2s var(--ease);
+            transform-origin: bottom center;
+        }
+        .watch-progress:hover .watch-heatmap { opacity: .95; transform: scaleY(1.18); }
+        .watch-heatmap svg { width: 100%; height: 100%; display: block; overflow: visible; }
         .watch-progress-track {
             position: relative; width: 100%; height: 2px;
-            background: rgba(255,255,255,.2); overflow: hidden;
+            background: rgba(255,255,255,.2); overflow: visible;
             transition: height .18s var(--ease);
         }
         .watch-progress:hover .watch-progress-track { height: 4px; }
         .watch-progress-fill {
+            position: relative; z-index: 2;
             height: 100%; width: 0%; background: #e4e4ec;
         }
+        .watch-progress-markers {
+            position: absolute; inset: 0; z-index: 3; pointer-events: none;
+        }
+        .watch-chapter-tick {
+            position: absolute; top: -2px; bottom: -2px; width: 2px;
+            background: #ff7a7a; box-shadow: 0 0 6px rgba(255,122,122,.75);
+            transform: translateX(-50%);
+        }
+        .watch-scrub-tip {
+            position: absolute; bottom: 100%; left: 0; margin-bottom: 14px;
+            transform: translateX(-50%); padding: 4px 8px; border-radius: 4px;
+            background: rgba(8,8,12,.92); border: 1px solid rgba(255,255,255,.18);
+            font-family: var(--font-mono); font-size: 10px; color: #ededf4;
+            white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .14s var(--ease);
+        }
+        .watch-progress:hover .watch-scrub-tip.visible { opacity: 1; }
+        .watch-resume-banner {
+            position: absolute; left: 24px; bottom: 78px; z-index: 7;
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            padding: 8px 12px; border-radius: 8px;
+            background: rgba(10,10,14,.92); border: 1px solid rgba(163,19,19,.55);
+            backdrop-filter: blur(10px); box-shadow: 0 12px 32px rgba(0,0,0,.7);
+        }
+        .watch-resume-banner .resume-go {
+            padding: 6px 12px; border-radius: 5px; border: 0; cursor: pointer;
+            background: linear-gradient(135deg, #8e0f0f, #550707); color: #fff;
+            font-family: var(--font-sans); font-size: 11px; font-weight: 600; letter-spacing: .04em;
+        }
+        .watch-resume-banner .resume-restart,
+        .watch-resume-banner .resume-dismiss {
+            padding: 6px 10px; border-radius: 5px; cursor: pointer;
+            background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); color: #d4d4dc;
+            font-family: var(--font-sans); font-size: 11px;
+        }
+        .watch-resume-banner .resume-dismiss { padding: 4px 8px; border: 0; background: transparent; color: #8c8c98; }
+        .watch-chat-top {
+            margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06);
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .w-chat-top-label {
+            font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #6c6c78; margin-right: 2px;
+        }
+        .w-chat-top-pill {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 8px; border-radius: 999px;
+            background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.09);
+            color: #dcdce6; font-family: var(--font-sans); font-size: 11px; cursor: pointer;
+            transition: border-color .2s var(--ease), background .2s var(--ease);
+        }
+        .w-chat-top-pill:hover { border-color: rgba(163,19,19,.55); background: rgba(124,10,10,.2); }
+        .w-chat-top-pill .cnt { font-family: var(--font-mono); font-size: 10px; color: #8c8c98; }
+        .watch-speed-btn {
+            min-width: 38px; padding: 3px 7px; border-radius: 4px; width: auto !important;
+            border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.05);
+            font-family: var(--font-mono); font-size: 11px; color: rgba(236,236,242,.9);
+        }
+        .watch-speed-btn.active { border-color: rgba(163,19,19,.65); background: rgba(124,10,10,.28); color: #fff; }
+        .watch-subtitles {
+            position: absolute; left: 50%; bottom: 72px; z-index: 4;
+            transform: translateX(-50%); max-width: min(86%, 720px);
+            padding: 6px 14px; border-radius: 6px;
+            background: rgba(5,5,8,.84); border: 1px solid rgba(255,255,255,.12);
+            color: #f4f4f6; font-size: 14px; line-height: 1.45; text-align: center;
+            text-shadow: 0 1px 4px #000; pointer-events: none;
+        }
+        .watch-chat-tools {
+            margin-top: 10px; display: flex; align-items: center; gap: 6px;
+        }
+        .watch-chat-search {
+            flex: 1; min-width: 0; padding: 6px 10px; border-radius: 6px;
+            background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+            color: #ececf2; font-family: var(--font-sans); font-size: 12px; outline: none;
+        }
+        .watch-chat-search:focus { border-color: rgba(163,19,19,.6); }
+        .watch-mode-btn {
+            padding: 5px 9px; border-radius: 6px; border: 1px solid rgba(255,255,255,.1);
+            background: rgba(255,255,255,.04); color: #9c9ca8; font-size: 10px;
+            letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+        }
+        .watch-mode-btn.active { border-color: rgba(163,19,19,.65); background: rgba(124,10,10,.26); color: #fff; }
         .watch-controls {
             margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 14px;
         }
@@ -796,8 +909,12 @@
         .empty-vods code { font-size: 12px; color: var(--silver); }
 
         .inner-box { background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: 16px; }
-        .btn-action { display: inline-block; padding: 10px 18px; border-radius: 999px; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--silver-bright); text-decoration: none; text-align: center; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); cursor: pointer; transition: all .3s var(--ease); }
+        .btn-action { display: inline-block; padding: 10px 18px; border-radius: 999px; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--silver-bright); text-decoration: none; text-align: center; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); cursor: pointer; transition: all .3s var(--ease); font-family: inherit; }
         .btn-action:hover { background: rgba(124,10,10,.25); border-color: rgba(124,10,10,.5); color: #fff; }
+        .btn-action.active { background: linear-gradient(135deg, rgba(163,19,19,.85), rgba(92,5,5,.78)); border-color: rgba(255,122,122,.45); color: #fff; box-shadow: 0 8px 24px rgba(124,10,10,.3); }
+        [hidden] { display: none !important; }
+        .kf-toast { position: fixed; left: 50%; bottom: 30px; z-index: 220; transform: translateX(-50%) translateY(16px); max-width: calc(100vw - 32px); padding: 12px 22px; border-radius: 999px; background: rgba(12,12,15,.95); border: 1px solid rgba(160,160,160,.22); backdrop-filter: blur(14px); font-size: 12px; letter-spacing: .06em; color: var(--silver-bright); text-align: center; box-shadow: 0 18px 48px rgba(0,0,0,.75); opacity: 0; pointer-events: none; transition: opacity .28s var(--ease), transform .28s var(--ease); }
+        .kf-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .twitch-title { font-size: 12px; color: #e4e4e7; line-height: 1.6; }
         .twitch-meta { margin-top: 8px; font-size: 10px; color: var(--silver-dim); }
         .row { display: flex; align-items: center; gap: 14px; }
@@ -1014,7 +1131,10 @@
                     <h2>Записи стримов</h2>
                     <p class="sub">Записи прошедших эфиров из облачного архива.</p>
                 </div>
-                <button class="btn-scroll" id="open-scroll-btn" type="button">Все записи ›</button>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                    <a class="btn-scroll" href="/suggest">💡 Предложка</a>
+                    <button class="btn-scroll" id="open-scroll-btn" type="button">Все записи ›</button>
+                </div>
             </div>
             <div>
                 <div class="vod-grid" id="vod-grid"></div>
@@ -1149,10 +1269,21 @@
 
                     <div class="watch-toast" id="watch-toast">Ссылка скопирована</div>
 
+                    <div class="watch-subtitles" id="watch-subtitles" hidden></div>
+
+                    <div class="watch-resume-banner" id="watch-resume-banner" hidden>
+                        <button class="resume-go" id="watch-resume-go" type="button">▶ Продолжить</button>
+                        <button class="resume-restart" id="watch-resume-restart" type="button">↺ С начала</button>
+                        <button class="resume-dismiss" id="watch-resume-dismiss" type="button" aria-label="Скрыть">✕</button>
+                    </div>
+
                     <div class="watch-controls-wrap" id="watch-controls-wrap">
                         <div class="watch-progress" id="watch-progress" role="slider" aria-label="Позиция записи" tabindex="0">
+                            <div class="watch-scrub-tip" id="watch-scrub-tip">00:00</div>
+                            <div class="watch-heatmap" id="watch-heatmap" aria-hidden="true"></div>
                             <div class="watch-progress-track">
                                 <div class="watch-progress-fill" id="watch-progress-fill"></div>
+                                <div class="watch-progress-markers" id="watch-progress-markers"></div>
                             </div>
                         </div>
                         <div class="watch-controls">
@@ -1175,9 +1306,14 @@
                                 <span class="watch-time" id="watch-time">0:00 / 0:00:00</span>
                             </div>
                             <div class="watch-ctrl-right">
+                                <button class="w-btn watch-speed-btn" id="watch-speed" type="button" title="Скорость воспроизведения">1x</button>
+                                <button class="w-btn watch-speed-btn" id="watch-cc" type="button" title="Субтитры (речь)" hidden>CC</button>
                                 <a class="w-btn" id="watch-download" href="#" target="_blank" rel="noopener noreferrer" title="Скачать запись">
                                     <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zm7-16v9.17l-3.59-3.58L7 11l5 5 5-5-1.41-1.41L13 13.17V4h-1z"/></svg>
                                 </a>
+                                <button class="w-btn" id="watch-share-ts" type="button" title="Скопировать ссылку с текущим таймкодом">
+                                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                                </button>
                                 <button class="w-btn" id="watch-share" type="button" title="Поделиться ссылкой">
                                     <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
                                 </button>
@@ -1201,6 +1337,12 @@
                             Чат записи
                         </div>
                         <div class="watch-chat-count" id="watch-chat-count">0 / 0 показано</div>
+                        <div class="watch-chat-top" id="watch-chat-top" hidden></div>
+                        <div class="watch-chat-tools">
+                            <input class="watch-chat-search" id="watch-chat-search" type="search" placeholder="Поиск по чату…">
+                            <button class="watch-mode-btn active" id="watch-mode-chat" type="button">Чат</button>
+                            <button class="watch-mode-btn" id="watch-mode-speech" type="button" hidden>Речь</button>
+                        </div>
                     </div>
                     <div class="watch-chat-body-wrap">
                         <div class="watch-chat-body" id="watch-chat-body" data-scroll></div>
@@ -1351,6 +1493,139 @@
                 `${Math.floor((totalSecs % 3600) / 60)}m ${totalSecs % 60}s`;
         }
 
+        function urlB64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(base64);
+            const out = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+            return out;
+        }
+
+        let kfToastTimer = null;
+        function showPushToast(message, color) {
+            let el = document.getElementById('kf-toast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'kf-toast';
+                el.className = 'kf-toast';
+                document.body.appendChild(el);
+            }
+            el.textContent = message;
+            el.style.color = color || '';
+            el.style.borderColor = color ? `${color}55` : '';
+            clearTimeout(kfToastTimer);
+            el.classList.add('show');
+            kfToastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+        }
+
+        async function ensureSwReadyDanonsha() {
+            let reg = await navigator.serviceWorker.getRegistration('/');
+            if (!reg) {
+                reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            }
+            return await Promise.race([
+                navigator.serviceWorker.ready,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('sw_timeout')), 8000)),
+            ]);
+        }
+
+        async function wireTwitchPushButton(card) {
+            const btn = card ? card.querySelector('#twitch-push-btn') : null;
+            if (!btn || !('Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window)) return;
+            btn.hidden = false;
+            const ch = CONFIG.twitch_user || 'danonsha';
+            const syncLabel = (on) => {
+                btn.classList.toggle('active', Boolean(on));
+                btn.textContent = on ? '🔔 Уведомления вкл' : '🔔 Уведомить';
+            };
+            const checkSub = async () => {
+                try {
+                    const reg = await navigator.serviceWorker.getRegistration('/');
+                    if (!reg || !reg.active) return false;
+                    const sub = await reg.pushManager.getSubscription();
+                    if (!sub) return false;
+                    const r = await fetch('/api/push/status', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ endpoint: sub.endpoint, channel: ch }),
+                    });
+                    if (!r.ok) return false;
+                    const d = await r.json();
+                    return Boolean(d.subscribed);
+                } catch {
+                    return false;
+                }
+            };
+            syncLabel(await checkSub());
+            btn.addEventListener('click', async () => {
+                if (!(window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+                    showPushToast('Web Push работает только по HTTPS или localhost', '#fca5a5');
+                    return;
+                }
+                if (Notification.permission === 'denied') {
+                    showPushToast('Уведомления заблокированы — разрешите их в настройках сайта', '#fca5a5');
+                    return;
+                }
+                btn.disabled = true;
+                try {
+                    if (Notification.permission === 'default') {
+                        const perm = await Notification.requestPermission();
+                        if (perm !== 'granted') {
+                            showPushToast('Разрешение на уведомления не выдано', '#fca5a5');
+                            return;
+                        }
+                    }
+                    const reg = await ensureSwReadyDanonsha();
+                    let sub = await reg.pushManager.getSubscription();
+                    const isOn = sub ? await checkSub() : false;
+                    if (isOn && sub) {
+                        await fetch('/api/push/unsubscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ endpoint: sub.endpoint, channel: ch }),
+                        }).catch(() => {});
+                        syncLabel(false);
+                        showPushToast('Уведомления о стриме отключены');
+                        return;
+                    }
+                    if (!sub) {
+                        const kr = await fetch('/api/push/vapid-key', { headers: { Accept: 'application/json' } });
+                        const kd = await kr.json().catch(() => ({}));
+                        if (!kr.ok || !kd.publicKey) {
+                            showPushToast('Web Push на сервере не активен (проверьте pywebpush)', '#fca5a5');
+                            return;
+                        }
+                        sub = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlB64ToUint8Array(kd.publicKey),
+                        });
+                    }
+                    const sr = await fetch('/api/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ subscription: sub.toJSON(), channel: ch }),
+                    });
+                    if (!sr.ok) {
+                        showPushToast('Не удалось сохранить подписку на сервере', '#fca5a5');
+                        return;
+                    }
+                    syncLabel(true);
+                    showPushToast('Уведомления о начале стрима включены', '#86efac');
+                } catch (err) {
+                    const msg = err && err.message === 'sw_timeout'
+                        ? 'Service Worker не ответил вовремя — обновите страницу'
+                        : 'Не удалось включить уведомления в этом браузере';
+                    showPushToast(msg, '#fca5a5');
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        }
+
         function renderTwitchFallback(message) {
             setCard('twitch-card', `
                 <div class="row">
@@ -1358,8 +1633,12 @@
                         <div style="font-size:13px;font-weight:500;color:#fff;" class="truncate">twitch.tv/${escapeHTML(CONFIG.twitch_user)}</div>
                         <div class="twitch-meta" style="text-transform:uppercase;letter-spacing:.14em;">${escapeHTML(message)}</div>
                     </div>
-                    <a href="https://twitch.tv/${escapeHTML(CONFIG.twitch_user)}" target="_blank" rel="noopener noreferrer" class="btn-action" style="flex-shrink:0;">Open</a>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex-shrink:0;">
+                        <a href="https://twitch.tv/${escapeHTML(CONFIG.twitch_user)}" target="_blank" rel="noopener noreferrer" class="btn-action" style="flex-shrink:0;">Open</a>
+                        <button type="button" class="btn-action" id="twitch-push-btn" hidden>🔔 Уведомить</button>
+                    </div>
                 </div>`);
+            wireTwitchPushButton(document.getElementById('twitch-card'));
         }
 
         async function fetchTwitch() {
@@ -1404,10 +1683,14 @@
                         </div>
                         <div class="twitch-title">${escapeHTML(title)}</div>
                         <div class="twitch-meta">${escapeHTML(meta)}</div>
-                        <a href="${escapeHTML(safeChannelUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action">
-                            ${live ? 'Watch stream' : 'Open channel'}
-                        </a>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                            <a href="${escapeHTML(safeChannelUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action">
+                                ${live ? 'Watch stream' : 'Open channel'}
+                            </a>
+                            <button type="button" class="btn-action" id="twitch-push-btn" hidden>🔔 Уведомить</button>
+                        </div>
                     </div>`);
+                wireTwitchPushButton(card);
                 const avatarImg = card.querySelector('img.avatar');
                 if (avatarImg) {
                     avatarImg.addEventListener('error', () => {
@@ -1733,7 +2016,7 @@
 
             function onWheel(e) {
                 if (e.ctrlKey) return;
-                if (document.body.classList.contains('overlay-open')) return;
+                if (document.body.classList.contains('overlay-open') || document.querySelector('.kf-cmd-backdrop.open')) return;
                 const sc = e.target.closest && e.target.closest('.watch-chat-body, .scroll-modal-body, .chat-body, .modal, [data-scroll]');
                 if (sc && sc.scrollHeight > sc.clientHeight) return;
                 e.preventDefault();
@@ -1754,7 +2037,7 @@
             }, { passive: true });
 
             addEventListener('keydown', (e) => {
-                if (document.body.classList.contains('overlay-open')) return;
+                if (document.body.classList.contains('overlay-open') || document.querySelector('.kf-cmd-backdrop.open')) return;
                 const tag = (e.target && e.target.tagName) || '';
                 if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || e.target?.isContentEditable) return;
                 const step = { PageDown: vh * 0.88, PageUp: -vh * 0.88, ArrowDown: 100, ArrowUp: -100, Home: -1e9, End: 1e9 }[e.key];
@@ -1811,6 +2094,13 @@
         const watchToast = document.getElementById('watch-toast');
         const watchProgress = document.getElementById('watch-progress');
         const watchProgressFill = document.getElementById('watch-progress-fill');
+        const watchHeatmap = document.getElementById('watch-heatmap');
+        const watchProgressMarkers = document.getElementById('watch-progress-markers');
+        const watchScrubTip = document.getElementById('watch-scrub-tip');
+        const watchResumeBanner = document.getElementById('watch-resume-banner');
+        const watchResumeGo = document.getElementById('watch-resume-go');
+        const watchResumeRestart = document.getElementById('watch-resume-restart');
+        const watchResumeDismiss = document.getElementById('watch-resume-dismiss');
         const watchPrev10 = document.getElementById('watch-prev10');
         const watchPlayBtn = document.getElementById('watch-play');
         const watchPlayIco = document.getElementById('watch-play-ico');
@@ -1821,12 +2111,24 @@
         const watchTimeEl = document.getElementById('watch-time');
         const watchDownload = document.getElementById('watch-download');
         const watchShare = document.getElementById('watch-share');
+        const watchShareTs = document.getElementById('watch-share-ts');
+        const watchSpeedBtn = document.getElementById('watch-speed');
+        const watchCcBtn = document.getElementById('watch-cc');
+        const watchSubtitles = document.getElementById('watch-subtitles');
         const watchPip = document.getElementById('watch-pip');
         const watchFs = document.getElementById('watch-fs');
         const watchChatCount = document.getElementById('watch-chat-count');
+        const watchChatTop = document.getElementById('watch-chat-top');
+        const watchChatSearch = document.getElementById('watch-chat-search');
+        const watchModeChat = document.getElementById('watch-mode-chat');
+        const watchModeSpeech = document.getElementById('watch-mode-speech');
         const watchChatBody = document.getElementById('watch-chat-body');
 
         let chatLines = [], chatShown = -1, allVods = [], activeVod = null, activeVodId = null;
+        let heatmapBins = [], heatmapDurSec = 0, lastResumeSavedAt = 0, pendingResumeSec = 0;
+        let transcriptCues = [], ccEnabled = false, chatSearchMode = 'chat', chatSearchQuery = '';
+        const SPEED_RATES = [1, 1.25, 1.5, 2, 0.5];
+        let speedIdx = 0, pendingUrlSeekSec = 0, urlSeekApplied = false;
         let streamUnavailable = false, streamPreparing = false, pendingPlay = false, usingMpegts = false;
         let mpegtsPlayer = null, mpegtsScriptPromise = null, vodLoadSeq = 0, vodProbeAbort = null;
         let idleTimer = null, toastTimer = null;
@@ -2055,12 +2357,57 @@
             return USER_BADGE_COLORS[Math.abs(h) % USER_BADGE_COLORS.length];
         }
 
+        const VOD_POS_PREFIX = 'danonsha-vod-pos:';
+        const BOT_CHAT_USERS = new Set(['nightbot', 'streamelements', 'moobot', 'fossabot', 'wizebot', 'streamlabs']);
+
+        function getVodResume(vodId) {
+            if (!vodId) return null;
+            try {
+                const raw = localStorage.getItem(VOD_POS_PREFIX + vodId);
+                if (!raw) return null;
+                const data = JSON.parse(raw);
+                const pos = Number(data && data.pos);
+                const dur = Number(data && data.dur) || 0;
+                if (!Number.isFinite(pos) || pos < 10) return null;
+                if (dur > 60 && pos >= dur - 25) return null;
+                return { pos, dur };
+            } catch {
+                return null;
+            }
+        }
+
+        function saveVodResume(vodId, curSec, durSec) {
+            if (!vodId || !Number.isFinite(curSec)) return;
+            const pos = Math.max(0, Math.floor(curSec));
+            const dur = Number.isFinite(durSec) && durSec > 0 ? Math.floor(durSec) : 0;
+            try {
+                if (pos < 10 || (dur > 60 && pos >= dur - 25)) {
+                    localStorage.removeItem(VOD_POS_PREFIX + vodId);
+                } else {
+                    localStorage.setItem(VOD_POS_PREFIX + vodId, JSON.stringify({ pos, dur, ts: Date.now() }));
+                }
+            } catch {}
+        }
+
+        function clearVodResume(vodId) {
+            if (!vodId) return;
+            try { localStorage.removeItem(VOD_POS_PREFIX + vodId); } catch {}
+        }
+
         function renderVodCard(v, idx, showNote) {
             const activeCls = activeVodId && v.id === activeVodId ? ' active' : '';
+            const res = getVodResume(v.id);
+            const effDur = (res && res.dur) || Number(v.duration_s) || 0;
+            const pct = res && effDur > 0 ? Math.min(98, Math.max(4, Math.round((res.pos / effDur) * 100))) : 0;
+            const resumeHtml = res
+                ? `<span class="vod-resume-pill">▶ ${escapeHTML(fmtClock(res.pos))}</span>`
+                  + (pct > 0 ? `<div class="vod-resume-track"><div class="vod-resume-fill" style="width:${pct}%"></div></div>` : '')
+                : '';
             return `
                 <button class="vod-card${activeCls}" type="button" data-vod-idx="${idx}">
                     <div class="vod-thumb">
                         <img referrerpolicy="no-referrer" alt="" loading="lazy" decoding="async" data-vod-thumb style="display:none;">
+                        ${resumeHtml}
                         <svg class="vod-curve" viewBox="0 0 400 54" preserveAspectRatio="none" aria-hidden="true">
                             <path d="M0,0 Q200,54 400,0 L400,54 L0,54 Z"/>
                         </svg>
@@ -2071,6 +2418,24 @@
                         ${showNote && v.note ? `<span class="vod-note">${escapeHTML(v.note)}</span>` : ''}
                     </div>
                 </button>`;
+        }
+
+        function syncVodCardResumeBars() {
+            document.querySelectorAll('.vod-card[data-vod-idx]').forEach(btn => {
+                const v = allVods[+btn.dataset.vodIdx];
+                const thumb = btn.querySelector('.vod-thumb');
+                if (!v || !thumb) return;
+                thumb.querySelectorAll('.vod-resume-pill, .vod-resume-track').forEach(el => el.remove());
+                const res = getVodResume(v.id);
+                if (!res) return;
+                const effDur = res.dur || Number(v.duration_s) || 0;
+                const pct = effDur > 0 ? Math.min(98, Math.max(4, Math.round((res.pos / effDur) * 100))) : 0;
+                thumb.insertAdjacentHTML(
+                    'beforeend',
+                    `<span class="vod-resume-pill">▶ ${escapeHTML(fmtClock(res.pos))}</span>`
+                    + (pct > 0 ? `<div class="vod-resume-track"><div class="vod-resume-fill" style="width:${pct}%"></div></div>` : '')
+                );
+            });
         }
 
         function bindVodContainer(container) {
@@ -2395,8 +2760,79 @@
                 </div>`;
         }
 
+        function setPlaybackSpeedIdx(nextIdx) {
+            speedIdx = ((nextIdx % SPEED_RATES.length) + SPEED_RATES.length) % SPEED_RATES.length;
+            const rate = SPEED_RATES[speedIdx];
+            if (watchVideo) watchVideo.playbackRate = rate;
+            if (watchSpeedBtn) {
+                watchSpeedBtn.textContent = `${rate}x`;
+                watchSpeedBtn.classList.toggle('active', rate !== 1);
+            }
+            return rate;
+        }
+
+        function updateSubtitlesAtTime(curSec) {
+            if (!watchSubtitles) return;
+            if (!ccEnabled || !transcriptCues.length) {
+                watchSubtitles.hidden = true;
+                return;
+            }
+            let matched = null;
+            for (let i = 0; i < transcriptCues.length; i++) {
+                const c = transcriptCues[i];
+                if (c.start <= curSec && c.end >= curSec) {
+                    matched = c;
+                    break;
+                }
+                if (c.start > curSec) break;
+            }
+            if (matched && matched.text) {
+                watchSubtitles.textContent = matched.text;
+                watchSubtitles.hidden = false;
+            } else {
+                watchSubtitles.hidden = true;
+            }
+        }
+
+        function renderChatSearchOrLive() {
+            if (!watchChatBody || !watchChatCount) return;
+            const q = (chatSearchQuery || '').trim().toLowerCase();
+            if (chatSearchMode === 'speech') {
+                const filtered = q
+                    ? transcriptCues.filter(c => (c.text || '').toLowerCase().includes(q))
+                    : transcriptCues;
+                const slice = filtered.slice(0, 150);
+                watchChatCount.textContent = `${filtered.length} реплик`;
+                watchChatBody.innerHTML = slice.length
+                    ? slice.map(c => `
+                        <div class="w-chat-item no-anim">
+                            <div class="w-chat-meta">
+                                <span class="w-chat-user" style="color:#ff7a7a;">Речь</span>
+                                <button class="w-chat-ts" type="button" data-seek="${Number(c.start) || 0}">${escapeHTML(fmtClock(c.start || 0))}</button>
+                            </div>
+                            <div class="w-chat-text">${escapeHTML(c.text)}</div>
+                        </div>`).join('')
+                    : '<div class="w-chat-empty"><div>Совпадений в речи не найдено.</div></div>';
+                return;
+            }
+            if (q) {
+                const filtered = chatLines.filter(
+                    m => (m.msg || '').toLowerCase().includes(q) || (m.user || '').toLowerCase().includes(q)
+                );
+                const slice = filtered.slice(0, 150);
+                watchChatCount.textContent = `Найдено ${filtered.length} / ${chatLines.length}`;
+                watchChatBody.innerHTML = slice.length
+                    ? slice.map(m => chatItemHTML(m, false)).join('')
+                    : '<div class="w-chat-empty"><div>По запросу сообщений не найдено.</div></div>';
+                return;
+            }
+            chatShown = -1;
+            renderChatAtTime(watchVideo ? (watchVideo.currentTime || 0) : 0);
+        }
+
         function renderChatAtTime(t) {
             if (!watchChatBody || !watchChatCount) return;
+            if ((chatSearchQuery || '').trim() || chatSearchMode === 'speech') return;
             const total = chatLines.length;
             if (!total) {
                 if (activeVod) renderEmptyChatState(activeVod);
@@ -2469,7 +2905,168 @@
             });
         }
 
-        async function openVod(vod, idxHint, pushHistory) {
+        function hideResumeBanner() {
+            pendingResumeSec = 0;
+            if (watchResumeBanner) watchResumeBanner.hidden = true;
+        }
+
+        function showResumeBanner(posSec) {
+            if (!watchResumeBanner || !watchResumeGo || !Number.isFinite(posSec) || posSec < 10) {
+                hideResumeBanner();
+                return;
+            }
+            pendingResumeSec = Math.floor(posSec);
+            watchResumeGo.textContent = `▶ Продолжить с ${fmtClock(pendingResumeSec)}`;
+            watchResumeBanner.hidden = false;
+        }
+
+        function renderTopChatters(lines) {
+            if (!watchChatTop) return;
+            if (!Array.isArray(lines) || !lines.length) {
+                watchChatTop.hidden = true;
+                watchChatTop.innerHTML = '';
+                return;
+            }
+            const counts = new Map();
+            const firstTs = new Map();
+            for (let i = 0; i < lines.length; i++) {
+                const rawUser = String(lines[i].user || '').trim();
+                const norm = rawUser.toLowerCase();
+                if (!norm || BOT_CHAT_USERS.has(norm)) continue;
+                counts.set(rawUser, (counts.get(rawUser) || 0) + 1);
+                if (!firstTs.has(rawUser)) firstTs.set(rawUser, Math.max(0, Number(lines[i].t) || 0));
+            }
+            const ranked = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4);
+            if (!ranked.length) {
+                watchChatTop.hidden = true;
+                watchChatTop.innerHTML = '';
+                return;
+            }
+            watchChatTop.innerHTML = `<span class="w-chat-top-label">Топ чата · ${counts.size}:</span>` + ranked.map(([name, cnt]) => {
+                const col = userBadgeColor(name);
+                const seekSec = firstTs.get(name) || 0;
+                return `<button type="button" class="w-chat-top-pill" data-top-user="${escapeHTML(name)}" data-seek="${seekSec}" title="Перейти к первому сообщению">${`<span class="w-chat-badge" style="color:${col};background:${col};"></span>`}${escapeHTML(name)} <span class="cnt">${cnt}</span></button>`;
+            }).join('');
+            watchChatTop.hidden = false;
+        }
+
+        function renderChatHeatmapAndMarkers(lines, vod) {
+            heatmapBins = [];
+            heatmapDurSec = 0;
+            if (watchHeatmap) watchHeatmap.innerHTML = '';
+            if (watchProgressMarkers) watchProgressMarkers.innerHTML = '';
+
+            const chatMax = Array.isArray(lines) && lines.length ? Math.max(0, Number(lines[lines.length - 1].t) || 0) : 0;
+            const dur = Math.max(effectiveWatchDuration(), chatMax);
+            heatmapDurSec = dur;
+
+            if (watchProgressMarkers && dur > 0 && vod && Array.isArray(vod.chapters) && vod.chapters.length) {
+                watchProgressMarkers.innerHTML = vod.chapters.map((ch) => {
+                    const sec = Math.max(0, Number(ch.t) || 0);
+                    const pct = Math.max(0, Math.min(100, (sec / dur) * 100));
+                    return `<div class="watch-chapter-tick" style="left:${pct.toFixed(2)}%" title="${escapeHTML(ch.title || fmtClock(sec))}"></div>`;
+                }).join('');
+            }
+
+            if (!watchHeatmap || !Array.isArray(lines) || !lines.length || dur <= 0) return;
+
+            const BUCKETS = 72;
+            const bins = new Array(BUCKETS).fill(0);
+            for (let i = 0; i < lines.length; i++) {
+                const t = Math.max(0, Number(lines[i].t) || 0);
+                const idx = Math.min(BUCKETS - 1, Math.floor((t / dur) * BUCKETS));
+                bins[idx]++;
+            }
+            const maxVal = Math.max(1, ...bins);
+            heatmapBins = bins;
+
+            const w = 1000;
+            const h = 100;
+            let d = `M 0 ${h}`;
+            for (let i = 0; i < BUCKETS; i++) {
+                const x = ((i + 0.5) / BUCKETS) * w;
+                const y = h - Math.round((bins[i] / maxVal) * 86);
+                d += ` L ${x.toFixed(1)} ${y}`;
+            }
+            d += ` L ${w} ${h} Z`;
+            watchHeatmap.innerHTML = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><defs><linearGradient id="kf-hm-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(255,122,122,0.72)"/><stop offset="100%" stop-color="rgba(163,19,19,0.16)"/></linearGradient></defs><path d="${d}" fill="url(#kf-hm-grad)" stroke="rgba(255,122,122,0.55)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+        }
+
+        if (watchChatTop) {
+            watchChatTop.addEventListener('click', (e) => {
+                const btn = e.target.closest && e.target.closest('[data-top-user]');
+                if (!btn || !chatLines.length) return;
+                const uname = btn.getAttribute('data-top-user');
+                const cur = (watchVideo && watchVideo.currentTime) || 0;
+                const userMsgs = chatLines.filter(l => String(l.user || '').trim() === uname);
+                if (!userMsgs.length) return;
+                const nextMsg = userMsgs.find(l => (Number(l.t) || 0) > cur + 2) || userMsgs[0];
+                seekWatchVideoTo(Number(nextMsg.t) || 0);
+            });
+        }
+
+        if (watchResumeGo) {
+            watchResumeGo.addEventListener('click', () => {
+                const targetSec = pendingResumeSec;
+                hideResumeBanner();
+                if (targetSec > 0) seekWatchVideoTo(targetSec);
+                if (watchVideo && watchVideo.paused) {
+                    watchVideo.play().catch(() => {});
+                }
+            });
+        }
+        if (watchResumeRestart) {
+            watchResumeRestart.addEventListener('click', () => {
+                if (activeVodId) clearVodResume(activeVodId);
+                hideResumeBanner();
+                seekWatchVideoTo(0);
+                if (watchVideo && watchVideo.paused) {
+                    watchVideo.play().catch(() => {});
+                }
+            });
+        }
+        if (watchResumeDismiss) {
+            watchResumeDismiss.addEventListener('click', hideResumeBanner);
+        }
+
+        if (watchSpeedBtn) {
+            watchSpeedBtn.addEventListener('click', () => {
+                const rate = setPlaybackSpeedIdx(speedIdx + 1);
+                showWatchToast(`Скорость ${rate}×`);
+            });
+        }
+        if (watchCcBtn) {
+            watchCcBtn.addEventListener('click', () => {
+                ccEnabled = !ccEnabled;
+                watchCcBtn.classList.toggle('active', ccEnabled);
+                updateSubtitlesAtTime(watchVideo ? (watchVideo.currentTime || 0) : 0);
+                showWatchToast(ccEnabled ? 'Субтитры вкл' : 'Субтитры выкл');
+            });
+        }
+        if (watchChatSearch) {
+            watchChatSearch.addEventListener('input', () => {
+                chatSearchQuery = watchChatSearch.value;
+                renderChatSearchOrLive();
+            });
+        }
+        if (watchModeChat && watchModeSpeech) {
+            watchModeChat.addEventListener('click', () => {
+                chatSearchMode = 'chat';
+                watchModeChat.classList.add('active');
+                watchModeSpeech.classList.remove('active');
+                if (watchChatSearch) watchChatSearch.placeholder = 'Поиск по чату…';
+                renderChatSearchOrLive();
+            });
+            watchModeSpeech.addEventListener('click', () => {
+                chatSearchMode = 'speech';
+                watchModeSpeech.classList.add('active');
+                watchModeChat.classList.remove('active');
+                if (watchChatSearch) watchChatSearch.placeholder = 'Поиск по речи…';
+                renderChatSearchOrLive();
+            });
+        }
+
+        async function openVod(vod, idxHint, pushHistory, initialTimeSec) {
             const seq = ++vodLoadSeq;
             if (vodProbeAbort) {
                 try { vodProbeAbort.abort(); } catch {}
@@ -2483,7 +3080,51 @@
             streamUnavailable = false;
             streamPreparing = true;
             pendingPlay = false;
+            lastResumeSavedAt = 0;
+            pendingUrlSeekSec = Number.isFinite(initialTimeSec) && initialTimeSec > 0 ? Math.floor(initialTimeSec) : 0;
+            urlSeekApplied = false;
+            transcriptCues = [];
+            ccEnabled = false;
+            chatSearchMode = 'chat';
+            chatSearchQuery = '';
+            if (watchChatSearch) {
+                watchChatSearch.value = '';
+                watchChatSearch.placeholder = 'Поиск по чату…';
+            }
+            if (watchModeChat) watchModeChat.classList.add('active');
+            if (watchModeSpeech) {
+                watchModeSpeech.classList.remove('active');
+                watchModeSpeech.hidden = true;
+            }
+            if (watchCcBtn) {
+                watchCcBtn.classList.remove('active');
+                watchCcBtn.hidden = true;
+            }
+            if (watchSubtitles) watchSubtitles.hidden = true;
+            setPlaybackSpeedIdx(0);
             syncActiveVodCards();
+
+            if (pendingUrlSeekSec > 0) {
+                hideResumeBanner();
+            } else {
+                const savedResume = getVodResume(vod.id);
+                if (savedResume) showResumeBanner(savedResume.pos);
+                else hideResumeBanner();
+            }
+            renderTopChatters([]);
+            renderChatHeatmapAndMarkers([], vod);
+
+            if (vod.has_transcript) {
+                fetch(`/api/vods/${encodeURIComponent(vod.id)}/transcript`, { cache: 'no-store' })
+                    .then(r => (r.ok ? r.json() : null))
+                    .then(td => {
+                        if (seq !== vodLoadSeq || !td || !Array.isArray(td.cues) || !td.cues.length) return;
+                        transcriptCues = td.cues;
+                        if (watchCcBtn) watchCcBtn.hidden = false;
+                        if (watchModeSpeech) watchModeSpeech.hidden = false;
+                    })
+                    .catch(() => {});
+            }
 
             hideDriveFallback();
             destroyMpegtsPlayer();
@@ -2535,6 +3176,8 @@
                             .filter(Boolean).sort((a, b) => a.t - b.t);
                         if (seq !== vodLoadSeq) return;
                         chatLines = parsed;
+                        renderTopChatters(chatLines);
+                        renderChatHeatmapAndMarkers(chatLines, vod);
                     }
                 } catch {}
                 if (seq !== vodLoadSeq) return;
@@ -2587,6 +3230,9 @@
 
         function closeVodWatch(updateHistory) {
             if (!vodWatch || !vodWatch.classList.contains('open')) return;
+            if (activeVodId && watchVideo) {
+                saveVodResume(activeVodId, watchVideo.currentTime || 0, effectiveWatchDuration());
+            }
             vodLoadSeq++;
             if (vodProbeAbort) {
                 try { vodProbeAbort.abort(); } catch {}
@@ -2596,7 +3242,9 @@
             activeVodId = null;
             streamPreparing = false;
             pendingPlay = false;
+            hideResumeBanner();
             syncActiveVodCards();
+            syncVodCardResumeBars();
             try { watchVideo.pause(); } catch {}
             if (document.pictureInPictureElement && document.exitPictureInPicture) {
                 document.exitPictureInPicture().catch(() => {});
@@ -2617,8 +3265,9 @@
             }
             if (updateHistory) {
                 const url = new URL(location.href);
-                if (url.searchParams.has('vod')) {
+                if (url.searchParams.has('vod') || url.searchParams.has('t')) {
                     url.searchParams.delete('vod');
+                    url.searchParams.delete('t');
                     history.pushState({}, '', url);
                 }
             }
@@ -2655,11 +3304,18 @@
             });
             watchVideo.addEventListener('loadeddata', () => {
                 updateTimelineUI();
+                if (pendingUrlSeekSec > 0 && !urlSeekApplied) {
+                    urlSeekApplied = true;
+                    seekWatchVideoTo(pendingUrlSeekSec);
+                }
             });
             watchVideo.addEventListener('playing', () => {
                 watchStageInner.classList.add('has-frames');
                 updatePlayIcon();
                 pokeControls();
+                if (SPEED_RATES[speedIdx] && watchVideo.playbackRate !== SPEED_RATES[speedIdx]) {
+                    watchVideo.playbackRate = SPEED_RATES[speedIdx];
+                }
             });
             watchVideo.addEventListener('pause', () => {
                 updatePlayIcon();
@@ -2669,15 +3325,33 @@
             watchVideo.addEventListener('ended', () => {
                 updatePlayIcon();
                 watchStageInner.classList.remove('idle');
+                if (activeVodId) clearVodResume(activeVodId);
             });
-            watchVideo.addEventListener('durationchange', updateTimelineUI);
+            watchVideo.addEventListener('pause', () => {
+                if (activeVodId) saveVodResume(activeVodId, watchVideo.currentTime || 0, effectiveWatchDuration());
+            });
+            watchVideo.addEventListener('durationchange', () => {
+                updateTimelineUI();
+                if (activeVod && (chatLines.length || (activeVod.chapters && activeVod.chapters.length))) {
+                    renderChatHeatmapAndMarkers(chatLines, activeVod);
+                }
+            });
             watchVideo.addEventListener('timeupdate', () => {
                 updateTimelineUI();
-                if (chatLines.length) renderChatAtTime(watchVideo.currentTime || 0);
+                const curT = watchVideo.currentTime || 0;
+                if (chatLines.length) renderChatAtTime(curT);
+                updateSubtitlesAtTime(curT);
+                const nowMs = Date.now();
+                if (activeVodId && nowMs - lastResumeSavedAt >= 4000) {
+                    lastResumeSavedAt = nowMs;
+                    saveVodResume(activeVodId, curT, effectiveWatchDuration());
+                }
             });
             watchVideo.addEventListener('seeked', () => {
                 chatShown = -1;
-                if (chatLines.length) renderChatAtTime(watchVideo.currentTime || 0);
+                const curT = watchVideo.currentTime || 0;
+                if (chatLines.length) renderChatAtTime(curT);
+                updateSubtitlesAtTime(curT);
             });
             watchVideo.addEventListener('volumechange', () => {
                 if (watchVol) watchVol.value = watchVideo.muted ? 0 : watchVideo.volume;
@@ -2774,6 +3448,33 @@
             });
             watchProgress.addEventListener('pointermove', (e) => {
                 if (scrubbing) seekFromEvent(e);
+                if (watchScrubTip) {
+                    const dur = Math.max(effectiveWatchDuration(), heatmapDurSec);
+                    const rect = watchProgress.getBoundingClientRect();
+                    if (dur > 0 && rect.width > 0) {
+                        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                        const sec = ratio * dur;
+                        let tip = fmtClock(sec);
+                        if (heatmapBins.length) {
+                            const bIdx = Math.min(heatmapBins.length - 1, Math.floor(ratio * heatmapBins.length));
+                            const msgCnt = heatmapBins[bIdx] || 0;
+                            if (msgCnt > 0) tip += ` · ${msgCnt} сообщ.`;
+                        }
+                        if (activeVod && Array.isArray(activeVod.chapters) && activeVod.chapters.length) {
+                            let matched = null;
+                            for (let ci = 0; ci < activeVod.chapters.length; ci++) {
+                                if ((Number(activeVod.chapters[ci].t) || 0) <= sec) matched = activeVod.chapters[ci];
+                            }
+                            if (matched && matched.title) tip += ` · ${matched.title}`;
+                        }
+                        watchScrubTip.textContent = tip;
+                        watchScrubTip.style.left = `${(ratio * 100).toFixed(2)}%`;
+                        watchScrubTip.classList.add('visible');
+                    }
+                }
+            });
+            watchProgress.addEventListener('pointerleave', () => {
+                if (watchScrubTip) watchScrubTip.classList.remove('visible');
             });
             const stopScrub = () => { scrubbing = false; };
             watchProgress.addEventListener('pointerup', stopScrub);
@@ -2781,6 +3482,20 @@
             watchProgress.addEventListener('lostpointercapture', stopScrub);
         }
 
+        if (watchShareTs) {
+            watchShareTs.addEventListener('click', async () => {
+                const shareUrl = new URL(location.href);
+                if (activeVodId) shareUrl.searchParams.set('vod', activeVodId);
+                const sec = Math.max(0, Math.floor((watchVideo && watchVideo.currentTime) || 0));
+                if (sec > 0) shareUrl.searchParams.set('t', String(sec));
+                try {
+                    await navigator.clipboard.writeText(shareUrl.toString());
+                    showWatchToast(`Ссылка с ${fmtClock(sec)} скопирована`);
+                } catch {
+                    showWatchToast(shareUrl.pathname + shareUrl.search);
+                }
+            });
+        }
         if (watchShare) {
             watchShare.addEventListener('click', async () => {
                 const shareUrl = new URL(location.href);
@@ -2831,12 +3546,24 @@
             if (e.key === ' ' || code === 'KeyK' || e.key === 'k' || e.key === 'K') {
                 e.preventDefault();
                 if (!e.repeat) toggleWatchPlay();
-            } else if (e.key === 'ArrowLeft') {
+            } else if (e.key === 'ArrowLeft' || code === 'KeyJ' || e.key === 'j' || e.key === 'J') {
                 e.preventDefault();
                 seekWatchVideoTo((watchVideo.currentTime || 0) - 10);
-            } else if (e.key === 'ArrowRight') {
+            } else if (e.key === 'ArrowRight' || code === 'KeyL' || e.key === 'l' || e.key === 'L') {
                 e.preventDefault();
                 seekWatchVideoTo((watchVideo.currentTime || 0) + 10);
+            } else if (/^[0-9]$/.test(e.key)) {
+                const dur = effectiveWatchDuration();
+                if (dur > 0) {
+                    e.preventDefault();
+                    seekWatchVideoTo((Number(e.key) / 10) * dur);
+                }
+            } else if (e.key === '>' || (e.shiftKey && code === 'Period')) {
+                e.preventDefault();
+                showWatchToast(`Скорость ${setPlaybackSpeedIdx(speedIdx + 1)}×`);
+            } else if (e.key === '<' || (e.shiftKey && code === 'Comma')) {
+                e.preventDefault();
+                showWatchToast(`Скорость ${setPlaybackSpeedIdx(speedIdx - 1)}×`);
             } else if (code === 'KeyF' || e.key === 'f' || e.key === 'F') {
                 e.preventDefault();
                 if (!e.repeat) toggleWatchFullscreen();
@@ -2894,10 +3621,12 @@
             if (!vods.length) vods = FALLBACK_VODS;
             renderAllVodGrids(vods);
 
-            const initialVodId = new URLSearchParams(location.search).get('vod');
+            const initialParams = new URLSearchParams(location.search);
+            const initialVodId = initialParams.get('vod');
+            const initialTimeSec = Math.max(0, Number(initialParams.get('t')) || 0);
             if (initialVodId) {
                 const idx = allVods.findIndex(x => x.id === initialVodId);
-                if (idx >= 0) openVod(allVods[idx], idx, false);
+                if (idx >= 0) openVod(allVods[idx], idx, false, initialTimeSec);
             }
 
             // Фоновая проверка Google Drive, чтобы только что загруженная папка появилась сразу без повторного F5
@@ -2915,7 +3644,7 @@
                             }
                         } else if (initialVodId && (!vodWatch || !vodWatch.classList.contains('open'))) {
                             const idx = allVods.findIndex(x => x.id === initialVodId);
-                            if (idx >= 0) openVod(allVods[idx], idx, false);
+                            if (idx >= 0) openVod(allVods[idx], idx, false, initialTimeSec);
                         }
                     }
                 })
@@ -2932,6 +3661,11 @@
             initRain();
             initSmooth();
             initNavPrefetch();
+            if ('serviceWorker' in navigator && (window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+                const regSw = () => navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+                if (document.readyState === 'complete') regSw();
+                else addEventListener('load', regSw, { once: true });
+            }
             try {
                 const saved = localStorage.getItem('danonsha-atmo');
                 if (saved !== null) setAtmo(saved === '1', false);

@@ -52,6 +52,7 @@ flowchart LR
 | `/gamelist` | `gamelist.html` | Библиотека пройденных и активных игр с оценками `0–10`, отзывами, тегами, избранным и поиском в **IGDB** |
 | `/setup` | `setup.html` | Конфигурация системного блока и рабочей периферии с быстрыми ссылками |
 | `/wishlist` | `wishlist.html` | Список желаемых покупок с приоритетами, статусами, тегами, избранным и подсчётом бюджета в `RUB` / `USD` / `EUR` |
+| `/wrapped` (или `/recap`) | `wrapped.html` | Итоги и статистика коллекций (Watchlist, Gamelist, VOD) по годам и профилям |
 | `/tasks` | `tasks.html` | Служебная страница: калькулятор заданий BP (VIP / X2) и таймеры клубных квестов. Нет в меню и `sitemap.xml`, отдаётся с `X-Robots-Tag: noindex` |
 | `/danonsha` | `danonsha.html` | Страница **danonsha**: статус канала, архив стримов из Google Drive, кинотеатр VOD, `ЧАТ ЗАПИСИ` и блок со ссылками на её коллекции |
 | `/admin` | `admin.html` | Панель управления: аналитика трафика и VOD, интеграции, кэш, резервные копии, аудит и `server.log` |
@@ -144,6 +145,7 @@ krafenz/
 ├── app.js                  # Общее клиентское ядро: атмосфера, скролл 60–360 Гц, модалки, админ-сессия
 ├── style.css               # Единая дизайн-система и палитра для всех страниц
 ├── mpegts.min.js           # Локальный MSE-движок для воспроизведения MPEG-TS записей
+├── suggest.html            # Отдельная страница предложки фильмов, сериалов, аниме и игр на стрим
 ├── index.html              # Главная страница
 ├── danonsha.html           # Страница danonsha и полноэкранный VOD-кинотеатр
 ├── watchlist.html          # Коллекция фильмов, сериалов и аниме
@@ -153,7 +155,9 @@ krafenz/
 ├── tasks.html              # Трекер заданий и таймеров
 ├── admin.html              # Панель управления, телеметрия трафика/VOD, кэш, бэкапы и логи
 ├── recorder/
-│   ├── recorder.py         # Фоновый рекордер Twitch + IRC-чата + ремукс ffmpeg + выгрузка rclone
+│   ├── recorder.py         # Фоновый рекордер Twitch + IRC-чата + ремукс ffmpeg + выгрузка rclone + Whisper
+│   ├── start_recorder.bat  # Батник перезапускающего запуска рекордера на домашнем ПК (Windows)
+│   ├── install_autostart.bat # Добавление/удаление автозапуска в Планировщике задач Windows
 │   └── requirements.txt    # Зависимости рекордера (streamlink, websocket-client, requests, telethon)
 ├── data/
 │   ├── krafen.db           # Публичная БД коллекций и индекса VOD (SQLite WAL)
@@ -289,6 +293,10 @@ chmod 600 .env
 | `RECORDER` / `RECORDER_CHANNEL` | `0` / `danonsha` | Запуск фонового рекордера эфиров (`1` — включить) и логин записываемого канала |
 | `RCLONE_REMOTE` | *(авто `gdrive:`)* | Имя remote в `rclone` для выгрузки записей в облако (`0` — хранить только локально) |
 | `MIN_FREE_GB` | `10` | Порог свободного места на диске (ГБ) для авто-ротации старых локальных папок |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_ADMIN_CHAT_ID` | — | Бот и чат Telegram для алертов VPS (мало места, всплеск 5xx, сбои Google Drive; fallback `TELEGRAM_CHAT_ID`) |
+| `ALERT_MIN_FREE_GB` | `2.0` | Порог свободного места на диске VPS (ГБ) для отправки Telegram-алерта |
+| `TG_BACKUP_DAILY` | `1` | Ежедневный полный ZIP-бэкап сервера в Telegram ровно в `00:00` МСК |
+| `RECORDER_VPS_URL` / `RECORDER_TOKEN` | — | Адрес VPS и секретный токен для heartbeat и уведомлений домашнего `recorder.py` |
 
 ### Обновление `.env` вместе с кодом
 
@@ -321,12 +329,25 @@ python env_sync.py             # применить (с бэкапом .env.bak)
 | `PUT /api/{collection}` | Админ + CSRF | Атомарное сохранение коллекции с проверкой `revision` |
 | `GET / POST / DELETE /api/admin` | Публичный / Админ | Проверка сессии, вход по паролю и выход с серверным отзывом токена |
 | `GET /api/admin/overview` | Админ | Сводная телеметрия трафика, графиков, коллекций, VOD, системы, интеграций и аудита |
-| `GET /api/admin/backup` · `POST /api/admin/restore` | Админ + CSRF | Экспорт и атомарное восстановление JSON-бэкапа коллекций и правок VOD |
+| `GET /api/admin/backup` · `/backup/zip` · `POST /api/admin/restore` | Админ + CSRF | Экспорт JSON/полного ZIP сервера и атомарное восстановление коллекций |
 | `POST /api/admin/vods/sync` · `/override` · `/reset-thumb` | Админ + CSRF | Принудительная синхронизация Google Drive, правка/скрытие VOD и сброс превью |
 | `POST /api/admin/cache/clear` · `GET /api/admin/logs` | Админ + CSRF | Очистка кэшей и просмотр хвоста `data/server.log` |
 | `POST /api/admin/update` | Админ + CSRF | Принудительное обновление файлов с GitHub и перезапуск при изменении `server.py` |
+| `GET /api/wrapped` | Публичный | Сводная статистика коллекций и стримов по годам (`?year=2026` или `all`) |
+| `GET /og/{page}.png` · `GET /api/og` | Публичный | Динамическая генерация OG-превью 1200×630 PNG (Pillow) со статусом Twitch, треком и статистикой |
+| `GET /api/push/vapid-key` | Публичный | Публичный ключ VAPID для подписки на Web Push уведомления |
+| `POST /api/push/subscribe` · `/unsubscribe` · `/status` | Same-Origin | Управление подпиской браузера на уведомления о начале стримов |
+| `POST /api/admin/push/test` | Админ + CSRF | Отправка тестового Web Push уведомления всем подписчикам |
+| `POST /api/admin/alerts/test` | Админ + CSRF | Отправка тестового системного алерта VPS в Telegram |
+| `POST /api/admin/links/check` | Админ + CSRF | Фоновая проверка ссылок и обложек коллекций на 404/таймауты (с SSRF-фильтром) |
+| `POST /api/admin/backup/telegram` | Админ + CSRF | Мгновенный ZIP-бэкап SQLite-баз в Telegram (и авто-бэкап по расписанию) |
+| `POST /api/suggestions` · `/api/admin/suggestions/resolve` | Публичный / Админ | Предложка фильмов и игр со стримов + добавление в планы из `/admin` |
+| `POST /api/admin/import-list` | Админ + CSRF | Импорт списков Shikimori JSON/XML, Steam JSON, CSV с подбором обложек |
+| `GET /api/card/{setup\|wishlist}.png` | Публичный | Генерация PNG-карточки сборки ПК или вишлиста (Pillow) |
+| `POST /api/recorder/heartbeat` · `/vod-ready` | Recorder Token | Статус домашнего ПК рекордера и мгновенный Push при загрузке VOD |
+| `GET /api/vods/{vod_id}/transcript` | Публичный | Субтитры и расшифровка речи записи (`transcript.vtt`) |
 | `GET /api/search` · `GET /api/game-search` | Публичный | Поиск тайтлов в TMDB / Shikimori и игр в IGDB |
-| `GET /api/spotify` · `GET /api/lastfm` | Публичный | Текущий или недавний трек с кэшированием |
+| `GET /api/spotify` · `GET /api/lastfm` | Публичный | Текущий трек и история 6 недавних прослушиваний с кэшированием |
 | `GET /api/twitch` · `GET /api/discord` | Публичный | Статус канала Twitch и статистика сервера Discord |
 | `GET /api/vods` | Публичный | Список записей эфиров (локальные + Google Drive; `?refresh=1` для синхронизации) |
 | `GET /api/vods/{vod_id}/stream` | Публичный | Потоковое видео с поддержкой `HTTP Range` (`206 Partial Content`) |
@@ -334,6 +355,30 @@ python env_sync.py             # применить (с бэкапом .env.bak)
 | `GET / POST /api/vods/{vod_id}/thumb` | Публичный / Same-Origin | Обложка из реального кадра VOD (кэширование и генерация) |
 
 </details>
+
+---
+
+## ⌨️ Быстрый поиск и горячие клавиши
+
+На всех страницах сайта (включая `/danonsha`) при нажатии `Ctrl + K` / `Cmd + K` открывается аккуратное всплывающее окно быстрого поиска и навигации (при этом на самих страницах нет навязчивых баннеров или подсказок об этой функции):
+
+| Клавиша | Действие |
+| :--- | :--- |
+| `Ctrl + K` / `Cmd + K` | Открыть или закрыть палитру быстрого поиска (работает в любой раскладке клавиатуры) |
+| `/` | Быстро открыть палитру поиска (если фокус не в поле ввода) |
+| `↑` / `↓` | Перемещение по результатам |
+| `Enter` | Перейти к выбранному разделу, фильму, игре, позиции или выполнить команду |
+| `Esc` | Закрыть палитру или активное модальное окно |
+
+Внутри палитры ищутся разделы сайта, записи из `Watchlist`, `Gamelist`, `Setup`, `Wishlist` (по названию, тегам и заметкам) и быстрые команды вроде переключения эффекта атмосферы.
+
+---
+
+## 🔔 Web Push уведомления о стримах
+
+На главной странице и странице `/danonsha` в карточке Twitch доступна кнопка **«Уведомить о стриме»**:
+- Ключи **VAPID** генерируются сервером автоматически при первом обращении и сохраняются в защищённой базе `data/auth.db` (при необходимости их можно задать вручную через `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` и `VAPID_SUBJECT`).
+- Когда фоновый опрос Twitch API фиксирует запуск прямого эфира, сервер рассылает Web Push уведомления через Service Worker ([`sw.js`](sw.js)). Отключить фоновый опрос можно переменной `TWITCH_PUSH_POLL=0`.
 
 ---
 

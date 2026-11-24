@@ -10,9 +10,18 @@
     <meta property="og:title" content="krafen — личный сайт, музыка и коллекции">
     <meta property="og:description" content="Личный сайт krafen: музыка, статусы сервисов, коллекции, социальные сети и способы поддержки.">
     <meta property="og:url" content="https://krafen.me/">
-    <meta property="og:image" content="https://krafen.me/favicon.png">
-    <meta property="og:image:alt" content="Значок сайта krafen">
+    <meta property="og:image" content="https://krafen.me/og/index.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Карточка krafen — музыка, статус Twitch и коллекции">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="krafen">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Medula+One&family=Alice&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" data-async-css>
@@ -74,6 +83,39 @@
             box-shadow: 0 0 10px rgba(163, 19, 19, .8);
             transition: width .8s linear;
         }
+        .music-head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .music-history-toggle {
+            padding: 4px 10px; border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .04);
+            color: var(--silver); font-family: var(--font-sans); font-size: 9px;
+            letter-spacing: .16em; text-transform: uppercase; cursor: pointer;
+            transition: border-color .25s var(--ease), color .25s var(--ease), background .25s var(--ease);
+        }
+        .music-history-toggle:hover, .music-history-toggle.open {
+            border-color: rgba(163, 19, 19, .55); color: #fff; background: rgba(124, 10, 10, .18);
+        }
+        .music-history {
+            display: flex; flex-direction: column; gap: 6px;
+            padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .07);
+        }
+        .music-history-row {
+            display: flex; align-items: center; gap: 10px; min-width: 0;
+            padding: 6px 8px; border-radius: 10px;
+            background: rgba(255, 255, 255, .025); border: 1px solid rgba(255, 255, 255, .05);
+            text-decoration: none; color: inherit;
+            transition: border-color .22s var(--ease), background .22s var(--ease);
+        }
+        .music-history-row:hover { border-color: rgba(163, 19, 19, .45); background: rgba(124, 10, 10, .08); }
+        .music-history-art {
+            width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
+            overflow: hidden; background: rgba(255, 255, 255, .04);
+            display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--silver-dim);
+        }
+        .music-history-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .music-history-meta { min-width: 0; flex: 1; }
+        .music-history-name { font-size: 12px; color: #f4f4f6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .music-history-artist { font-size: 10px; color: var(--silver-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .music-history-time { font-family: var(--font-mono); font-size: 9px; color: var(--silver-dim); flex-shrink: 0; }
 
         /* Twitch & Discord внутри карточек */
         .avatar {
@@ -233,7 +275,10 @@
                     <div class="music-body">
                         <div class="music-head">
                             <span class="music-eyebrow" id="music-source">Spotify / Last.fm</span>
-                            <span class="status-badge muted" id="track-playback-status"><span class="dot"></span>загрузка…</span>
+                            <div class="music-head-right">
+                                <button class="music-history-toggle" id="music-history-toggle" type="button" aria-expanded="false" hidden>История ▾</button>
+                                <span class="status-badge muted" id="track-playback-status"><span class="dot"></span>загрузка…</span>
+                            </div>
                         </div>
                         <div class="music-main">
                             <div class="music-art" id="music-art-container">
@@ -249,6 +294,7 @@
                             <div class="timeline-bar"><div class="timeline-progress" id="track-progress"></div></div>
                             <span id="track-time-total">0:00</span>
                         </div>
+                        <div class="music-history" id="music-history" hidden></div>
                     </div>
                 </div>
 
@@ -324,6 +370,13 @@
                     <svg class="ico-stroke" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                     <div class="name">danonsha</div>
                     <div class="desc">Моя подруга — прямые эфиры, записи стримов и ссылки</div>
+                    <span class="chev">›</span>
+                </a>
+                <a href="/wrapped" class="social-card">
+                    <span class="num">06</span>
+                    <svg class="ico-stroke" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                    <div class="name">Wrapped</div>
+                    <div class="desc">Статистика и итоги коллекций и стримов по годам</div>
                     <span class="chev">›</span>
                 </a>
             </div>
@@ -569,9 +622,12 @@
                     timeZone, day: '2-digit', month: 'long', year: 'numeric'
                 }).format(now);
 
-                birthdayDateEl.textContent = new Intl.DateTimeFormat('ru-RU', {
-                    timeZone, day: '2-digit', month: 'long'
-                }).format(new Date(Date.UTC(2000, CONFIG.birthday_month - 1, CONFIG.birthday_day)));
+                if (!birthdayDateEl.dataset.initialized) {
+                    birthdayDateEl.textContent = new Intl.DateTimeFormat('ru-RU', {
+                        timeZone, day: '2-digit', month: 'long'
+                    }).format(new Date(Date.UTC(2000, CONFIG.birthday_month - 1, CONFIG.birthday_day)));
+                    birthdayDateEl.dataset.initialized = '1';
+                }
 
                 const parts = Object.fromEntries(
                     new Intl.DateTimeFormat('en-CA', {
@@ -684,6 +740,7 @@
                         playbackStatus.className = 'status-badge muted';
                         playbackStatus.innerHTML = '<span class="dot"></span>недавно играло';
                     }
+                    renderMusicHistory(Array.isArray(data?.recent) ? data.recent : []);
                 } catch {
                     trackName.textContent = 'Музыкальный статус скрыт';
                     trackArtist.textContent = 'Spotify / Last.fm не подключены';
@@ -694,9 +751,63 @@
                     blurBg.style.backgroundImage = 'none';
                     artContainer.dataset.imgSrc = '';
                     artContainer.textContent = '♪';
+                    renderMusicHistory([]);
                 } finally {
                     musicFetchInProgress = false;
                 }
+            }
+
+            function fmtPlayedAgo(tsSec) {
+                const ts = Number(tsSec);
+                if (!Number.isFinite(ts) || ts <= 0) return '';
+                const diffMin = Math.max(0, Math.floor((Date.now() / 1000 - ts) / 60));
+                if (diffMin < 1) return 'только что';
+                if (diffMin < 60) return `${diffMin}м`;
+                const diffH = Math.floor(diffMin / 60);
+                if (diffH < 24) return `${diffH}ч`;
+                return `${Math.floor(diffH / 24)}д`;
+            }
+
+            function renderMusicHistory(items) {
+                const toggleBtn = document.getElementById('music-history-toggle');
+                const box = document.getElementById('music-history');
+                if (!toggleBtn || !box) return;
+                const list = Array.isArray(items) ? items.slice(0, 6) : [];
+                if (!list.length) {
+                    toggleBtn.hidden = true;
+                    box.hidden = true;
+                    box.innerHTML = '';
+                    return;
+                }
+                toggleBtn.hidden = false;
+                box.innerHTML = list.map((item) => {
+                    const imgUrl = window.KrafenUI.proxyImgUrl(item.image);
+                    const safeHref = window.KrafenUI.safeHttpUrl(item.url);
+                    const tag = safeHref ? 'a' : 'div';
+                    const hrefAttr = safeHref ? ` href="${escapeHTML(safeHref)}" target="_blank" rel="noopener noreferrer"` : '';
+                    const ago = fmtPlayedAgo(item.playedAt);
+                    return `
+                        <${tag} class="music-history-row"${hrefAttr}>
+                            <div class="music-history-art">${imgUrl ? `<img src="${escapeHTML(imgUrl)}" alt="" loading="lazy" decoding="async">` : '♪'}</div>
+                            <div class="music-history-meta">
+                                <div class="music-history-name">${escapeHTML(item.name || 'Трек')}</div>
+                                <div class="music-history-artist">${escapeHTML(item.artist || 'Исполнитель')}</div>
+                            </div>
+                            ${ago ? `<span class="music-history-time">${escapeHTML(ago)}</span>` : ''}
+                        </${tag}>`;
+                }).join('');
+            }
+
+            const musicHistoryToggle = document.getElementById('music-history-toggle');
+            const musicHistoryBox = document.getElementById('music-history');
+            if (musicHistoryToggle && musicHistoryBox) {
+                musicHistoryToggle.addEventListener('click', () => {
+                    const nextOpen = musicHistoryBox.hidden;
+                    musicHistoryBox.hidden = !nextOpen;
+                    musicHistoryToggle.classList.toggle('open', nextOpen);
+                    musicHistoryToggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+                    musicHistoryToggle.textContent = nextOpen ? 'История ▴' : 'История ▾';
+                });
             }
 
             function twitchLiveDuration(startedAt) {
@@ -706,6 +817,31 @@
                 const hours = Math.floor(minutes / 60);
                 const mins = minutes % 60;
                 return hours ? `${hours}ч ${mins}м` : `${mins}м`;
+            }
+
+            async function wireTwitchPushButton(card) {
+                const btn = card ? card.querySelector('#twitch-push-btn') : null;
+                const pushApi = window.KrafenUI && window.KrafenUI.streamPush;
+                if (!btn || !pushApi) return;
+                if (!('Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window)) return;
+                btn.hidden = false;
+                const syncLabel = (on) => {
+                    btn.classList.toggle('active', Boolean(on));
+                    btn.textContent = on ? '🔔 Уведомления вкл' : '🔔 Уведомить о стриме';
+                };
+                try {
+                    syncLabel(await pushApi.isSubscribed(CONFIG.twitch_user));
+                } catch {}
+                btn.addEventListener('click', async () => {
+                    btn.disabled = true;
+                    try {
+                        syncLabel(await pushApi.toggle(CONFIG.twitch_user));
+                    } catch {
+                        toast('Не удалось изменить статус уведомлений', '#fca5a5');
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
             }
 
             function renderTwitchFallback(note) {
@@ -724,10 +860,14 @@
                                 </div>
                             </div>
                         </div>
-                        <a href="https://twitch.tv/${escapeHTML(CONFIG.twitch_user)}" target="_blank" rel="noopener noreferrer" class="btn-action">
-                            Открыть канал ↗
-                        </a>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                            <a href="https://twitch.tv/${escapeHTML(CONFIG.twitch_user)}" target="_blank" rel="noopener noreferrer" class="btn-action">
+                                Открыть канал ↗
+                            </a>
+                            <button type="button" class="btn-action" id="twitch-push-btn" hidden>🔔 Уведомить о стриме</button>
+                        </div>
                     </div>`;
+                wireTwitchPushButton(card);
             }
 
             async function fetchTwitch() {
@@ -770,10 +910,14 @@
                                 <div class="twitch-title">${escapeHTML(title)}</div>
                                 <div class="twitch-meta">${escapeHTML(meta)}</div>
                             </div>
-                            <a href="${escapeHTML(safeTwitchUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action">
-                                ${live ? 'Смотреть стрим ↗' : 'Открыть канал ↗'}
-                            </a>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                                <a href="${escapeHTML(safeTwitchUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action">
+                                    ${live ? 'Смотреть стрим ↗' : 'Открыть канал ↗'}
+                                </a>
+                                <button type="button" class="btn-action" id="twitch-push-btn" hidden>🔔 Уведомить о стриме</button>
+                            </div>
                         </div>`;
+                    wireTwitchPushButton(card);
                     const avatarImg = card.querySelector('img.avatar');
                     if (avatarImg) {
                         avatarImg.addEventListener('error', () => {
