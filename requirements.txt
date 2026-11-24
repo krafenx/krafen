@@ -4,3 +4,7 @@ requests>=2.32
 # География посетителей без Cloudflare: IPinfo Lite (MMDB) и резерв geoip2fast, см. README
 maxminddb>=2.5
 geoip2fast>=1.2.2
+# Web Push уведомления о начале стрима
+pywebpush>=2.0.0
+# Генерация динамических OG-превью для соцсетей
+pillow>=10.0.0

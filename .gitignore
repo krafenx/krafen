@@ -13,6 +13,21 @@ venv/
 .env.bak
 .env.sync.*
 rclone.conf
+etc/
+*.key
+*.pem
+*.crt
+*.bak
+
+# Hosting artifacts & archives
+node_fqdn.txt
+allocations.json
+.bash_history
+*.tar.gz
+*.zip
+*.tar
+brain/
+scratch/
 
 # Local Windows binaries (rclone.exe, ffmpeg.exe, etc.)
 *.exe
