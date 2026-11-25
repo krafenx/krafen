@@ -245,14 +245,19 @@
                 resultsBox.hidden = true;
             }
 
+            let sugSearchAbort = null;
             async function runSearch(q) {
                 if (!SEARCHABLE_TYPES.has(currentKind)) return;
+                if (sugSearchAbort) sugSearchAbort.abort();
+                sugSearchAbort = new AbortController();
+                const { signal } = sugSearchAbort;
                 const url = currentKind === 'game'
                     ? `/api/game-search?q=${encodeURIComponent(q)}`
                     : `/api/search?type=${encodeURIComponent(currentKind)}&q=${encodeURIComponent(q)}`;
                 try {
-                    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+                    const res = await fetch(url, { headers: { Accept: 'application/json' }, signal });
                     const data = await res.json().catch(() => ({}));
+                    if (signal.aborted) return;
                     searchHits = Array.isArray(data.results) ? data.results.slice(0, 6) : [];
                     if (!searchHits.length) {
                         resultsBox.innerHTML = '';
@@ -274,7 +279,8 @@
                             </button>`;
                     }).join('');
                     resultsBox.hidden = false;
-                } catch {
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return;
                     resultsBox.hidden = true;
                 }
             }

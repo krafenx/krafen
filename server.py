@@ -203,20 +203,18 @@ DISCORD_INVITE_CODE = os.environ.get("DISCORD_INVITE_CODE", "kGdxDzxtmK")
 GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "1e417_q9s6SjcZHyqMYzbVs8OHqfY5Ifk").strip()
 GDRIVE_API_KEY = os.environ.get("GDRIVE_API_KEY", "").strip()
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-TELEGRAM_ADMIN_CHAT_ID = (
-    os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip()
-    or os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-)
+TELEGRAM_ADMIN_CHAT_ID = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip()
 try:
     ALERT_MIN_FREE_GB = max(0.2, float(os.environ.get("ALERT_MIN_FREE_GB", "2.0") or "2.0"))
 except ValueError:
     ALERT_MIN_FREE_GB = 2.0
 RECORDER_TOKEN = os.environ.get("RECORDER_TOKEN", "").strip()
 MSK_TZ = timezone(timedelta(hours=3))
-TG_BACKUP_DAILY = os.environ.get("TG_BACKUP_DAILY", "1").strip().lower() in {"1", "true", "yes", "on"}
+TG_BACKUP_DAILY = os.environ.get("TG_BACKUP_DAILY", "0").strip().lower() in {"1", "true", "yes", "on"}
+ALLOW_E2B_PREVIEW = os.environ.get("ALLOW_E2B_PREVIEW", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 AUTO_UPDATE_MODE = os.environ.get("AUTO_UPDATE", "auto").strip().lower()
-AUTO_UPDATE_REPO = os.environ.get("AUTO_UPDATE_REPO", "krafenx/krafenz").strip().strip("/")
+AUTO_UPDATE_REPO = os.environ.get("AUTO_UPDATE_REPO", "krafenx/krafen").strip().strip("/")
 AUTO_UPDATE_BRANCH = os.environ.get("AUTO_UPDATE_BRANCH", "main").strip() or "main"
 try:
     AUTO_UPDATE_INTERVAL = max(0, int(os.environ.get("AUTO_UPDATE_INTERVAL", "0") or "0"))
@@ -784,6 +782,8 @@ def _stop_running_server() -> bool:
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             creationflags=_WIN_NO_WINDOW,
             check=False,
         )
@@ -794,6 +794,8 @@ def _stop_running_server() -> bool:
                 stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 creationflags=_WIN_NO_WINDOW,
                 check=False,
             )
@@ -1111,7 +1113,8 @@ if __name__ == "__main__":
 
 @contextlib.asynccontextmanager
 async def _app_lifespan(_app: FastAPI):
-    _maybe_run_startup_auto_update()
+    await asyncio.to_thread(_maybe_run_startup_auto_update)
+    await asyncio.to_thread(_ipinfo_get_reader)
     if sys.platform == "win32":
         loop = asyncio.get_running_loop()
         prev_handler = loop.get_exception_handler()
@@ -1212,6 +1215,7 @@ LIST_SPECS = {
 }
 
 _db_lock = threading.Lock()
+_list_cache_lock = threading.Lock()
 _list_cache: dict[str, dict[str, Any]] = {}
 _api_cache_lock = threading.Lock()
 _api_cache: dict[str, tuple[float, int, dict[str, Any]]] = {}
@@ -1674,6 +1678,15 @@ def init_auth_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS revoked_sessions (
+                nonce TEXT PRIMARY KEY,
+                expires_at INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute("DELETE FROM revoked_sessions WHERE expires_at <= ?", (now,))
         legacy_tokens = DATA_DIR / "tokens.json"
         if legacy_tokens.is_file():
             existing = conn.execute("SELECT 1 FROM kv WHERE key = 'tokens'").fetchone()
@@ -1710,9 +1723,10 @@ SECRET_KEY = resolve_secret_key()
 def read_list(name: str, use_cache: bool = True, owner: str = DEFAULT_PROFILE) -> dict[str, Any]:
     cache_key = collection_key(owner, name)
     if use_cache:
-        cached = _list_cache.get(cache_key)
-        if cached and cached["ts"] > time.time() - LIST_SPECS[name]["cache_ttl"]:
-            return {"revision": cached["revision"], "items": list(cached["items"])}
+        with _list_cache_lock:
+            cached = _list_cache.get(cache_key)
+            if cached and cached["ts"] > time.time() - LIST_SPECS[name]["cache_ttl"]:
+                return {"revision": cached["revision"], "items": list(cached["items"])}
     with _db_lock, db_connect() as conn:
         row = conn.execute(
             "SELECT revision FROM collection_meta WHERE owner = ? AND name = ?", (owner, name)
@@ -1720,7 +1734,8 @@ def read_list(name: str, use_cache: bool = True, owner: str = DEFAULT_PROFILE) -
         rev = max(0, int(row["revision"] or 0)) if row else 0
         items = _select_collection_items(conn, name, owner)
         state = {"revision": rev, "items": items}
-        _list_cache[cache_key] = {"ts": time.time(), "revision": rev, "items": list(items)}
+        with _list_cache_lock:
+            _list_cache[cache_key] = {"ts": time.time(), "revision": rev, "items": list(items)}
         return state
 
 
@@ -1738,9 +1753,11 @@ def update_list_atomic(
             current_rev = max(0, int(row["revision"] or 0)) if row else 0
             if expected_revision != current_rev:
                 current_items = _select_collection_items(conn, name, owner)
-                conn.execute("ROLLBACK")
+                with contextlib.suppress(sqlite3.Error):
+                    conn.execute("ROLLBACK")
                 state = {"revision": current_rev, "items": current_items}
-                _list_cache[cache_key] = {"ts": time.time(), "revision": current_rev, "items": list(current_items)}
+                with _list_cache_lock:
+                    _list_cache[cache_key] = {"ts": time.time(), "revision": current_rev, "items": list(current_items)}
                 return False, state
 
             next_rev = current_rev + 1
@@ -1757,10 +1774,12 @@ def update_list_atomic(
             )
             conn.execute("COMMIT")
             state = {"revision": next_rev, "items": stored_items}
-            _list_cache[cache_key] = {"ts": time.time(), "revision": next_rev, "items": list(stored_items)}
+            with _list_cache_lock:
+                _list_cache[cache_key] = {"ts": time.time(), "revision": next_rev, "items": list(stored_items)}
             return True, state
         except Exception:
-            conn.execute("ROLLBACK")
+            with contextlib.suppress(sqlite3.Error):
+                conn.execute("ROLLBACK")
             raise
 
 
@@ -1834,6 +1853,25 @@ def constant_time_equal(a: str, b: str) -> bool:
 
 _revoked_sessions_lock = threading.Lock()
 _revoked_sessions: dict[str, int] = {}
+_revoked_sessions_loaded = False
+
+
+def _ensure_revoked_sessions_loaded() -> None:
+    global _revoked_sessions_loaded
+    if _revoked_sessions_loaded:
+        return
+    now = int(time.time())
+    with _revoked_sessions_lock:
+        if _revoked_sessions_loaded:
+            return
+        with contextlib.suppress(Exception):
+            with _db_lock, auth_db_connect() as conn:
+                rows = conn.execute(
+                    "SELECT nonce, expires_at FROM revoked_sessions WHERE expires_at > ?", (now,)
+                ).fetchall()
+                for r in rows:
+                    _revoked_sessions[str(r["nonce"])] = int(r["expires_at"])
+        _revoked_sessions_loaded = True
 
 
 def create_session(profile: str = DEFAULT_PROFILE) -> str:
@@ -1854,6 +1892,7 @@ def verify_session(token: str | None, profile: str = DEFAULT_PROFILE) -> bool:
     password = PROFILE_PASSWORDS.get(profile, "")
     if not token or not password or len(token) > 512:
         return False
+    _ensure_revoked_sessions_loaded()
     try:
         payload, signature = token.split(".", 1)
         if not constant_time_equal(signature, sign(payload, profile)):
@@ -1894,6 +1933,7 @@ def session_needs_renewal(token: str | None, profile: str = DEFAULT_PROFILE) -> 
 def revoke_session(token: str | None, profile: str = DEFAULT_PROFILE) -> None:
     if not token or len(token) > 512 or "." not in token:
         return
+    _ensure_revoked_sessions_loaded()
     try:
         payload, signature = token.split(".", 1)
         if not constant_time_equal(signature, sign(payload, profile)):
@@ -1911,6 +1951,13 @@ def revoke_session(token: str | None, profile: str = DEFAULT_PROFILE) -> None:
             if len(_revoked_sessions) >= 2048:
                 _revoked_sessions.pop(next(iter(_revoked_sessions)))
             _revoked_sessions[nonce] = exp
+        with contextlib.suppress(Exception):
+            with _db_lock, auth_db_connect() as conn:
+                conn.execute("DELETE FROM revoked_sessions WHERE expires_at <= ?", (now,))
+                conn.execute(
+                    "INSERT OR REPLACE INTO revoked_sessions (nonce, expires_at) VALUES (?, ?)",
+                    (nonce, exp),
+                )
     except Exception:
         return
 
@@ -2021,8 +2068,22 @@ def _effective_request_host(request: Request) -> str:
 
 
 def _is_e2b_preview_request(request: Request) -> bool:
+    if not ALLOW_E2B_PREVIEW:
+        return False
     host_only = _effective_request_host(request).split(":", 1)[0]
     return host_only.endswith(".e2b.app")
+
+
+def _is_cloudflare_peer(request: Request) -> bool:
+    if TRUST_PROXY_MODE in {"0", "false", "no", "off"}:
+        return False
+    peer = request.client.host if request.client else ""
+    if not peer:
+        return False
+    with contextlib.suppress(ValueError):
+        ip = ipaddress.ip_address(peer)
+        return any(ip in net for net in _CLOUDFLARE_NETS)
+    return False
 
 
 def is_https_request(request: Request) -> bool:
@@ -2041,7 +2102,9 @@ def require_same_origin(request: Request) -> None:
         raise HTTPException(status_code=403, detail={"error": "csrf_blocked"})
 
     origin = (request.headers.get("origin") or "").strip()
-    if origin and origin != "null":
+    if origin == "null":
+        raise HTTPException(status_code=403, detail={"error": "csrf_blocked"})
+    if origin:
         parsed_origin = urlsplit(origin)
         origin_host = (parsed_origin.netloc or "").strip().lower()
         allowed_hosts = {_effective_request_host(request)}
@@ -2051,6 +2114,8 @@ def require_same_origin(request: Request) -> None:
                 allowed_hosts.add(pub_host)
         if not origin_host or (origin_host not in allowed_hosts and not allow_e2b_iframe):
             raise HTTPException(status_code=403, detail={"error": "csrf_blocked"})
+    elif sec_site != "same-origin" and not allow_e2b_iframe:
+        raise HTTPException(status_code=403, detail={"error": "csrf_blocked"})
 
 
 def cookie_header(request: Request, name: str, value: str, max_age: int, path: str = "/") -> str:
@@ -2073,12 +2138,15 @@ def cookie_header(request: Request, name: str, value: str, max_age: int, path: s
 
 def client_ip(request: Request) -> str:
     if _is_trusted_proxy_peer(request):
-        forwarded = (
-            request.headers.get("cf-connecting-ip")
-            or request.headers.get("x-real-ip")
-            or request.headers.get("x-forwarded-for")
-            or ""
-        )
+        forwarded = ""
+        if _is_cloudflare_peer(request):
+            forwarded = request.headers.get("cf-connecting-ip") or ""
+        if not forwarded:
+            forwarded = (
+                request.headers.get("x-real-ip")
+                or request.headers.get("x-forwarded-for")
+                or ""
+            )
         if forwarded:
             cand = forwarded.split(",")[0].strip()[:80]
             with contextlib.suppress(ValueError):
@@ -2115,27 +2183,23 @@ def rate_limit(request: Request, name: str, limit: int = 60, period: int = 60) -
 
 
 def _check_admin_failed_login_guard(request: Request, profile: str = DEFAULT_PROFILE) -> None:
-    # Счётчики раздельные по профилям: перебор пароля к одному не блокирует другой.
+    # Ограничение только по IP и профилю: злоумышленник с разных IP не блокирует вход владельцу.
     ip_key = f"admin_fail_ip:{profile}:{client_ip(request)}"
-    global_key = f"admin_fail_global:{profile}"
     now = time.time()
     with _rate_lock:
         ip_fails = [ts for ts in _rate_buckets.get(ip_key, []) if ts > now - 300]
-        global_fails = [ts for ts in _rate_buckets.get(global_key, []) if ts > now - 60]
-        if len(ip_fails) >= 8 or len(global_fails) >= 20:
+        if len(ip_fails) >= 8:
             raise HTTPException(status_code=429, detail={"error": "rate_limited"})
 
 
 def _record_admin_failed_login(request: Request, profile: str = DEFAULT_PROFILE) -> None:
     ip_key = f"admin_fail_ip:{profile}:{client_ip(request)}"
-    global_key = f"admin_fail_global:{profile}"
     now = time.time()
     with _rate_lock:
         _prune_rate_buckets_locked(now, 300)
-        for key, window in ((ip_key, 300), (global_key, 60)):
-            bucket = [ts for ts in _rate_buckets.get(key, []) if ts > now - window]
-            bucket.append(now)
-            _rate_buckets[key] = bucket
+        bucket = [ts for ts in _rate_buckets.get(ip_key, []) if ts > now - 300]
+        bucket.append(now)
+        _rate_buckets[ip_key] = bucket
 
 
 def j(body: Any, status: int = 200, headers: dict[str, str] | None = None) -> JSONResponse:
@@ -2516,7 +2580,8 @@ def init_db() -> None:
                 )
                 conn.execute("COMMIT")
             except Exception:
-                conn.execute("ROLLBACK")
+                with contextlib.suppress(sqlite3.Error):
+                    conn.execute("ROLLBACK")
                 raise
 
         # У каждого профиля свой набор коллекций, начиная с пустых.
@@ -2933,9 +2998,14 @@ def _ipinfo_get_reader() -> Any:
     with _ipinfo_lock:
         if _ipinfo_reader is not None and mtime == _ipinfo_reader_mtime:
             return _ipinfo_reader
+        old_reader = _ipinfo_reader
         try:
-            _ipinfo_reader = _maxminddb.open_database(str(IPINFO_DB_PATH))
+            new_reader = _maxminddb.open_database(str(IPINFO_DB_PATH))
+            _ipinfo_reader = new_reader
             _ipinfo_reader_mtime = mtime
+            if old_reader is not None:
+                with contextlib.suppress(Exception):
+                    old_reader.close()
         except Exception as exc:
             _geo_log(f"не удалось открыть {IPINFO_DB_PATH.name}: {type(exc).__name__}")
     return _ipinfo_reader
@@ -3561,26 +3631,6 @@ async def add_security_headers(request: Request, call_next):
             )
             break
 
-    # Сжимаем JSON/текстовые ответы в памяти (не трогая потоковое видео и Range 206)
-    if (
-        request.method == "GET"
-        and getattr(response, "status_code", 0) == 200
-        and not isinstance(response, (StreamingResponse, FileResponse))
-        and "content-encoding" not in response.headers
-    ):
-        ctype = (response.headers.get("content-type") or "").lower()
-        body_bytes = getattr(response, "body", None)
-        if isinstance(body_bytes, (bytes, bytearray)) and any(ctype.startswith(t) for t in _GZIPPABLE_CONTENT_TYPES):
-            prev_vary = response.headers.get("vary") or ""
-            if "accept-encoding" not in prev_vary.lower():
-                response.headers["Vary"] = f"{prev_vary}, Accept-Encoding" if prev_vary else "Accept-Encoding"
-            if len(body_bytes) >= 512 and _accepts_gzip(request):
-                compressed = gzip.compress(bytes(body_bytes), compresslevel=5)
-                if len(compressed) < len(body_bytes):
-                    response.body = compressed
-                    response.headers["Content-Encoding"] = "gzip"
-                    response.headers["Content-Length"] = str(len(compressed))
-
     for key, value in hdrs.items():
         response.headers.setdefault(key, value)
 
@@ -3883,7 +3933,7 @@ def admin_login(request: Request, body: dict[str, Any]) -> JSONResponse:
 @app.post("/api/admin/update")
 def admin_trigger_update(request: Request) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_update", 6, 60)
     result = perform_github_update(force=True, allow_zip_fallback_on_api_error=True)
     status = 200 if result.get("ok") else 502
@@ -3984,7 +4034,7 @@ def _fmt_short_day_ru(ymd: str) -> str:
 
 @app.get("/api/admin/overview")
 def admin_overview(request: Request, days: int = 14) -> JSONResponse:
-    overview_profile = request_profile(request)
+    overview_profile = DEFAULT_PROFILE
     require_admin(request, overview_profile)
     rate_limit(request, "admin_overview", 120, 60)
     span_days = max(7, min(90, int(days or 14)))
@@ -4600,7 +4650,7 @@ def admin_overview(request: Request, days: int = 14) -> JSONResponse:
                     "detail": (
                         f"Активны (порог диска < {ALERT_MIN_FREE_GB:.1f} ГБ, 5xx и Drive)"
                         if (TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID)
-                        else "Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID (или TELEGRAM_CHAT_ID)"
+                        else "Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID"
                     ),
                     "configured": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID),
                 },
@@ -4621,7 +4671,7 @@ def admin_overview(request: Request, days: int = 14) -> JSONResponse:
 def admin_sync_vods(request: Request) -> JSONResponse:
     global _drive_sync_ts
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_vod_sync", 12, 60)
     if not GDRIVE_FOLDER_ID:
         return j({"error": "gdrive_not_configured"}, 400)
@@ -4636,7 +4686,7 @@ def admin_sync_vods(request: Request) -> JSONResponse:
 @app.post("/api/admin/vods/override")
 def admin_vod_override(request: Request, body: dict[str, Any]) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_vod_override", 60, 60)
     vod_id = text(body.get("vod_id"), 160)
     if not safe_name(vod_id):
@@ -4674,7 +4724,7 @@ def admin_vod_override(request: Request, body: dict[str, Any]) -> JSONResponse:
 @app.post("/api/admin/vods/reset-thumb")
 def admin_vod_reset_thumb(request: Request, body: dict[str, Any]) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_reset_thumb", 30, 60)
     target = text(body.get("vod_id"), 160)
     removed = 0
@@ -4702,7 +4752,7 @@ def admin_vod_reset_thumb(request: Request, body: dict[str, Any]) -> JSONRespons
 @app.post("/api/admin/cache/clear")
 def admin_clear_cache(request: Request, body: dict[str, Any]) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_cache_clear", 20, 60)
     target = text(body.get("target"), 40) or "api"
     freed_bytes = 0
@@ -4723,7 +4773,8 @@ def admin_clear_cache(request: Request, body: dict[str, Any]) -> JSONResponse:
         with _api_cache_lock:
             removed_files += len(_api_cache)
             _api_cache.clear()
-        _list_cache.clear()
+        with _list_cache_lock:
+            _list_cache.clear()
     if target in ("img", "all_caches"):
         _purge_dir(IMG_CACHE_DIR, "img_*.*")
     if target in ("thumbs", "all_caches"):
@@ -4863,42 +4914,60 @@ def _start_daily_tg_backup_scheduler() -> None:
 
     def _worker() -> None:
         while True:
-            now_msk = datetime.now(MSK_TZ)
-            target_msk = _next_msk_midnight(now_msk)
-            while True:
-                rem = (target_msk - datetime.now(MSK_TZ)).total_seconds()
-                if rem <= 0:
-                    break
-                time.sleep(min(30.0, rem))
-            if TG_BACKUP_DAILY and TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID:
-                today_key = target_msk.strftime("%Y-%m-%d")
-                if kv_get("last_tg_backup_msk_day") != today_key:
-                    ok, detail = _send_telegram_backup_zip()
-                    if ok:
-                        kv_set("last_tg_backup_msk_day", today_key)
-                    log_admin_event(None, "tg_backup", "ok" if ok else "error", f"Плановый (00:00 МСК): {detail}")
+            try:
+                now_msk = datetime.now(MSK_TZ)
+                target_msk = _next_msk_midnight(now_msk)
+                while True:
+                    rem = (target_msk - datetime.now(MSK_TZ)).total_seconds()
+                    if rem <= 0:
+                        break
+                    time.sleep(min(30.0, rem))
+                if TG_BACKUP_DAILY and TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID:
+                    today_key = target_msk.strftime("%Y-%m-%d")
+                    if kv_get("last_tg_backup_msk_day") != today_key:
+                        ok, detail = _send_telegram_backup_zip()
+                        if ok:
+                            kv_set("last_tg_backup_msk_day", today_key)
+                        log_admin_event(None, "tg_backup", "ok" if ok else "error", f"Плановый (00:00 МСК): {detail}")
+            except Exception as exc:
+                print(f"[backup] ошибка планировщика: {type(exc).__name__}", flush=True)
+                time.sleep(60)
 
     threading.Thread(target=_worker, name="daily-msk-tg-backup", daemon=True).start()
 
 
 def _build_full_server_backup_zip() -> bytes:
-    """Формирует полный ZIP-бэкап всего сервера (БД SQLite, .env, код сайта, ассеты, кэши VOD/чатов)."""
+    """Формирует ZIP-бэкап сервера без секретов (код, БД коллекций и аналитики, ассеты, кэши VOD/чатов)."""
     import tempfile
 
     buf = io.BytesIO()
     max_zip_raw = 42 * 1024 * 1024  # запас под лимит Telegram sendDocument 50 МБ
     added_raw = 0
-    skip_dirs = {".git", ".venv", "venv", "__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "vods", "brain", "scratch"}
-    skip_names = {"ipinfo_lite.mmdb", "server.pid", "recorder.pid", "server.log", "recorder.log"}
-    priority_prefixes = ("data/vod_chats/", "data/vod_thumbs/", "images/", "danonsha/", "recorder/", "tests/")
+    skip_dirs = {
+        ".git", ".venv", "venv", "__pycache__", "node_modules",
+        ".pytest_cache", ".ruff_cache", ".cache", ".local", "etc",
+        "vods", "brain", "scratch",
+    }
+    skip_names = {"ipinfo_lite.mmdb", "server.pid", "recorder.pid", "server.log", "server.log.old", "recorder.log", "rclone.conf"}
+    code_prefixes = ("danonsha/", "recorder/", "tests/", "images/")
 
-    def _add_path(zf: zipfile.ZipFile, src: Path, arc: str, limit: int = 80 * 1024 * 1024) -> None:
+    def _is_secret_file(rel: str, fname: str) -> bool:
+        low = fname.lower()
+        if low == ".env" or (low.startswith(".env.") and low != ".env.example"):
+            return True
+        if low.startswith(".tg_session") or ".tg_session" in rel.lower():
+            return True
+        if low.endswith((".key", ".pem", ".pyc", ".pyo", ".exe")):
+            return True
+        return False
+
+    def _add_path(zf: zipfile.ZipFile, src: Path, arc: str, limit: int = max_zip_raw) -> None:
         nonlocal added_raw
         if not src.is_file():
             return
         with contextlib.suppress(OSError):
             sz = src.stat().st_size
-            if sz > 15 * 1024 * 1024 or added_raw + sz > limit:
+            if sz > 30 * 1024 * 1024 or added_raw + sz > limit:
                 return
             zf.write(src, arcname=arc)
             added_raw += sz
@@ -4907,24 +4976,9 @@ def _build_full_server_backup_zip() -> bytes:
         tmp_root = Path(tmpdir)
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
             seen_arcs: set[str] = set()
-            # 1. Консистентные снимки всех 3 SQLite БД + seed.sql
-            for src_db in (DB_PATH, AUTH_DB_PATH, ANALYTICS_DB_PATH):
-                if not src_db.is_file():
-                    continue
-                dst_db = tmp_root / src_db.name
-                try:
-                    with (
-                        contextlib.closing(sqlite3.connect(src_db, timeout=15)) as sconn,
-                        contextlib.closing(sqlite3.connect(dst_db)) as dconn,
-                    ):
-                        sconn.backup(dconn)
-                    arc = f"data/{src_db.name}"
-                    _add_path(zf, dst_db, arc, max_zip_raw)
-                    seen_arcs.add(arc)
-                except Exception:
-                    continue
-
-            # 2. Конфиги (.env, rclone.conf, _redirects) + весь код и статика из корня и рабочих подпапок
+            # 1. Сначала код сайта, тесты, конфиги-примеры и ассеты (чтобы кэши в data/ не вытесняли код)
+            root_and_code_files: list[tuple[str, Path]] = []
+            vod_cache_files: list[tuple[str, Path]] = []
             for fpath in sorted(ROOT.rglob("*")):
                 if not fpath.is_file():
                     continue
@@ -4935,19 +4989,47 @@ def _build_full_server_backup_zip() -> bytes:
                 parts = rel.split("/")
                 if any(p in skip_dirs for p in parts):
                     continue
-                if parts[-1] in skip_names or parts[-1].endswith((".pyc", ".pyo", ".exe")):
+                fname = parts[-1]
+                if fname in skip_names or _is_secret_file(rel, fname):
                     continue
-                if rel.startswith("data/") and (
-                    rel.startswith(("data/krafen.db", "data/auth.db", "data/analytics.db", "data/img_cache/"))
-                    or ".db-" in parts[-1]
-                ):
-                    continue
-                if "/" not in rel or rel.startswith(priority_prefixes) or rel == "data/seed.sql":
-                    if rel not in seen_arcs:
-                        _add_path(zf, fpath, rel, max_zip_raw)
-                        seen_arcs.add(rel)
+                if rel.startswith("data/"):
+                    if rel.startswith(("data/krafen.db", "data/auth.db", "data/analytics.db", "data/img_cache/")) or ".db-" in fname:
+                        continue
+                    if rel == "data/seed.sql":
+                        root_and_code_files.append((rel, fpath))
+                    elif rel.startswith(("data/vod_chats/", "data/vod_thumbs/")):
+                        vod_cache_files.append((rel, fpath))
+                elif "/" not in rel or rel.startswith(code_prefixes):
+                    root_and_code_files.append((rel, fpath))
 
-            # 3. В оставшийся бюджет докладываем кэш прокси-обложек data/img_cache
+            for rel, fpath in root_and_code_files:
+                if rel not in seen_arcs:
+                    _add_path(zf, fpath, rel, max_zip_raw)
+                    seen_arcs.add(rel)
+
+            # 2. Консистентные снимки публичных SQLite БД (без auth.db)
+            for src_db in (DB_PATH, ANALYTICS_DB_PATH):
+                if not src_db.is_file():
+                    continue
+                dst_db = tmp_root / src_db.name
+                try:
+                    with (
+                        contextlib.closing(sqlite3.connect(src_db, timeout=15)) as sconn,
+                        contextlib.closing(sqlite3.connect(dst_db)) as dconn,
+                    ):
+                        sconn.backup(dconn)
+                    arc = f"data/{src_db.name}"
+                    if arc not in seen_arcs:
+                        _add_path(zf, dst_db, arc, max_zip_raw)
+                        seen_arcs.add(arc)
+                except Exception:
+                    continue
+
+            # 3. В оставшийся бюджет докладываем кэши чатов/превью VOD и прокси-обложек
+            for rel, fpath in vod_cache_files:
+                if rel not in seen_arcs:
+                    _add_path(zf, fpath, rel, max_zip_raw)
+                    seen_arcs.add(rel)
             if IMG_CACHE_DIR.is_dir():
                 for img_f in sorted(IMG_CACHE_DIR.iterdir()):
                     arc = f"data/img_cache/{img_f.name}"
@@ -4966,6 +5048,9 @@ def _send_telegram_backup_zip() -> tuple[bool, str]:
     zip_bytes = _build_full_server_backup_zip()
     if not zip_bytes:
         return False, "empty_backup"
+    if len(zip_bytes) > 49 * 1024 * 1024:
+        print(f"[backup] размер ZIP ({len(zip_bytes)} байт) превышает лимит Telegram 50 МБ", flush=True)
+        return False, "backup_too_large"
     now_msk = datetime.now(MSK_TZ)
     stamp = now_msk.strftime("%Y-%m-%d_%H-%M")
     filename = f"krafen-server-backup-{stamp}-msk.zip"
@@ -5093,7 +5178,7 @@ def _check_single_external_url(raw_url: str) -> dict[str, Any]:
 @app.post("/api/admin/alerts/test")
 def admin_test_tg_alert(request: Request) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_alert_test", 10, 60)
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_ADMIN_CHAT_ID:
         return j({"ok": False, "error": "telegram_not_configured"}, 400)
@@ -5109,7 +5194,7 @@ def admin_test_tg_alert(request: Request) -> JSONResponse:
 @app.post("/api/admin/links/check")
 def admin_check_links(request: Request) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_links_check", 6, 60)
 
     field_map = {
@@ -5257,7 +5342,7 @@ def recorder_vod_ready(request: Request, body: dict[str, Any]) -> JSONResponse:
 @app.post("/api/admin/backup/telegram")
 def admin_backup_telegram(request: Request) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_tg_backup", 6, 60)
     ok, detail = _send_telegram_backup_zip()
     log_admin_event(request, "tg_backup", "ok" if ok else "error", f"Принудительно: {detail}")
@@ -5269,7 +5354,7 @@ def admin_backup_telegram(request: Request) -> JSONResponse:
 
 @app.get("/api/admin/backup/zip")
 def admin_download_backup_zip(request: Request) -> Response:
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_backup_zip", 10, 60)
     zip_bytes = _build_full_server_backup_zip()
     stamp = datetime.now(MSK_TZ).strftime("%Y-%m-%d_%H-%M")
@@ -5310,7 +5395,16 @@ def public_create_suggestion(request: Request, body: dict[str, Any]) -> JSONResp
     ext_id = text(body.get("ext_id"), 64)
     image = clean_url(body.get("image")) or ""
     raw_link = text(body.get("link"), 500)
-    link = raw_link if raw_link.startswith(("https://", "http://")) else ""
+    link = ""
+    if raw_link:
+        parsed_link = urlsplit(raw_link)
+        if (
+            parsed_link.scheme not in {"http", "https"}
+            or not parsed_link.netloc
+            or any(ch in raw_link for ch in ("\r", "\n", "\t", " ", "<", ">", '"', "'"))
+        ):
+            return j({"error": "invalid_link"}, 400)
+        link = raw_link
     note = text(body.get("note"), 260)
     author = text(body.get("author"), 48) or "аноним"
     now_i = int(time.time())
@@ -5338,7 +5432,7 @@ def public_create_suggestion(request: Request, body: dict[str, Any]) -> JSONResp
 @app.post("/api/admin/suggestions/resolve")
 def admin_resolve_suggestion(request: Request, body: dict[str, Any]) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_sug_resolve", 30, 60)
     sug_id = _safe_int(body.get("id"), 0)
     action = text(body.get("action"), 16).lower()
@@ -5618,7 +5712,7 @@ def admin_import_list(request: Request, body: dict[str, Any]) -> JSONResponse:
 @app.post("/api/admin/spotify/disconnect")
 def admin_spotify_disconnect(request: Request) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_spotify_disc", 10, 60)
     tokens = read_tokens()
     tokens.pop("spotify_refresh_token", None)
@@ -5632,17 +5726,19 @@ def admin_spotify_disconnect(request: Request) -> JSONResponse:
 
 @app.get("/api/admin/backup")
 def admin_export_backup(request: Request) -> Response:
-    require_admin(request)
+    profile = request_profile(request)
+    require_admin(request, profile)
     rate_limit(request, "admin_backup", 15, 60)
-    snapshot = {
+    snapshot: dict[str, Any] = {
         "schema": "krafen-backup-v1",
         "exported_at": int(time.time()),
         "exported_iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "collections": {
-            name: read_list(name, use_cache=False, owner=request_profile(request)) for name in LIST_SPECS
+            name: read_list(name, use_cache=False, owner=profile) for name in LIST_SPECS
         },
-        "vod_overrides": read_vod_overrides(),
     }
+    if profile == DEFAULT_PROFILE:
+        snapshot["vod_overrides"] = read_vod_overrides()
     raw = json.dumps(snapshot, ensure_ascii=False, indent=2).encode("utf-8")
     fname = f"krafen-backup-{time.strftime('%Y-%m-%d')}.json"
     log_admin_event(request, "backup_export", "ok", f"Экспорт {fname} ({len(raw)} байт)")
@@ -5668,6 +5764,7 @@ def admin_import_backup(request: Request, body: dict[str, Any]) -> JSONResponse:
         return j({"error": "invalid_backup_format"}, 400)
 
     restored_counts: dict[str, int] = {}
+    pending_cache: list[tuple[str, int, list[dict[str, Any]]]] = []
     now = int(time.time())
     with _db_lock, db_connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -5684,7 +5781,8 @@ def admin_import_backup(request: Request, body: dict[str, Any]) -> JSONResponse:
                 # Непустой бэкап, из которого не выжила ни одна запись, — это повреждённый
                 # файл, а не намеренная очистка: иначе импорт молча стирает коллекцию.
                 if raw_items and not cleaned:
-                    conn.execute("ROLLBACK")
+                    with contextlib.suppress(sqlite3.Error):
+                        conn.execute("ROLLBACK")
                     return j({"error": "invalid_items", "collection": name}, 400)
                 row = conn.execute(
                     "SELECT revision FROM collection_meta WHERE owner = ? AND name = ?", (profile, name)
@@ -5699,15 +5797,20 @@ def admin_import_backup(request: Request, body: dict[str, Any]) -> JSONResponse:
                     """,
                     (profile, name, next_rev, now),
                 )
-                _list_cache[collection_key(profile, name)] = {"ts": time.time(), "revision": next_rev, "items": list(stored)}
+                pending_cache.append((name, next_rev, list(stored)))
                 restored_counts[name] = len(stored)
             conn.execute("COMMIT")
         except Exception:
-            conn.execute("ROLLBACK")
+            with contextlib.suppress(sqlite3.Error):
+                conn.execute("ROLLBACK")
             return j({"error": "restore_failed"}, 500)
 
+    with _list_cache_lock:
+        for name, next_rev, stored in pending_cache:
+            _list_cache[collection_key(profile, name)] = {"ts": time.time(), "revision": next_rev, "items": stored}
+
     raw_overrides = body.get("vod_overrides")
-    if isinstance(raw_overrides, dict):
+    if profile == DEFAULT_PROFILE and isinstance(raw_overrides, dict):
         safe_ov: dict[str, dict[str, Any]] = {}
         for k, v in list(raw_overrides.items())[:500]:
             vid = text(k, 160)
@@ -5733,7 +5836,7 @@ _LOG_REDACT_RE = re.compile(
 
 @app.get("/api/admin/logs")
 def admin_read_logs(request: Request, lines: int = 150) -> JSONResponse:
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_logs", 60, 60)
     max_lines = max(20, min(600, int(lines or 150)))
     if not HEADLESS_LOG_PATH.is_file():
@@ -6033,7 +6136,7 @@ def spotify_callback_url(request: Request) -> str:
 
 @app.get("/api/spotify/auth")
 def spotify_auth(request: Request):
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
         return j({"error": "spotify_credentials_missing"}, 503)
     state = b64url(secrets.token_bytes(18))
@@ -6412,33 +6515,52 @@ def resolve_vapid_keys() -> tuple[Any, str]:
         return _cached_vapid_pair
 
 
+_ALLOWED_PUSH_HOSTS = {
+    "fcm.googleapis.com",
+    "android.googleapis.com",
+    "updates.push.services.mozilla.com",
+    "push.services.mozilla.com",
+    "updates-push.services.mozilla.com",
+}
+_ALLOWED_PUSH_SUFFIXES = (
+    ".notify.windows.com",
+    ".push.apple.com",
+    ".push.samsungosp.com",
+    ".push.opera.com",
+)
+
+
 def _is_safe_push_endpoint(raw_url: Any) -> str | None:
     cleaned = clean_url(raw_url, 2000)
     if not cleaned:
         return None
     parsed = urlsplit(cleaned)
+    if parsed.port is not None and parsed.port != 443:
+        return None
     host = (parsed.hostname or "").lower().rstrip(".")
     if not host or host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
         return None
+    if host not in _ALLOWED_PUSH_HOSTS and not any(host.endswith(sfx) for sfx in _ALLOWED_PUSH_SUFFIXES):
+        return None
     try:
         ip = ipaddress.ip_address(host)
-        if not ip.is_global:
-            return None
-        return cleaned
+        return cleaned if ip.is_global else None
     except ValueError:
         pass
     try:
         infos = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
-        for info in infos:
-            addr = info[4][0]
-            try:
-                resolved_ip = ipaddress.ip_address(addr.split("%")[0])
-                if not resolved_ip.is_global:
-                    return None
-            except ValueError:
-                continue
     except OSError:
-        pass
+        return None
+    if not infos:
+        return None
+    for info in infos:
+        addr = info[4][0]
+        try:
+            resolved_ip = ipaddress.ip_address(addr.split("%")[0])
+        except ValueError:
+            continue
+        if not resolved_ip.is_global:
+            return None
     return cleaned
 
 
@@ -6471,34 +6593,44 @@ def send_stream_push_notifications(channel: str, title: str, body_text: str, url
     sent = 0
     failed = 0
     dead_endpoints: list[str] = []
-    for r in rows:
-        try:
-            channels = json.loads(r["channels_json"] or "[]")
-        except Exception:
-            channels = []
-        if channel != "*" and channel not in channels and "all" not in channels:
-            continue
-        sub_info = {
-            "endpoint": r["endpoint"],
-            "keys": {"p256dh": r["p256dh"], "auth": r["auth"]},
-        }
-        try:
-            _send_webpush(
-                subscription_info=sub_info,
-                data=payload,
-                vapid_private_key=vapid_inst,
-                vapid_claims={"sub": VAPID_SUBJECT},
-                timeout=10,
-            )
-            sent += 1
-        except _WebPushError as exc:
-            status = getattr(exc, "status_code", None)
-            if status in (404, 410):
+    push_session = requests.Session()
+    push_session.max_redirects = 0
+    try:
+        for r in rows:
+            try:
+                channels = json.loads(r["channels_json"] or "[]")
+            except Exception:
+                channels = []
+            if channel != "*" and channel not in channels and "all" not in channels:
+                continue
+            safe_ep = _is_safe_push_endpoint(r["endpoint"])
+            if not safe_ep:
                 dead_endpoints.append(r["endpoint"])
-            else:
+                continue
+            sub_info = {
+                "endpoint": safe_ep,
+                "keys": {"p256dh": r["p256dh"], "auth": r["auth"]},
+            }
+            try:
+                _send_webpush(
+                    subscription_info=sub_info,
+                    data=payload,
+                    vapid_private_key=vapid_inst,
+                    vapid_claims={"sub": VAPID_SUBJECT},
+                    timeout=10,
+                    requests_session=push_session,
+                )
+                sent += 1
+            except _WebPushError as exc:
+                status = getattr(exc, "status_code", None)
+                if status in (404, 410):
+                    dead_endpoints.append(r["endpoint"])
+                else:
+                    failed += 1
+            except Exception:
                 failed += 1
-        except Exception:
-            failed += 1
+    finally:
+        push_session.close()
 
     if dead_endpoints:
         with _db_lock, auth_db_connect() as conn:
@@ -6665,7 +6797,7 @@ def api_push_unsubscribe(request: Request, body: dict[str, Any]) -> JSONResponse
 @app.post("/api/admin/push/test")
 def api_admin_push_test(request: Request) -> JSONResponse:
     require_same_origin(request)
-    require_admin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "admin_push_test", 10, 60)
     res = send_stream_push_notifications(
         "*",
@@ -7491,7 +7623,7 @@ def _list_gdrive_folder(folder_id: str) -> tuple[bool, list[dict[str, Any]]]:
                     timeout=10,
                 )
                 if not resp.ok:
-                    break
+                    return False, []
                 payload = resp.json()
                 for f in payload.get("files") or []:
                     fid = str(f.get("id") or "").strip()
@@ -7508,10 +7640,9 @@ def _list_gdrive_folder(folder_id: str) -> tuple[bool, list[dict[str, Any]]]:
                 page_token = str(payload.get("nextPageToken") or "").strip()
                 if not page_token:
                     return True, items
-            if items:
-                return True, items
+            return False, []
         except Exception:
-            pass
+            return False, []
 
     try:
         res = requests.get(
@@ -7908,7 +8039,8 @@ def _sync_drive_vods_worker(folder_id: str, force: bool = False) -> None:
                             conn.execute("DELETE FROM drive_vods WHERE id = ?", (old_row["id"],))
                 conn.execute("COMMIT")
             except Exception:
-                conn.execute("ROLLBACK")
+                with contextlib.suppress(sqlite3.Error):
+                    conn.execute("ROLLBACK")
     except Exception:
         pass
     finally:
@@ -8128,78 +8260,6 @@ def vod_chat(vod_id: str, request: Request):
     pub_chat_headers = {"Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff"}
     if cached_chat.is_file() and cached_chat.stat().st_size > 0:
         return FileResponse(cached_chat, media_type=MIME[".jsonl"], headers=pub_chat_headers)
-
-
-def _parse_vtt_seconds(raw_ts: str) -> float:
-    parts = raw_ts.strip().replace(",", ".").split(":")
-    try:
-        if len(parts) == 3:
-            return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
-        if len(parts) == 2:
-            return int(parts[0]) * 60 + float(parts[1])
-        return float(parts[0])
-    except ValueError:
-        return 0.0
-
-
-def _parse_webvtt_cues(vtt_text: str) -> list[dict[str, Any]]:
-    cues: list[dict[str, Any]] = []
-    blocks = re.split(r"\r?\n\s*\r?\n", vtt_text.strip())
-    for block in blocks:
-        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
-        if not lines or lines[0].upper().startswith(("WEBVTT", "NOTE", "STYLE")):
-            continue
-        ts_idx = 0 if "-->" in lines[0] else (1 if len(lines) > 1 and "-->" in lines[1] else -1)
-        if ts_idx < 0:
-            continue
-        start_s, _, end_rest = lines[ts_idx].partition("-->")
-        end_s = end_rest.strip().split()[0] if end_rest.strip() else "0"
-        cue_txt = " ".join(lines[ts_idx + 1 :]).strip()
-        if not cue_txt:
-            continue
-        cues.append(
-            {
-                "start": round(_parse_vtt_seconds(start_s), 2),
-                "end": round(_parse_vtt_seconds(end_s), 2),
-                "text": cue_txt[:300],
-            }
-        )
-    return cues[:6000]
-
-
-@app.get("/api/vods/{vod_id}/transcript")
-def vod_transcript(vod_id: str, request: Request, format: str = "json") -> Response:
-    rate_limit(request, "vod_transcript", 60, 60)
-    if not safe_name(vod_id):
-        return j({"error": "not found"}, 404)
-    raw_vtt: bytes | None = None
-    folder = find_vod(vod_id)
-    if folder:
-        for fn in ("transcript.vtt", "subtitles.vtt"):
-            cand = folder / fn
-            if cand.is_file():
-                raw_vtt = cand.read_bytes()
-                break
-    if raw_vtt is None:
-        row = _get_drive_vod_row(vod_id)
-        tr_drive_id = str(row.get("transcript_drive_id") or "").strip() if row else ""
-        if not tr_drive_id:
-            return j({"cues": []})
-        cached_vtt = CHAT_CACHE_DIR / f"sub_{_vod_cache_stem(vod_id)}.vtt"
-        if cached_vtt.is_file() and cached_vtt.stat().st_size > 0:
-            raw_vtt = cached_vtt.read_bytes()
-        else:
-            raw_vtt = _download_gdrive_small_bytes(tr_drive_id, max_bytes=10 * 1024 * 1024)
-            if raw_vtt:
-                CHAT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-                with contextlib.suppress(OSError):
-                    cached_vtt.write_bytes(raw_vtt)
-    if not raw_vtt:
-        return j({"cues": []})
-    vtt_str = raw_vtt.decode("utf-8", errors="replace")
-    if format == "vtt":
-        return Response(content=vtt_str.encode("utf-8"), media_type="text/vtt; charset=utf-8")
-    return j({"cues": _parse_webvtt_cues(vtt_str)})
 
     raw_chat = _download_gdrive_small_bytes(chat_drive_id, max_bytes=20 * 1024 * 1024)
     if not raw_chat:
@@ -8588,6 +8648,7 @@ async def cache_client_vod_thumb(vod_id: str, request: Request) -> JSONResponse:
     if not safe_name(vod_id):
         return j({"error": "not found"}, 404)
     require_same_origin(request)
+    require_admin(request, DEFAULT_PROFILE)
     rate_limit(request, "vod_thumb_cache", 24, 60)
 
     folder = find_vod(vod_id)
@@ -8607,9 +8668,12 @@ async def cache_client_vod_thumb(vod_id: str, request: Request) -> JSONResponse:
     if raw[:3] != b"\xff\xd8\xff" or raw[-2:] != b"\xff\xd9":
         return j({"error": "invalid_jpeg"}, 400)
 
-    with _get_thumb_lock(vod_id):
-        if not (dest.is_file() and dest.stat().st_size > 1024):
-            _atomic_write_bytes(dest, raw)
+    def _save_thumb_sync() -> None:
+        with _get_thumb_lock(vod_id):
+            if not (dest.is_file() and dest.stat().st_size > 1024):
+                _atomic_write_bytes(dest, raw)
+
+    await asyncio.to_thread(_save_thumb_sync)
     return j({"cached": True})
 
 
@@ -8812,7 +8876,7 @@ def resolve_static(full_path: str) -> Path | None:
     parts = rel.split("/")
     if any(p.startswith(".") for p in parts):
         return None
-    if parts[0] in STATIC_BLOCKED_ROOTS:
+    if parts[0].lower() in STATIC_BLOCKED_ROOTS:
         return None
     path = (ROOT / rel).resolve()
     try:

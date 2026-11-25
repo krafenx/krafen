@@ -2,7 +2,7 @@
    Krafen — Service Worker (PWA Shell Caching, Offline Fallback & Web Push)
    ========================================================================== */
 
-const CACHE_VERSION = 'krafen-v5';
+const CACHE_VERSION = 'krafen-v6';
 const PRECACHE_ASSETS = [
     '/',
     '/style.css',
@@ -46,8 +46,8 @@ self.addEventListener('fetch', (event) => {
 
     const url = new URL(request.url);
 
-    // Внешние запросы и API не перехватываем через Service Worker кэш
-    if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) {
+    // Внешние запросы, API и потоковое видео VOD не перехватываем через Service Worker кэш
+    if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/vods/')) {
         return;
     }
 
@@ -113,15 +113,16 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+    const absTarget = new URL(targetUrl, self.location.origin).href;
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
             for (const client of windowClients) {
-                if (client.url === targetUrl && 'focus' in client) {
+                if (client.url === absTarget && 'focus' in client) {
                     return client.focus();
                 }
             }
             if (clients.openWindow) {
-                return clients.openWindow(targetUrl);
+                return clients.openWindow(absTarget);
             }
         })
     );

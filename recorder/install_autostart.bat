@@ -38,7 +38,16 @@ if /I "%~1"=="stop" (
     %PY_BIN% "recorder\recorder.py" --stop
     goto done
 )
+if "%~1"=="" goto do_install
+if /I "%~1"=="--no-pause" goto do_install
+if /I "%~1"=="install" goto do_install
+if /I "%~1"=="--install" goto do_install
 
+echo [ERROR] Unknown argument: %~1
+echo Usage: %~nx0 [install^|uninstall^|status^|stop^|--no-pause]
+exit /b 2
+
+:do_install
 %PY_BIN% "recorder\recorder.py" --install-autostart
 
 :done

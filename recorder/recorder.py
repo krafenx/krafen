@@ -22,6 +22,7 @@
 """
 
 import json
+import math
 import os
 import re
 import shutil
@@ -226,6 +227,8 @@ def _list_rclone_remotes(rclone_exe: str) -> list[str]:
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             creationflags=_WIN_NO_WINDOW,
         )
@@ -524,6 +527,8 @@ def upload_to_cloud(folder: Path) -> bool:
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=None,
             creationflags=_WIN_NO_WINDOW,
         )
@@ -587,6 +592,8 @@ def test_cloud_connection() -> int:
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=30,
         creationflags=_WIN_NO_WINDOW,
     )
@@ -602,12 +609,63 @@ def tg_configured() -> bool:
     return bool(TG_API_ID and TG_API_HASH and TG_BOT_TOKEN and TG_CHAT)
 
 
+def _probe_video_duration_seconds(ffmpeg_exe: str, video: Path) -> float:
+    ffprobe_cand = Path(ffmpeg_exe).with_name("ffprobe" + Path(ffmpeg_exe).suffix)
+    ffprobe_exe = str(ffprobe_cand) if ffprobe_cand.is_file() else _resolve_bin("", "ffprobe")
+    if ffprobe_exe:
+        try:
+            res = subprocess.run(
+                [
+                    ffprobe_exe, "-v", "error", "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1", str(video),
+                ],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=20,
+                creationflags=_WIN_NO_WINDOW,
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                val = float(res.stdout.strip())
+                if val > 0:
+                    return val
+        except Exception:
+            pass
+    try:
+        res = subprocess.run(
+            [ffmpeg_exe, "-hide_banner", "-i", str(video)],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=20,
+            creationflags=_WIN_NO_WINDOW,
+        )
+        m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", res.stderr or "")
+        if m:
+            return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+    except Exception:
+        pass
+    return 0.0
+
+
 def split_video(video: Path, max_bytes: float) -> list[Path]:
-    """Разбить видео на части по ~max_bytes (нужен ffmpeg)."""
+    """Разбить видео на сегменты ориентировочно <= max_bytes (нужен ffmpeg)."""
     ffmpeg_exe = _resolve_bin(FFMPEG_BIN, "ffmpeg") or "ffmpeg"
+    total_bytes = max(1, video.stat().st_size)
+    n_parts = max(2, math.ceil(total_bytes / max(1.0, max_bytes)))
+    dur_s = _probe_video_duration_seconds(ffmpeg_exe, video)
+    seg_time = max(60, int((dur_s / n_parts) * 0.90)) if dur_s > 0 else 1800
     out_pattern = str(video.with_suffix(".part%03d.mp4"))
     subprocess.run(
-        [ffmpeg_exe, "-y", "-i", str(video), "-c", "copy", "-fs", str(int(max_bytes)), out_pattern],
+        [
+            ffmpeg_exe, "-y", "-i", str(video), "-c", "copy", "-map", "0",
+            "-f", "segment", "-segment_format", "mp4",
+            "-segment_time", str(seg_time), "-reset_timestamps", "1", out_pattern,
+        ],
         stdin=subprocess.DEVNULL,
         check=True,
         capture_output=True,
@@ -913,9 +971,9 @@ def record_session(stream: dict) -> None:
         _stop_event.wait(POLL_INTERVAL)
         return
 
-    started_at = stream.get("started_at", datetime.now(timezone.utc).isoformat())
+    started_at = stream.get("started_at") or datetime.now(timezone.utc).isoformat()
     stamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    base_name = f"{stamp}_{slugify(stream.get('title', 'stream'))}"
+    base_name = f"{stamp}_{slugify(stream.get('title') or 'stream')}"
     folder = RECORD_DIR / base_name
     suffix = 2
     while folder.exists() and (folder / "meta.json").exists():
@@ -1224,8 +1282,12 @@ def main() -> None:
             sys.exit(_manage_recorder_autostart_cli(act))
 
     if not CLIENT_ID or not CLIENT_SECRET:
-        sys.exit("Задайте TWITCH_CLIENT_ID и TWITCH_CLIENT_SECRET "
-                 "(dev.twitch.tv/console → Register Your Application)")
+        print(
+            "Задайте TWITCH_CLIENT_ID и TWITCH_CLIENT_SECRET "
+            "(dev.twitch.tv/console → Register Your Application)",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     old_pid = _read_rec_pid()
     if old_pid and old_pid != os.getpid() and _is_rec_pid_alive(old_pid):
         log(f"рекордер уже запущен (PID {old_pid}) — выход")

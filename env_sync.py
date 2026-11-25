@@ -229,6 +229,10 @@ def sync_env(
     tmp_path = env_path.with_name(f".{env_name}.sync.{os.getpid()}")
     try:
         tmp_path.write_text(new_text, encoding="utf-8", newline="")
+        try:
+            os.chmod(tmp_path, 0o600)
+        except OSError:
+            pass
         os.replace(tmp_path, env_path)
     except OSError:
         try:

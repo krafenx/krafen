@@ -8,3 +8,5 @@ geoip2fast>=1.2.2
 pywebpush>=2.0.0
 # Генерация динамических OG-превью для соцсетей
 pillow>=10.0.0
+# WebSocket чат для встроенного рекордера (RECORDER=1)
+websocket-client>=1.6.0

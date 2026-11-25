@@ -687,12 +687,17 @@
                 openModal('modal-view');
             }
 
+            let igdbAbort = null;
             async function performIgdbSearch(query) {
                 const el = document.getElementById('igdb-results');
                 el.innerHTML = '<div class="spinner"></div>';
+                if (igdbAbort) igdbAbort.abort();
+                igdbAbort = new AbortController();
+                const { signal } = igdbAbort;
                 try {
-                    const res = await fetch(`/api/game-search?q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' } });
+                    const res = await fetch(`/api/game-search?q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' }, signal });
                     const data = await res.json().catch(() => ({}));
+                    if (signal.aborted) return;
                     if (!res.ok) {
                         if (data.error === 'igdb_key_missing') {
                             el.innerHTML = '<div class="warn-box">IGDB не настроен на сервере: укажите <code>TWITCH_CLIENT_ID</code> и <code>TWITCH_CLIENT_SECRET</code> в файле <code>.env</code>.</div>';
@@ -705,17 +710,20 @@
                         return;
                     }
                     window.__igdbResults = data.results;
-                    el.innerHTML = data.results.map((item, idx) => `
+                    el.innerHTML = data.results.map((item, idx) => {
+                        const coverSrc = proxyImgUrl(item.cover);
+                        return `
                         <div class="search-result">
-                            ${item.cover ? `<img class="search-cover" src="${escapeHTML(item.cover)}" alt="${escapeHTML(item.title)}" loading="lazy" data-fallback-cover="search-cover">` : '<div class="search-cover"></div>'}
+                            ${coverSrc ? `<img class="search-cover" src="${escapeHTML(coverSrc)}" alt="${escapeHTML(item.title)}" loading="lazy" data-fallback-cover="search-cover">` : '<div class="search-cover"></div>'}
                             <div class="col">
                                 <div style="font-family:var(--font-heading);font-size:18px;color:#fff;" class="truncate">${escapeHTML(item.title)}</div>
                                 <div class="game-meta">${escapeHTML(metaText(item))}</div>
                             </div>
                             <button class="btn-action" type="button" data-result="${idx}">Выбрать</button>
-                        </div>
-                    `).join('');
-                } catch {
+                        </div>`;
+                    }).join('');
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return;
                     el.innerHTML = '<div class="warn-box">Ошибка при обращении к IGDB.</div>';
                 }
             }

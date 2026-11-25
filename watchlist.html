@@ -599,7 +599,7 @@
 
             function visibleItems() {
                 const q = localQuery.toLowerCase();
-                return list
+                const items = list
                     .filter((i) => typeFilter === 'all' || i.type === typeFilter)
                     .filter((i) => statusFilter === 'all' || i.status === statusFilter)
                     .filter((i) => !favoriteOnly || i.favorite)
@@ -609,6 +609,12 @@
                         const haystack = `${i.title || ''} ${i.titleRu || ''} ${i.year || ''} ${i.review || ''} ${itemTags(i).join(' ')}`;
                         return haystack.toLowerCase().includes(q);
                     });
+                if (sortMode === 'rating') items.sort((a, b) => itemRating(b) - itemRating(a) || Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+                else if (sortMode === 'title') items.sort((a, b) => String(a.titleRu || a.title).localeCompare(String(b.titleRu || b.title), 'ru'));
+                else if (sortMode === 'year') items.sort((a, b) => Number(b.year || 0) - Number(a.year || 0));
+                else if (sortMode === 'updated') items.sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+                else items.sort((a, b) => Number(b.addedAt || 0) - Number(a.addedAt || 0));
+                return items;
             }
 
             function exportList() {
@@ -760,7 +766,7 @@
                                 <span class="year">${escapeHTML(item.year || '—')}</span>
                                 <span>${typeL}</span>
                             </div>
-                            ${tags.length ? `<div class="tag-row">${tags.slice(0, 3).map((t) => `<button class="tag-chip" type="button" data-tag-filter="${escapeHTML(t)}">#${escapeHTML(t)}</button>`).join('')}${tags.length > 3 ? `<span class="tag-chip">+${tags.length - 3}</span>` : ''}</div>` : ''}
+                            ${tags.length ? `<div class="tag-row">${tags.slice(0, 3).map((t) => `<button class="tag-chip" type="button" data-tag-select="${escapeHTML(t)}">#${escapeHTML(t)}</button>`).join('')}${tags.length > 3 ? `<span class="tag-chip">+${tags.length - 3}</span>` : ''}</div>` : ''}
                             <div class="card-foot">
                                 <span class="status-badge ${badgeCls}"><span class="dot"></span>${statL}</span>
                                 ${hasReview ? '<span class="review-flag">есть рецензия</span>' : ''}
@@ -983,14 +989,19 @@
                 toast('Удалено из списка');
             }
 
+            let searchAbort = null;
             async function performSearch(query) {
                 const el = document.getElementById('search-results');
                 el.innerHTML = '<div class="spinner"></div>';
                 searchCache = [];
+                if (searchAbort) searchAbort.abort();
+                searchAbort = new AbortController();
+                const { signal } = searchAbort;
                 try {
                     const url = `/api/search?type=${encodeURIComponent(modalType)}&q=${encodeURIComponent(query)}`;
-                    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+                    const res = await fetch(url, { headers: { Accept: 'application/json' }, signal });
                     const data = await res.json().catch(() => ({}));
+                    if (signal.aborted) return;
                     if (!res.ok) {
                         if (data.error === 'tmdb_key_missing') {
                             el.innerHTML = '<div class="warn-box">Не задан ключ TMDB на сервере: укажите <code>TMDB_ACCESS_TOKEN</code> или <code>TMDB_API_KEY</code> в файле <code>.env</code>.</div>';
@@ -1023,7 +1034,8 @@
                                 </div>
                             </div>`;
                     }).join('');
-                } catch {
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return;
                     el.innerHTML = '<div class="warn-box">Ошибка поиска — попробуйте ещё раз.</div>';
                 }
             }
@@ -1167,19 +1179,7 @@
 
             function setSortMode(mode) {
                 sortMode = mode;
-                const byRating = sortMode === 'rating';
-                const filtered = visibleItems();
-                if (byRating) filtered.sort((a, b) => itemRating(b) - itemRating(a) || Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
-                else if (sortMode === 'title') filtered.sort((a, b) => String(a.titleRu || a.title).localeCompare(String(b.titleRu || b.title), 'ru'));
-                else if (sortMode === 'year') filtered.sort((a, b) => Number(b.year || 0) - Number(a.year || 0));
-                else if (sortMode === 'updated') filtered.sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
-                else filtered.sort((a, b) => Number(b.addedAt || 0) - Number(a.addedAt || 0));
-                const grid = document.getElementById('cards-grid');
-                const empty = document.getElementById('empty-state');
-                empty.classList.toggle('hidden', filtered.length > 0);
-                grid.innerHTML = filtered.map(cardHTML).join('');
-                updateStats();
-                if (!filtered.length) render();
+                render();
             }
 
             /* ---- обработчики рецензии ---- */

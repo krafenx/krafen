@@ -646,7 +646,7 @@
                                 <div class="inner-box" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                                     <div>
                                         <div style="font-size:13px;color:#fff;font-weight:500;">Полный снимок сервера (ZIP / JSON)</div>
-                                        <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;">Весь код, .env, 3 БД SQLite, чаты и превью VOD (авто-отправка в TG ежедневно в 00:00 МСК)</div>
+                                        <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;">Код, 2 БД SQLite (коллекции и аналитика), чаты и превью VOD (без секретов)</div>
                                         <div style="font-size:11px;color:var(--silver);margin-top:4px;" id="tg-backup-meta">Последний бэкап в TG: —</div>
                                     </div>
                                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1164,8 +1164,8 @@
                 guide.setAttribute('opacity', '0');
                 svg.appendChild(guide);
 
-                wrap.addEventListener('mousemove', (ev) => {
-                    const rect = wrap.getBoundingClientRect();
+                svg.addEventListener('mousemove', (ev) => {
+                    const rect = svg.getBoundingClientRect();
                     const relX = ((ev.clientX - rect.left) / Math.max(1, rect.width)) * W;
                     const idx = Math.max(0, Math.min(n - 1, Math.floor((relX - padL) / step)));
                     const d = items[idx];
@@ -1185,7 +1185,7 @@
                     `;
                     tt.classList.add('visible');
                 });
-                wrap.addEventListener('mouseleave', () => {
+                svg.addEventListener('mouseleave', () => {
                     guide.setAttribute('opacity', '0');
                     tt.classList.remove('visible');
                 });
@@ -1391,7 +1391,7 @@
                                 <div class="chart-eyebrow">rev #${fmtInt(wl.revision)} · изм. ${escapeHTML(fmtShortDate(wl.updated_at))}</div>
                                 <div class="col-stat-name">Watchlist (${fmtInt(wl.total)})</div>
                             </div>
-                            <a href="/watchlist" class="btn-action">Редактировать ↗</a>
+                            <a href="${escapeHTML(profilePath('/watchlist'))}" class="btn-action">Редактировать ↗</a>
                         </div>
                         <div class="col-chips">
                             <span class="mini-chip"><strong>${fmtInt(wl.by_type?.anime)}</strong>аниме</span>
@@ -1412,7 +1412,7 @@
                                 <div class="chart-eyebrow">rev #${fmtInt(gl.revision)} · изм. ${escapeHTML(fmtShortDate(gl.updated_at))}</div>
                                 <div class="col-stat-name">Gamelist (${fmtInt(gl.total)})</div>
                             </div>
-                            <a href="/gamelist" class="btn-action">Редактировать ↗</a>
+                            <a href="${escapeHTML(profilePath('/gamelist'))}" class="btn-action">Редактировать ↗</a>
                         </div>
                         <div class="col-chips">
                             <span class="mini-chip"><strong>★ ${gl.avg_rating || '0.0'}</strong>средний балл</span>
@@ -1430,7 +1430,7 @@
                                 <div class="chart-eyebrow">rev #${fmtInt(st.revision)} · изм. ${escapeHTML(fmtShortDate(st.updated_at))}</div>
                                 <div class="col-stat-name">Setup (${fmtInt(st.total)})</div>
                             </div>
-                            <a href="/setup" class="btn-action">Редактировать ↗</a>
+                            <a href="${escapeHTML(profilePath('/setup'))}" class="btn-action">Редактировать ↗</a>
                         </div>
                         <div class="col-chips">
                             <span class="mini-chip"><strong>${fmtInt(st.pc_count)}</strong>комплектующих ПК</span>
@@ -1444,7 +1444,7 @@
                                 <div class="chart-eyebrow">rev #${fmtInt(ws.revision)} · изм. ${escapeHTML(fmtShortDate(ws.updated_at))}</div>
                                 <div class="col-stat-name">Wishlist (${fmtInt(ws.total)})</div>
                             </div>
-                            <a href="/wishlist" class="btn-action">Редактировать ↗</a>
+                            <a href="${escapeHTML(profilePath('/wishlist'))}" class="btn-action">Редактировать ↗</a>
                         </div>
                         <div class="col-chips">
                             <span class="mini-chip"><strong>${fmtInt(ws.by_status?.want)}</strong>хочу</span>
@@ -1521,7 +1521,7 @@
                 const tgInteg = (data.integrations || []).find((x) => x.id === 'tg_alerts');
                 const tgStatusEl = document.getElementById('tg-alert-status');
                 if (tgStatusEl) {
-                    tgStatusEl.textContent = tgInteg ? tgInteg.detail : 'Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID (или TELEGRAM_CHAT_ID) в .env';
+                    tgStatusEl.textContent = tgInteg ? tgInteg.detail : 'Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT_ID в .env';
                 }
                 const bk = data.backup || {};
                 const bkMetaEl = document.getElementById('tg-backup-meta');
@@ -2072,6 +2072,34 @@
                     btn.textContent = origText;
                 }
             }
+
+            async function downloadWithProfile(url, fallbackName) {
+                try {
+                    const res = await profileFetch(url, { credentials: 'same-origin' });
+                    if (!res.ok) {
+                        toast(`Не удалось скачать (${res.status})`, '#fca5a5');
+                        return;
+                    }
+                    const disp = res.headers.get('content-disposition') || '';
+                    const m = disp.match(/filename="([^"]+)"/i);
+                    const fname = (m && m[1]) || fallbackName;
+                    const blob = await res.blob();
+                    const objUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = objUrl;
+                    a.download = fname;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
+                } catch {
+                    toast('Ошибка скачивания файла', '#fca5a5');
+                }
+            }
+            const dlZipBtn = document.getElementById('btn-download-backup-zip');
+            const dlJsonBtn = document.getElementById('btn-download-backup');
+            if (dlZipBtn) dlZipBtn.addEventListener('click', (e) => { e.preventDefault(); downloadWithProfile('/api/admin/backup/zip', 'krafen-server-backup.zip'); });
+            if (dlJsonBtn) dlJsonBtn.addEventListener('click', (e) => { e.preventDefault(); downloadWithProfile('/api/admin/backup', 'krafen-backup.json'); });
 
             const tgBackupBtn = document.getElementById('btn-tg-backup');
             const topBackupBtn = document.getElementById('top-force-backup-btn');

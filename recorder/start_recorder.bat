@@ -30,12 +30,26 @@ if not defined PY_BIN (
 
 echo [Krafen Recorder] Starting from %CD% (%PY_BIN%)
 
+set /a CRASH_STREAK=0
+
 :loop
 %PY_BIN% "recorder\recorder.py" %*
 set "RC=%ERRORLEVEL%"
 if "%RC%"=="0" goto end
+if "%RC%"=="2" (
+    echo [Krafen Recorder] Fatal configuration error ^(code 2^). Fix .env and restart.
+    pause
+    exit /b 2
+)
 
-echo [Krafen Recorder] Exited with code %RC%. Restarting in 15s... (Ctrl+C to stop)
+set /a CRASH_STREAK+=1
+if %CRASH_STREAK% GEQ 10 (
+    echo [Krafen Recorder] Too many consecutive failures ^(%CRASH_STREAK%^). Stopping restart loop.
+    pause
+    exit /b %RC%
+)
+
+echo [Krafen Recorder] Exited with code %RC% ^(attempt %CRASH_STREAK%/10^). Restarting in 15s... ^(Ctrl+C to stop^)
 ping -n 16 127.0.0.1 >nul
 goto loop
 
